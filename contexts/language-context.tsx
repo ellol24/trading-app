@@ -25,27 +25,25 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang)
     localStorage.setItem('language', lang)
-    
-    // Update document direction for RTL languages (but we'll keep it simple for now)
-    if (lang === 'ar') {
-      document.documentElement.setAttribute('dir', 'ltr') // Keep LTR as requested
-      document.documentElement.setAttribute('lang', 'ar')
-    } else {
-      document.documentElement.setAttribute('dir', 'ltr')
-      document.documentElement.setAttribute('lang', lang)
-    }
+
+    // أبقي الاتجاه ثابت LTR حتى مع تغيير اللغة
+    document.documentElement.setAttribute('dir', 'ltr')
+    document.documentElement.setAttribute('lang', lang)
   }
 
   const value: LanguageContextType = {
     language,
     setLanguage: handleSetLanguage,
     t: translations[language],
-    isRTL: false // Disabled RTL as requested
+    isRTL: false // لأننا مش عايزين RTL
   }
 
   return (
     <LanguageContext.Provider value={value}>
-      {children}
+      {/* key={language} لإجبار React يعيد البناء عند تغيير اللغة */}
+      <div key={language}>
+        {children}
+      </div>
     </LanguageContext.Provider>
   )
 }
