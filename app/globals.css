@@ -1,6 +1,181 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+
+
+/* تحسين حماية Google Translate */
+.google-translate-safe {
+  position: relative;
+  isolation: isolate;
+  contain: layout style paint;
+}
+
+.google-translate-safe * {
+  /* منع Google Translate من تعديل النصوص المهمة */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.google-translate-safe input,
+.google-translate-safe textarea,
+.google-translate-safe [contenteditable] {
+  /* السماح بالتحديد للعناصر التفاعلية */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* حماية محسنة من عناصر Google Translate */
+.goog-te-banner-frame,
+.goog-te-menu-frame,
+.goog-te-balloon-frame,
+.goog-te-ftab-frame,
+.goog-te-combo,
+.goog-te-gadget {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* منع تأثير Google Translate على التخطيط */
+body.goog-te-hl-active *,
+body.goog-te-hl *,
+body[style*="position: relative"] * {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* حماية العناصر المهمة من الترجمة */
+.notranslate,
+.skiptranslate,
+[data-react-protected],
+[data-price-element],
+.trading-card,
+[role="button"],
+[role="link"] {
+  -webkit-transform: none !important;
+  -moz-transform: none !important;
+  -ms-transform: none !important;
+  transform: none !important;
+  position: relative !important;
+  contain: layout style !important;
+}
+
+/* حماية إضافية للمكونات التفاعلية */
+.trading-card {
+  contain: layout style paint;
+  will-change: auto;
+  isolation: isolate;
+}
+
+.trading-card *,
+[data-react-protected] * {
+  contain: style;
+  isolation: isolate;
+}
+
+/* منع Google Translate من إضافة styles غير مرغوب فيها */
+[style*="background-color: rgb(255, 255, 102)"],
+[style*="background-color: rgb(204, 204, 255)"],
+[style*="background-color: rgba(255, 255, 102"],
+[style*="background-color: rgba(204, 204, 255"] {
+  background-color: transparent !important;
+}
+
+/* حماية من font changes غير مرغوب فيها */
+* {
+  font-family: var(--font-sans) !important;
+}
+
+/* حماية خاصة للعناصر المالية */
+[data-price-element] {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  white-space: nowrap !important;
+}
+
+/* منع Google Translate من تعديل الأرقام */
+.notranslate[data-price-element]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* إخفاء وحماية من عناصر Google Translate */
+.goog-te-banner-frame,
+.goog-te-menu-frame,
+.goog-te-balloon-frame,
+.goog-te-ftab-frame {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* منع تأثير Google Translate على التخطيط */
+body.goog-te-hl-active * {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* حماية العناصر المهمة من الترجمة */
+.notranslate,
+.skiptranslate,
+[data-react-protected],
+.trading-card,
+[role="button"],
+[role="link"] {
+  -webkit-transform: none !important;
+  -moz-transform: none !important;
+  -ms-transform: none !important;
+  transform: none !important;
+  position: relative !important;
+}
+
+/* حماية إضافية للمكونات التفاعلية */
+.trading-card {
+  contain: layout style paint;
+  will-change: auto;
+}
+
+.trading-card * {
+  contain: style;
+}
+
+/* منع Google Translate من إضافة styles غير مرغوب فيها */
+[style*="background-color: rgb(255, 255, 102)"] {
+  background-color: transparent !important;
+}
+
+[style*="background-color: rgb(204, 204, 255)"] {
+  background-color: transparent !important;
+}
+
+/* حماية من font changes غير مرغوب فيها */
+* {
+  font-family: var(--font-sans) !important;
+}
+
+
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
