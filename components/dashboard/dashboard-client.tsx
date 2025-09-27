@@ -20,7 +20,7 @@ import {
 import Link from "next/link"
 import { marketDataService, type MarketData } from "@/lib/market-data"
 import { supabase } from "@/lib/supabase/client"
-import { GoogleTranslateSafeWrapper } from "@/components/ui/google-translate-safe-wrapper" // إصلاح مسار الاستيراد للمكون GoogleTranslateSafeWrapper
+import { GoogleTranslateSafeWrapper } from "@/components/google-translate-safe-wrapper" // إصلاح مسار الاستيراد للمكون GoogleTranslateSafeWrapper
 import { useGoogleTranslateProtection } from "@/hooks/use-google-translate-protection"
 
 interface UserProfile {
