@@ -20,8 +20,6 @@ import {
 import Link from "next/link"
 import { marketDataService, type MarketData } from "@/lib/market-data"
 import { supabase } from "@/lib/supabase/client"
-import { GoogleTranslateSafeWrapper } from "@/components/google-translate-safe-wrapper" // إصلاح مسار الاستيراد للمكون GoogleTranslateSafeWrapper
-import { useGoogleTranslateProtection } from "@/hooks/use-google-translate-protection"
 
 interface UserProfile {
   balance: number
@@ -47,6 +45,8 @@ interface BinaryTrade {
   roi_percentage: number | null
   result: string | null
 }
+
+
 
 interface InvestmentPackage {
   id: string
@@ -93,11 +93,6 @@ export default function DashboardClient({
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const { protectElement } = useGoogleTranslateProtection({
-    enableLogging: process.env.NODE_ENV === "development",
-    protectionLevel: "enhanced",
-  })
-
   const fetchUserData = async () => {
     try {
       // Profile
@@ -118,17 +113,19 @@ export default function DashboardClient({
 
       if (!walletsError) setWallets(walletsData || [])
       else console.error("[Dashboard] wallets error:", walletsError)
+    
 
-      // Recent trades (من جدول trades)
-      const { data: tradesRows, error: tradesError } = await supabase
-        .from("trades")
-        .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(4)
+   // Recent trades (من جدول trades)
+const { data: tradesRows, error: tradesError } = await supabase
+  .from("trades")
+  .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
+  .eq("user_id", userId)
+  .order("created_at", { ascending: false })
+  .limit(4)
 
-      if (!tradesError) setRecentTrades(tradesRows || [])
-      else console.error("[Dashboard] trades error:", tradesError)
+if (!tradesError) setRecentTrades(tradesRows || [])
+else console.error("[Dashboard] trades error:", tradesError)
+
 
       // Count total trades
       const { count: tradesCount, error: countError } = await supabase
@@ -169,26 +166,21 @@ export default function DashboardClient({
     }
   }
 
+  // Realtime (اختياري)
   useEffect(() => {
     const channel = supabase
       .channel("trades_changes")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
-        () => {
-          setTimeout(() => {
-            const tradingCards = document.querySelectorAll(".trading-card")
-            tradingCards.forEach((card) => protectElement(card as Element))
-          }, 100)
-          fetchUserData()
-        },
+        () => fetchUserData()
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId, protectElement])
+  }, [userId])
 
   useEffect(() => {
     const initialData = marketDataService.getAllMarketData()
@@ -197,20 +189,17 @@ export default function DashboardClient({
     const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"]
     const unsubscribers = cryptoPairs.map((symbol) =>
       marketDataService.subscribe(symbol, (updatedData) => {
-        setMarketData((prev) => prev.map((item) => (item.symbol === updatedData.symbol ? updatedData : item)))
-
-        setTimeout(() => {
-          const priceElements = document.querySelectorAll("[data-price-element]")
-          priceElements.forEach((element) => protectElement(element as Element))
-        }, 50)
-      }),
+        setMarketData((prev) =>
+          prev.map((item) => (item.symbol === updatedData.symbol ? updatedData : item))
+        )
+      })
     )
 
     fetchUserData()
     return () => {
       unsubscribers.forEach((unsub) => unsub())
     }
-  }, [userId, protectElement])
+  }, [userId])
 
   const totalBalance = profile?.balance ?? balance
   const activePackages = userPackages.length
@@ -231,30 +220,22 @@ export default function DashboardClient({
     .slice(0, 5)
 
   return (
-    <GoogleTranslateSafeWrapper
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      protectionLevel="enhanced"
-      enableLogging={process.env.NODE_ENV === "development"}
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-white notranslate">
-            {userName ? `Welcome Back, ${userName}!` : "Welcome Back!"}
-          </h1>
+          <h1 className="text-3xl font-bold text-white">Welcome Back, {userName}!</h1>
           <p className="text-blue-200">Here's your trading overview for today</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="trading-card" data-react-protected="true">
+          <Card className="trading-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">Total Balance</h2>
-                  <p className="text-3xl font-bold text-white mt-2 notranslate" data-price-element="true">
-                    ${totalBalance}
-                  </p>
+                  <p className="text-3xl font-bold text-white mt-2">${totalBalance}</p>
                 </div>
                 <div className="p-3 bg-blue-500/20 rounded-full">
                   <Wallet className="w-6 h-6 text-blue-400" />
@@ -263,22 +244,24 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          <Card className="trading-card" data-react-protected="true">
+          <Card className="trading-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">Total Referrals</h2>
-                  <p className="text-3xl font-bold text-white mt-2 notranslate">{totalReferrals}</p>
-                  <p className={`text-sm flex items-center ${todayProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  <p className="text-3xl font-bold text-white mt-2">{totalReferrals}</p>
+                  <p
+                    className={`text-sm flex items-center ${
+                      todayProfit >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
                     {todayProfit >= 0 ? (
                       <TrendingUp className="w-4 h-4 mr-1" />
                     ) : (
                       <TrendingDown className="w-4 h-4 mr-1" />
                     )}
-                    <span className="notranslate" data-price-element="true">
-                      {todayProfit >= 0 ? "+" : ""}
-                      {todayProfitPercent.toFixed(2)}%
-                    </span>
+                    {todayProfit >= 0 ? "+" : ""}
+                    {todayProfitPercent.toFixed(2)}%
                   </p>
                 </div>
                 <div className="p-3 bg-green-500/20 rounded-full">
@@ -288,12 +271,26 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          <Card className="trading-card" data-react-protected="true">
+          {/*<Card className="trading-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-muted-foreground text-sm">Active Packages</p>
+                  <p className="text-2xl font-bold text-white">{activePackages}</p>
+                </div>
+                <div className="p-3 bg-purple-500/20 rounded-full">
+                  <Package className="w-6 h-6 text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>*/}
+
+          <Card className="trading-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">Total Trades</p>
-                  <p className="text-2xl font-bold text-white notranslate">{totalTradesCount}</p>
+                  <p className="text-2xl font-bold text-white">{totalTradesCount}</p>
                 </div>
                 <div className="p-3 bg-orange-500/20 rounded-full">
                   <PieChart className="w-6 h-6 text-orange-400" />
@@ -305,7 +302,7 @@ export default function DashboardClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Top Assets */}
-          <Card className="trading-card" data-react-protected="true">
+          <Card className="trading-card">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white">Top Assets</CardTitle>
@@ -323,32 +320,31 @@ export default function DashboardClient({
             </CardHeader>
             <CardContent className="space-y-4">
               {cryptoData.map((asset) => (
-                <div key={asset.symbol} className="flex items-center justify-between" data-react-protected="true">
+                <div key={asset.symbol} className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold notranslate">
-                        {asset.symbol.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol.slice(0, 2)}
+                      <span className="text-white text-xs font-bold">
+                        {asset.symbol.includes("/")
+                          ? asset.symbol.split("/")[0].slice(0, 2)
+                          : asset.symbol.slice(0, 2)}
                       </span>
                     </div>
                     <div>
-                      <p className="text-white font-medium notranslate">{asset.symbol}</p>
+                      <p className="text-white font-medium">{asset.symbol}</p>
                       <p className="text-muted-foreground text-sm">
-                        Vol:{" "}
-                        <span className="notranslate" data-price-element="true">
-                          {(asset.volume / 1000).toFixed(0)}K
-                        </span>
+                        Vol: {(asset.volume / 1000).toFixed(0)}K
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-white font-medium notranslate" data-price-element="true">
+                    <p className="text-white font-medium">
                       {asset.symbol.includes("XAU")
                         ? `$${asset.price.toFixed(1)}`
                         : asset.symbol.includes("JPY")
-                          ? asset.price.toFixed(2)
-                          : asset.price >= 1000
-                            ? `$${asset.price.toLocaleString()}`
-                            : `$${asset.price.toFixed(4)}`}
+                        ? asset.price.toFixed(2)
+                        : asset.price >= 1000
+                        ? `$${asset.price.toLocaleString()}`
+                        : `$${asset.price.toFixed(4)}`}
                     </p>
                     <p
                       className={`text-sm flex items-center justify-end ${
@@ -360,10 +356,8 @@ export default function DashboardClient({
                       ) : (
                         <ArrowDownRight className="w-3 h-3 mr-1" />
                       )}
-                      <span className="notranslate" data-price-element="true">
-                        {asset.changePercent >= 0 ? "+" : ""}
-                        {asset.changePercent.toFixed(2)}%
-                      </span>
+                      {asset.changePercent >= 0 ? "+" : ""}
+                      {asset.changePercent.toFixed(2)}%
                     </p>
                   </div>
                 </div>
@@ -371,80 +365,66 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          {/* Recent Trading Activity */}
-          <Card className="trading-card" data-react-protected="true">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <Activity className="w-5 h-5 mr-2" />
-                Recent Trading Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentTrades.length > 0 ? (
-                recentTrades.map((trade) => (
-                  <div
-                    key={trade.id}
-                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                    data-react-protected="true"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                        <span className="text-white font-medium notranslate">{trade.asset}</span>
-                        <Badge
-                          variant={trade.type === "CALL" ? "default" : "secondary"}
-                          className="text-xs notranslate"
-                        >
-                          {trade.type}
-                        </Badge>
-                      </div>
-                      <span
-                        className={`text-sm font-medium notranslate ${
-                          (trade.profit_loss ?? 0) > 0
-                            ? "text-green-400"
-                            : (trade.profit_loss ?? 0) < 0
-                              ? "text-red-400"
-                              : "text-slate-300"
-                        }`}
-                        data-price-element="true"
-                      >
-                        {trade.result === "win"
-                          ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
-                          : trade.result === "lose"
-                            ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
-                            : "Pending"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>
-                        Amount:{" "}
-                        <span className="notranslate" data-price-element="true">
-                          ${Number(trade.amount).toFixed(2)}
-                        </span>
-                      </span>
-                      <span>
-                        ROI:{" "}
-                        <span className="notranslate" data-price-element="true">
-                          {trade.roi_percentage ?? 0}%
-                        </span>
-                      </span>
-                      <span className="notranslate">{new Date(trade.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No recent trades found</p>
-                  <p className="text-sm">Start trading to see your activity here</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+         {/* Recent Trading Activity */}
+<Card className="trading-card">
+  <CardHeader>
+    <CardTitle className="text-white flex items-center">
+      <Activity className="w-5 h-5 mr-2" />
+      Recent Trading Activity
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    {recentTrades.length > 0 ? (
+      recentTrades.map((trade) => (
+        <div
+          key={trade.id}
+          className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-2 h-2 rounded-full bg-yellow-400" />
+              <span className="text-white font-medium">{trade.asset}</span>
+              <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
+                {trade.type}
+              </Badge>
+            </div>
+            <span
+              className={`text-sm font-medium ${
+                (trade.profit_loss ?? 0) > 0
+                  ? "text-green-400"
+                  : (trade.profit_loss ?? 0) < 0
+                  ? "text-red-400"
+                  : "text-slate-300"
+              }`}
+            >
+              {trade.result === "win"
+                ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
+                : trade.result === "lose"
+                ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
+                : "Pending"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Amount: ${Number(trade.amount).toFixed(2)}</span>
+            <span>ROI: {trade.roi_percentage ?? 0}%</span>
+            <span>{new Date(trade.created_at).toLocaleString()}</span>
+          </div>
+        </div>
+      ))
+    ) : (
+      <div className="text-center text-muted-foreground py-8">
+        <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <p>No recent trades found</p>
+        <p className="text-sm">Start trading to see your activity here</p>
+      </div>
+    )}
+  </CardContent>
+</Card>
+
         </div>
 
         {/* Investment Packages */}
-        <Card className="trading-card" data-react-protected="true">
+        <Card className="trading-card">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-white flex items-center">
@@ -470,7 +450,6 @@ export default function DashboardClient({
                   <div
                     key={pkg.id}
                     className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                    data-react-protected="true"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-white font-medium">{pkg.title}</h3>
@@ -479,30 +458,24 @@ export default function DashboardClient({
                     <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <p className="text-muted-foreground">Min</p>
-                        <p className="text-white font-medium notranslate" data-price-element="true">
+                        <p className="text-white font-medium">
                           ${pkg.min_investment.toLocaleString()}
                         </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Duration</p>
-                        <p className="text-white font-medium notranslate">{pkg.duration_days} days</p>
+                        <p className="text-white font-medium">{pkg.duration_days} days</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Daily ROI</p>
-                        <p className="text-green-400 font-medium notranslate" data-price-element="true">
+                        <p className="text-green-400 font-medium">
                           {pkg.roi_daily_percentage}%
                         </p>
                       </div>
                     </div>
                     <Link href="/dashboard/packages">
-                      <Button
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        size="sm"
-                      >
-                        <div className="text-center">
-                          <TrendingUp className="w-6 h-6 mx-auto mb-1" />
-                          <span className="text-sm">Invest Now</span>
-                        </div>
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" size="sm">
+                        Invest Now
                       </Button>
                     </Link>
                   </div>
@@ -518,7 +491,7 @@ export default function DashboardClient({
         </Card>
 
         {/* Quick Actions */}
-        <Card className="trading-card" data-react-protected="true">
+        <Card className="trading-card">
           <CardHeader>
             <CardTitle className="text-white">Quick Actions</CardTitle>
           </CardHeader>
@@ -560,6 +533,6 @@ export default function DashboardClient({
           </CardContent>
         </Card>
       </div>
-    </GoogleTranslateSafeWrapper>
+    </div>
   )
 }
