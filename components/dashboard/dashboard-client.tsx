@@ -91,22 +91,20 @@ export default function DashboardClient({
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // ---------------- Fetch User Data ----------------
   const fetchUserData = async () => {
     try {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("user_profiles")
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
         .single()
 
-      if (profileData) setProfile(profileData)
+      if (!profileError && profileData) setProfile(profileData)
 
       const { data: walletsData } = await supabase
         .from("user_wallets")
         .select("*")
         .eq("user_id", userId)
-
       setWallets(walletsData || [])
 
       const { data: tradesRows } = await supabase
@@ -115,14 +113,12 @@ export default function DashboardClient({
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(4)
-
       setRecentTrades(tradesRows || [])
 
       const { count: tradesCount } = await supabase
         .from("trades")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-
       setTotalTradesCount(tradesCount ?? 0)
       setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
 
@@ -131,7 +127,6 @@ export default function DashboardClient({
         .select("*")
         .eq("is_active", true)
         .limit(3)
-
       setPackages(packagesData || [])
 
       const { data: userPackagesData } = await supabase
@@ -139,38 +134,47 @@ export default function DashboardClient({
         .select(`*, package:investment_packages(*)`)
         .eq("user_id", userId)
         .in("status", ["active", "running"])
-
       setUserPackages(userPackagesData || [])
     } catch (err) {
-      console.error("[Dashboard] fetchUserData error:", err)
+      console.error("[Dashboard] fetchUserData exception:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  // ---------------- Realtime Updates ----------------
   useEffect(() => {
-    if (!userId || typeof window === "undefined" || !supabase?.channel) return
+    if (!userId) return
+    if (typeof window === "undefined") return
+    if (!supabase || !supabase.channel) return
 
-    const channel = supabase
-      .channel("trades_changes")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
-        () => fetchUserData()
-      )
-      .subscribe()
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel("trades_changes")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
+          () => {
+            fetchUserData().catch((e) => console.error("[Dashboard] fetchUserData error", e))
+          }
+        )
+        .subscribe()
+    } catch (err) {
+      console.error("[Dashboard] realtime subscribe failed:", err)
+    }
 
     return () => {
       try {
-        supabase.removeChannel(channel)
-      } catch {}
+        if (channel) supabase.removeChannel(channel)
+      } catch (e) {
+        console.warn("[Dashboard] removeChannel failed:", e)
+      }
     }
   }, [userId])
 
-  // ---------------- Market Data ----------------
   useEffect(() => {
-    setMarketData(marketDataService.getAllMarketData())
+    const initialData = marketDataService.getAllMarketData()
+    setMarketData(initialData)
 
     const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"]
     const unsubscribers = cryptoPairs.map((symbol) =>
@@ -182,18 +186,26 @@ export default function DashboardClient({
     )
 
     fetchUserData()
-    return () => unsubscribers.forEach((unsub) => unsub && unsub())
+    return () => {
+      try {
+        unsubscribers.forEach((unsub) => unsub && unsub())
+      } catch (e) {
+        console.warn("[Dashboard] market unsub error:", e)
+      }
+    }
   }, [userId])
 
-  // ---------------- Calculations ----------------
   const totalBalance = profile?.balance ?? balance
   const todayProfit = wallets.reduce((sum, w) => sum + (w.total_profit ?? 0), 0)
   const todayProfitPercent = totalBalance > 0 ? (todayProfit / totalBalance) * 100 : 0
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl animate-pulse">Loading your dashboard...</div>
+      <div
+        className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24 flex items-center justify-center"
+        translate="no"
+      >
+        <div className="text-white text-xl">Loading your dashboard...</div>
       </div>
     )
   }
@@ -202,11 +214,13 @@ export default function DashboardClient({
     .filter((item) => ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
     .slice(0, 5)
 
+
+
   // ---------------- UI ----------------
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      translate="no"
+      translate="no" // 🚨 حماية كاملة ضد Google Translate
       data-react-protected
     >
       <div className="max-w-7xl mx-auto space-y-8">
