@@ -20,7 +20,7 @@ export default function ContactPage() {
         method: "POST",
         body: fd,
       })
-      if (!res.ok) throw new Error("Failed to send")
+      if (!res.ok) throw new Error("Failed to send message")
       setState({ sending: false, done: true })
       e.currentTarget.reset()
     } catch (err: any) {
@@ -52,7 +52,11 @@ export default function ContactPage() {
             )}
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={state.sending} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500">
+            <Button
+              type="submit"
+              disabled={state.sending}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500"
+            >
               {state.sending ? "Sending..." : "Send Message"}
             </Button>
           </CardFooter>
