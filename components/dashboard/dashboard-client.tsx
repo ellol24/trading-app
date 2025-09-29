@@ -93,13 +93,12 @@ export default function DashboardClient({
 
   const fetchUserData = async () => {
     try {
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from("user_profiles")
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
         .single()
-
-      if (!profileError && profileData) setProfile(profileData)
+      if (profileData) setProfile(profileData)
 
       const { data: walletsData } = await supabase
         .from("user_wallets")
@@ -204,6 +203,7 @@ export default function DashboardClient({
       <div
         className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24 flex items-center justify-center"
         translate="no"
+        data-react-protected
       >
         <div className="text-white text-xl">Loading your dashboard...</div>
       </div>
@@ -214,13 +214,17 @@ export default function DashboardClient({
     .filter((item) => ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
     .slice(0, 5)
 
+  
+      
 
+     
+  
 
   // ---------------- UI ----------------
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      translate="no" // 🚨 حماية كاملة ضد Google Translate
+      translate="no"
       data-react-protected
     >
       <div className="max-w-7xl mx-auto space-y-8">
