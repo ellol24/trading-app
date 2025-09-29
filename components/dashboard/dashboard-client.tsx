@@ -91,118 +91,86 @@ export default function DashboardClient({
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // ---------------- Fetch User Data ----------------
   const fetchUserData = async () => {
     try {
-      // Profile
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from("user_profiles")
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
         .single()
 
-      if (!profileError && profileData) setProfile(profileData)
-      else if (profileError) console.error("[Dashboard] profile error:", profileError)
+      if (profileData) setProfile(profileData)
 
-      // Wallets
-      const { data: walletsData, error: walletsError } = await supabase
+      const { data: walletsData } = await supabase
         .from("user_wallets")
         .select("*")
         .eq("user_id", userId)
 
-      if (!walletsError) setWallets(walletsData || [])
-      else console.error("[Dashboard] wallets error:", walletsError)
+      setWallets(walletsData || [])
 
-      // Recent trades
-      const { data: tradesRows, error: tradesError } = await supabase
+      const { data: tradesRows } = await supabase
         .from("trades")
         .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(4)
 
-      if (!tradesError) setRecentTrades(tradesRows || [])
-      else console.error("[Dashboard] trades error:", tradesError)
+      setRecentTrades(tradesRows || [])
 
-      // Count total trades
-      const { count: tradesCount, error: countError } = await supabase
+      const { count: tradesCount } = await supabase
         .from("trades")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
 
-      if (!countError) {
-        setTotalTradesCount(tradesCount ?? 0)
-        setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
-      } else {
-        console.error("[Dashboard] trades count error:", countError)
-      }
+      setTotalTradesCount(tradesCount ?? 0)
+      setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
 
-      // Packages
-      const { data: packagesData, error: packagesError } = await supabase
+      const { data: packagesData } = await supabase
         .from("investment_packages")
         .select("*")
         .eq("is_active", true)
         .limit(3)
 
-      if (!packagesError) setPackages(packagesData || [])
-      else console.error("[Dashboard] packages error:", packagesError)
+      setPackages(packagesData || [])
 
-      // User packages
-      const { data: userPackagesData, error: userPackagesError } = await supabase
+      const { data: userPackagesData } = await supabase
         .from("user_package_purchases")
         .select(`*, package:investment_packages(*)`)
         .eq("user_id", userId)
         .in("status", ["active", "running"])
 
-      if (!userPackagesError) setUserPackages(userPackagesData || [])
-      else console.error("[Dashboard] user packages error:", userPackagesError)
+      setUserPackages(userPackagesData || [])
     } catch (err) {
-      console.error("[Dashboard] fetchUserData exception:", err)
+      console.error("[Dashboard] fetchUserData error:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  // Realtime (اشترك فقط إن كان userId معرف و Supabase متوفر)
+  // ---------------- Realtime Updates ----------------
   useEffect(() => {
-    if (!userId) return
-    if (typeof window === "undefined") return
-    if (!supabase || !supabase.channel) return
+    if (!userId || typeof window === "undefined" || !supabase?.channel) return
 
-    let channel: any = null
-    try {
-      channel = supabase
-        .channel("trades_changes")
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
-          () => {
-            // تعيد جلب البيانات عندما تأتي صفقة جديدة
-            fetchUserData().catch((e) => console.error("[Dashboard] fetchUserData error", e))
-          }
-        )
-        .subscribe((status) => {
-          // بعض نسخ supabase ترجع الحالة هنا؛ فقط سجلها إن لزم
-          if ((status as any)?.status && (status as any).status !== "SUBSCRIBED") {
-            // لا نوقف التنفيذ — فقط سجل
-            console.debug("[Realtime] subscribe status:", status)
-          }
-        })
-    } catch (err) {
-      console.error("[Dashboard] realtime subscribe failed:", err)
-    }
+    const channel = supabase
+      .channel("trades_changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
+        () => fetchUserData()
+      )
+      .subscribe()
 
     return () => {
       try {
-        if (channel) supabase.removeChannel(channel)
-      } catch (e) {
-        console.warn("[Dashboard] removeChannel failed:", e)
-      }
+        supabase.removeChannel(channel)
+      } catch {}
     }
   }, [userId])
 
+  // ---------------- Market Data ----------------
   useEffect(() => {
-    const initialData = marketDataService.getAllMarketData()
-    setMarketData(initialData)
+    setMarketData(marketDataService.getAllMarketData())
 
     const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"]
     const unsubscribers = cryptoPairs.map((symbol) =>
@@ -214,26 +182,18 @@ export default function DashboardClient({
     )
 
     fetchUserData()
-    return () => {
-      try {
-        unsubscribers.forEach((unsub) => unsub && unsub())
-      } catch (e) {
-        console.warn("[Dashboard] market unsub error:", e)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => unsubscribers.forEach((unsub) => unsub && unsub())
   }, [userId])
 
+  // ---------------- Calculations ----------------
   const totalBalance = profile?.balance ?? balance
-  const activePackages = userPackages.length
-
   const todayProfit = wallets.reduce((sum, w) => sum + (w.total_profit ?? 0), 0)
   const todayProfitPercent = totalBalance > 0 ? (todayProfit / totalBalance) * 100 : 0
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24 flex items-center justify-center">
-        <div className="text-white text-xl">Loading your dashboard...</div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl animate-pulse">Loading your dashboard...</div>
       </div>
     )
   }
@@ -242,16 +202,10 @@ export default function DashboardClient({
     .filter((item) => ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
     .slice(0, 5)
 
-  // --------------------------
-  // IMPORTANT: protect dynamic DOM from Google Translate
-  // --------------------------
-  // اخترت حماية الحاوية الرئيسية للداشبورد لكي نتجنب تلاعب Google Translate
-  // الذي كان يسبب removeChild errors. إن أردت الترجمة، ضع translate="no"
-  // فقط على البطاقات الديناميكية بدلاً من الحاوية كاملة.
+  // ---------------- UI ----------------
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      // حماية ضد Google Translate DOM mutations
       translate="no"
       data-react-protected
     >
@@ -264,7 +218,8 @@ export default function DashboardClient({
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="trading-card">
+          {/* Total Balance */}
+          <Card className="trading-card" translate="no">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -280,22 +235,15 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          <Card className="trading-card">
+          {/* Total Referrals */}
+          <Card className="trading-card" translate="no">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">Total Referrals</h2>
                   <p className="text-3xl font-bold text-white mt-2">{totalReferrals}</p>
-                  <p
-                    className={`text-sm flex items-center ${
-                      todayProfit >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
-                  >
-                    {todayProfit >= 0 ? (
-                      <TrendingUp className="w-4 h-4 mr-1" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 mr-1" />
-                    )}
+                  <p className={`text-sm flex items-center ${todayProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {todayProfit >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                     {todayProfit >= 0 ? "+" : ""}
                     {todayProfitPercent.toFixed(2)}%
                   </p>
@@ -307,7 +255,8 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          <Card className="trading-card">
+          {/* Total Trades */}
+          <Card className="trading-card" translate="no">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -322,118 +271,108 @@ export default function DashboardClient({
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Top Assets (محمي من الترجمة) */}
-          <Card className="trading-card" translate="no" data-react-protected>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white">Top Assets</CardTitle>
-                <Link href="/dashboard/trading">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View All
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {cryptoData.map((asset) => {
-                const price = Number(asset.price ?? 0)
-                return (
-                  <div key={asset.symbol} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">
-                          {asset.symbol.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol.slice(0, 2)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">{asset.symbol}</p>
-                        <p className="text-muted-foreground text-sm">Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-white font-medium">
-                        {asset.symbol.includes("XAU")
-                          ? `$${price.toFixed(1)}`
-                          : asset.symbol.includes("JPY")
-                          ? price.toFixed(2)
-                          : price >= 1000
-                          ? `$${price.toLocaleString()}`
-                          : `$${price.toFixed(4)}`}
-                      </p>
-                      <p
-                        className={`text-sm flex items-center justify-end ${
-                          (asset.changePercent ?? 0) >= 0 ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {(asset.changePercent ?? 0) >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                        {(asset.changePercent ?? 0) >= 0 ? "+" : ""}
-                        {(asset.changePercent ?? 0).toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Recent Trading Activity (محمي من الترجمة) */}
-          <Card className="trading-card" translate="no" data-react-protected>
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <Activity className="w-5 h-5 mr-2" />
-                Recent Trading Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentTrades.length > 0 ? (
-                recentTrades.map((trade) => (
-                  <div key={trade.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                        <span className="text-white font-medium">{trade.asset}</span>
-                        <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
-                          {trade.type}
-                        </Badge>
-                      </div>
-                      <span
-                        className={`text-sm font-medium ${
-                          (trade.profit_loss ?? 0) > 0 ? "text-green-400" : (trade.profit_loss ?? 0) < 0 ? "text-red-400" : "text-slate-300"
-                        }`}
-                      >
-                        {trade.result === "win"
-                          ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
-                          : trade.result === "lose"
-                          ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
-                          : "Pending"}
+        {/* Top Assets */}
+        <Card className="trading-card" translate="no">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white">Top Assets</CardTitle>
+              <Link href="/dashboard/trading">
+                <Button variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent">
+                  <Eye className="w-4 h-4 mr-2" />
+                  View All
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {cryptoData.map((asset) => {
+              const price = Number(asset.price ?? 0)
+              return (
+                <div key={asset.symbol} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {asset.symbol.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol.slice(0, 2)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Amount: ${Number(trade.amount ?? 0).toFixed(2)}</span>
-                      <span>ROI: {trade.roi_percentage ?? 0}%</span>
-                      <span>{trade.created_at ? new Date(trade.created_at).toLocaleString() : ""}</span>
+                    <div>
+                      <p className="text-white font-medium">{asset.symbol}</p>
+                      <p className="text-muted-foreground text-sm">Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K</p>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No recent trades found</p>
-                  <p className="text-sm">Start trading to see your activity here</p>
+                  <div className="text-right">
+                    <p className="text-white font-medium">
+                      {asset.symbol.includes("XAU")
+                        ? `$${price.toFixed(1)}`
+                        : asset.symbol.includes("JPY")
+                        ? price.toFixed(2)
+                        : price >= 1000
+                        ? `$${price.toLocaleString()}`
+                        : `$${price.toFixed(4)}`}
+                    </p>
+                    <p className={`text-sm flex items-center justify-end ${(asset.changePercent ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {(asset.changePercent ?? 0) >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                      {(asset.changePercent ?? 0) >= 0 ? "+" : ""}
+                      {(asset.changePercent ?? 0).toFixed(2)}%
+                    </p>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Recent Trading Activity */}
+        <Card className="trading-card" translate="no">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <Activity className="w-5 h-5 mr-2" />
+              Recent Trading Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {recentTrades.length > 0 ? (
+              recentTrades.map((trade) => (
+                <div key={trade.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                      <span className="text-white font-medium">{trade.asset}</span>
+                      <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
+                        {trade.type}
+                      </Badge>
+                    </div>
+                    <span
+                      className={`text-sm font-medium ${
+                        (trade.profit_loss ?? 0) > 0 ? "text-green-400" : (trade.profit_loss ?? 0) < 0 ? "text-red-400" : "text-slate-300"
+                      }`}
+                    >
+                      {trade.result === "win"
+                        ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
+                        : trade.result === "lose"
+                        ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
+                        : "Pending"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Amount: ${Number(trade.amount ?? 0).toFixed(2)}</span>
+                    <span>ROI: {trade.roi_percentage ?? 0}%</span>
+                    <span>{trade.created_at ? new Date(trade.created_at).toLocaleString() : ""}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No recent trades found</p>
+                <p className="text-sm">Start trading to see your activity here</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Investment Packages */}
-        <Card className="trading-card">
+        <Card className="trading-card" translate="no">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-white flex items-center">
@@ -441,11 +380,7 @@ export default function DashboardClient({
                 Investment Packages
               </CardTitle>
               <Link href="/dashboard/packages">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
-                >
+                <Button variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent">
                   <Eye className="w-4 h-4 mr-2" />
                   View All
                 </Button>
@@ -493,7 +428,7 @@ export default function DashboardClient({
         </Card>
 
         {/* Quick Actions */}
-        <Card className="trading-card">
+        <Card className="trading-card" translate="no">
           <CardHeader>
             <CardTitle className="text-white">Quick Actions</CardTitle>
           </CardHeader>
@@ -538,4 +473,3 @@ export default function DashboardClient({
     </div>
   )
 }
- 
