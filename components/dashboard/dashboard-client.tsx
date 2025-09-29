@@ -46,8 +46,6 @@ interface BinaryTrade {
   result: string | null
 }
 
-
-
 interface InvestmentPackage {
   id: string
   title: string
@@ -113,19 +111,17 @@ export default function DashboardClient({
 
       if (!walletsError) setWallets(walletsData || [])
       else console.error("[Dashboard] wallets error:", walletsError)
-    
 
-   // Recent trades (من جدول trades)
-const { data: tradesRows, error: tradesError } = await supabase
-  .from("trades")
-  .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
-  .eq("user_id", userId)
-  .order("created_at", { ascending: false })
-  .limit(4)
+      // Recent trades
+      const { data: tradesRows, error: tradesError } = await supabase
+        .from("trades")
+        .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(4)
 
-if (!tradesError) setRecentTrades(tradesRows || [])
-else console.error("[Dashboard] trades error:", tradesError)
-
+      if (!tradesError) setRecentTrades(tradesRows || [])
+      else console.error("[Dashboard] trades error:", tradesError)
 
       // Count total trades
       const { count: tradesCount, error: countError } = await supabase
@@ -166,19 +162,41 @@ else console.error("[Dashboard] trades error:", tradesError)
     }
   }
 
-  // Realtime (اختياري)
+  // Realtime (اشترك فقط إن كان userId معرف و Supabase متوفر)
   useEffect(() => {
-    const channel = supabase
-      .channel("trades_changes")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
-        () => fetchUserData()
-      )
-      .subscribe()
+    if (!userId) return
+    if (typeof window === "undefined") return
+    if (!supabase || !supabase.channel) return
+
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel("trades_changes")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
+          () => {
+            // تعيد جلب البيانات عندما تأتي صفقة جديدة
+            fetchUserData().catch((e) => console.error("[Dashboard] fetchUserData error", e))
+          }
+        )
+        .subscribe((status) => {
+          // بعض نسخ supabase ترجع الحالة هنا؛ فقط سجلها إن لزم
+          if ((status as any)?.status && (status as any).status !== "SUBSCRIBED") {
+            // لا نوقف التنفيذ — فقط سجل
+            console.debug("[Realtime] subscribe status:", status)
+          }
+        })
+    } catch (err) {
+      console.error("[Dashboard] realtime subscribe failed:", err)
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      try {
+        if (channel) supabase.removeChannel(channel)
+      } catch (e) {
+        console.warn("[Dashboard] removeChannel failed:", e)
+      }
     }
   }, [userId])
 
@@ -197,8 +215,13 @@ else console.error("[Dashboard] trades error:", tradesError)
 
     fetchUserData()
     return () => {
-      unsubscribers.forEach((unsub) => unsub())
+      try {
+        unsubscribers.forEach((unsub) => unsub && unsub())
+      } catch (e) {
+        console.warn("[Dashboard] market unsub error:", e)
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
   const totalBalance = profile?.balance ?? balance
@@ -219,8 +242,19 @@ else console.error("[Dashboard] trades error:", tradesError)
     .filter((item) => ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
     .slice(0, 5)
 
+  // --------------------------
+  // IMPORTANT: protect dynamic DOM from Google Translate
+  // --------------------------
+  // اخترت حماية الحاوية الرئيسية للداشبورد لكي نتجنب تلاعب Google Translate
+  // الذي كان يسبب removeChild errors. إن أردت الترجمة، ضع translate="no"
+  // فقط على البطاقات الديناميكية بدلاً من الحاوية كاملة.
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
+      // حماية ضد Google Translate DOM mutations
+      translate="no"
+      data-react-protected
+    >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Header */}
         <div className="text-center space-y-2">
@@ -235,7 +269,9 @@ else console.error("[Dashboard] trades error:", tradesError)
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">Total Balance</h2>
-                  <p className="text-3xl font-bold text-white mt-2">${totalBalance}</p>
+                  <p className="text-3xl font-bold text-white mt-2">
+                    ${Number(totalBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </p>
                 </div>
                 <div className="p-3 bg-blue-500/20 rounded-full">
                   <Wallet className="w-6 h-6 text-blue-400" />
@@ -271,20 +307,6 @@ else console.error("[Dashboard] trades error:", tradesError)
             </CardContent>
           </Card>
 
-          {/*<Card className="trading-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm">Active Packages</p>
-                  <p className="text-2xl font-bold text-white">{activePackages}</p>
-                </div>
-                <div className="p-3 bg-purple-500/20 rounded-full">
-                  <Package className="w-6 h-6 text-purple-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>*/}
-
           <Card className="trading-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -301,8 +323,8 @@ else console.error("[Dashboard] trades error:", tradesError)
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Top Assets */}
-          <Card className="trading-card">
+          {/* Top Assets (محمي من الترجمة) */}
+          <Card className="trading-card" translate="no" data-react-protected>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white">Top Assets</CardTitle>
@@ -319,108 +341,95 @@ else console.error("[Dashboard] trades error:", tradesError)
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {cryptoData.map((asset) => (
-                <div key={asset.symbol} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {asset.symbol.includes("/")
-                          ? asset.symbol.split("/")[0].slice(0, 2)
-                          : asset.symbol.slice(0, 2)}
-                      </span>
+              {cryptoData.map((asset) => {
+                const price = Number(asset.price ?? 0)
+                return (
+                  <div key={asset.symbol} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">
+                          {asset.symbol.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol.slice(0, 2)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">{asset.symbol}</p>
+                        <p className="text-muted-foreground text-sm">Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium">{asset.symbol}</p>
-                      <p className="text-muted-foreground text-sm">
-                        Vol: {(asset.volume / 1000).toFixed(0)}K
+                    <div className="text-right">
+                      <p className="text-white font-medium">
+                        {asset.symbol.includes("XAU")
+                          ? `$${price.toFixed(1)}`
+                          : asset.symbol.includes("JPY")
+                          ? price.toFixed(2)
+                          : price >= 1000
+                          ? `$${price.toLocaleString()}`
+                          : `$${price.toFixed(4)}`}
+                      </p>
+                      <p
+                        className={`text-sm flex items-center justify-end ${
+                          (asset.changePercent ?? 0) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {(asset.changePercent ?? 0) >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                        {(asset.changePercent ?? 0) >= 0 ? "+" : ""}
+                        {(asset.changePercent ?? 0).toFixed(2)}%
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-white font-medium">
-                      {asset.symbol.includes("XAU")
-                        ? `$${asset.price.toFixed(1)}`
-                        : asset.symbol.includes("JPY")
-                        ? asset.price.toFixed(2)
-                        : asset.price >= 1000
-                        ? `$${asset.price.toLocaleString()}`
-                        : `$${asset.price.toFixed(4)}`}
-                    </p>
-                    <p
-                      className={`text-sm flex items-center justify-end ${
-                        asset.changePercent >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {asset.changePercent >= 0 ? (
-                        <ArrowUpRight className="w-3 h-3 mr-1" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3 mr-1" />
-                      )}
-                      {asset.changePercent >= 0 ? "+" : ""}
-                      {asset.changePercent.toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </CardContent>
           </Card>
 
-         {/* Recent Trading Activity */}
-<Card className="trading-card">
-  <CardHeader>
-    <CardTitle className="text-white flex items-center">
-      <Activity className="w-5 h-5 mr-2" />
-      Recent Trading Activity
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    {recentTrades.length > 0 ? (
-      recentTrades.map((trade) => (
-        <div
-          key={trade.id}
-          className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 rounded-full bg-yellow-400" />
-              <span className="text-white font-medium">{trade.asset}</span>
-              <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
-                {trade.type}
-              </Badge>
-            </div>
-            <span
-              className={`text-sm font-medium ${
-                (trade.profit_loss ?? 0) > 0
-                  ? "text-green-400"
-                  : (trade.profit_loss ?? 0) < 0
-                  ? "text-red-400"
-                  : "text-slate-300"
-              }`}
-            >
-              {trade.result === "win"
-                ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
-                : trade.result === "lose"
-                ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
-                : "Pending"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Amount: ${Number(trade.amount).toFixed(2)}</span>
-            <span>ROI: {trade.roi_percentage ?? 0}%</span>
-            <span>{new Date(trade.created_at).toLocaleString()}</span>
-          </div>
-        </div>
-      ))
-    ) : (
-      <div className="text-center text-muted-foreground py-8">
-        <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>No recent trades found</p>
-        <p className="text-sm">Start trading to see your activity here</p>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
+          {/* Recent Trading Activity (محمي من الترجمة) */}
+          <Card className="trading-card" translate="no" data-react-protected>
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <Activity className="w-5 h-5 mr-2" />
+                Recent Trading Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {recentTrades.length > 0 ? (
+                recentTrades.map((trade) => (
+                  <div key={trade.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                        <span className="text-white font-medium">{trade.asset}</span>
+                        <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
+                          {trade.type}
+                        </Badge>
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${
+                          (trade.profit_loss ?? 0) > 0 ? "text-green-400" : (trade.profit_loss ?? 0) < 0 ? "text-red-400" : "text-slate-300"
+                        }`}
+                      >
+                        {trade.result === "win"
+                          ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
+                          : trade.result === "lose"
+                          ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
+                          : "Pending"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Amount: ${Number(trade.amount ?? 0).toFixed(2)}</span>
+                      <span>ROI: {trade.roi_percentage ?? 0}%</span>
+                      <span>{trade.created_at ? new Date(trade.created_at).toLocaleString() : ""}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No recent trades found</p>
+                  <p className="text-sm">Start trading to see your activity here</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Investment Packages */}
@@ -447,10 +456,7 @@ else console.error("[Dashboard] trades error:", tradesError)
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {packages.length > 0 ? (
                 packages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                  >
+                  <div key={pkg.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-white font-medium">{pkg.title}</h3>
                       <Badge variant="secondary">Available</Badge>
@@ -458,9 +464,7 @@ else console.error("[Dashboard] trades error:", tradesError)
                     <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <p className="text-muted-foreground">Min</p>
-                        <p className="text-white font-medium">
-                          ${pkg.min_investment.toLocaleString()}
-                        </p>
+                        <p className="text-white font-medium">${pkg.min_investment.toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Duration</p>
@@ -468,9 +472,7 @@ else console.error("[Dashboard] trades error:", tradesError)
                       </div>
                       <div>
                         <p className="text-muted-foreground">Daily ROI</p>
-                        <p className="text-green-400 font-medium">
-                          {pkg.roi_daily_percentage}%
-                        </p>
+                        <p className="text-green-400 font-medium">{pkg.roi_daily_percentage}%</p>
                       </div>
                     </div>
                     <Link href="/dashboard/packages">
