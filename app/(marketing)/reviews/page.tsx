@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const testimonials = [
   {
@@ -19,7 +19,7 @@ const testimonials = [
     quote:
       "Fast, stable, and thoughtfully designed. The attention to detail is impressive.",
   },
-]
+];
 
 export default function ReviewsPage() {
   return (
@@ -28,15 +28,20 @@ export default function ReviewsPage() {
       <p className="mb-10 text-slate-300">What users say about the experience.</p>
       <div className="grid gap-6 md:grid-cols-3">
         {testimonials.map((t) => (
-          <Card key={t.name} className="border-slate-800 bg-slate-900/60">
+          <Card
+            key={`${t.name}-${t.role}`}
+            className="border-slate-800 bg-slate-900/60"
+          >
             <CardHeader>
               <CardTitle className="text-white">{t.name}</CardTitle>
               <p className="text-xs text-slate-400">{t.role}</p>
             </CardHeader>
-            <CardContent className="text-slate-300">“{t.quote}”</CardContent>
+            <CardContent className="text-slate-300">
+              <blockquote className="italic">“{t.quote}”</blockquote>
+            </CardContent>
           </Card>
         ))}
       </div>
     </section>
-  )
+  );
 }
