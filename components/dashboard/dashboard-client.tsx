@@ -316,7 +316,7 @@ export default function DashboardClient({
 
   const cryptoData = marketData
     .filter((item) => item?.symbol && ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
-    .slice(0, 5)
+    .slice(0,30)
 
   return (
     <div
