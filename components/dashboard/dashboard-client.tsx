@@ -278,19 +278,12 @@ export default function DashboardClient({
     const initialData = marketDataService.getAllMarketData()
     setMarketData(initialData)
 
-    const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"]
-    const unsubscribers = cryptoPairs.map((symbol) =>
-      marketDataService.subscribe(symbol, (updatedData) => {
-        setMarketData((prev) =>
-          prev.map((item) => (item.symbol === updatedData.symbol ? updatedData : item))
-        )
-      })
-    )
+    
 
     fetchUserData()
     return () => {
       try {
-        unsubscribers.forEach((unsub) => unsub && unsub())
+        
       } catch (e) {
         console.warn("[Dashboard] market unsub error:", e)
       }
