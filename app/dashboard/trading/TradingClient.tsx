@@ -29,7 +29,6 @@ type TradeRound = {
   admin_direction: "buy" | "sell" | null
 }
 
-// ✅统一 النوع
 type IntervalType = "1min" | "5min" | "15min" | "30min" | "1h"
 
 const PERIODS: { value: IntervalType; label: string }[] = [
@@ -40,7 +39,7 @@ const PERIODS: { value: IntervalType; label: string }[] = [
   { value: "1h", label: "1 hour" },
 ]
 
-// 📌 فقط الفوركس
+// 📌 أزواج الفوركس المتاحة
 const FOREX = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
   "AUD/USD", "NZD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY",
@@ -64,36 +63,31 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   }, [])
 
   const fetchDeals = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("trade_rounds")
       .select("*")
       .order("start_time", { ascending: true })
-
-    if (!error) setDeals(data || [])
+    setDeals(data || [])
   }
 
   const fetchJoined = async () => {
     if (!userId) return
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("user_rounds")
       .select("trade_round_id")
       .eq("user_id", userId)
-
-    if (!error && data) {
-      setJoinedRounds(data.map((d) => d.trade_round_id))
-    }
+    if (data) setJoinedRounds(data.map((d) => d.trade_round_id))
   }
 
   const fetchTrades = async () => {
     if (!userId) return
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("trades")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(10)
-
-    if (!error) setTrades(data || [])
+    setTrades(data || [])
   }
 
   useEffect(() => {
@@ -174,13 +168,17 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6"
+      translate="no"             // ⛔️ منع الترجمة على مستوى الصفحة
+      data-react-protected       // ✅ حماية DOM من أي تلاعب خارجي
+    >
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Assets */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Select Asset</CardTitle>
               {activeDeal ? (
@@ -206,7 +204,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           </Card>
 
           {/* Round Status */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no">
             <CardContent className="py-4">
               {activeDeal ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
@@ -246,7 +244,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
         {/* Right column */}
         <div className="space-y-6">
           {/* Trade Setup */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no">
             <CardHeader>
               <CardTitle className="text-white">Trade Setup</CardTitle>
             </CardHeader>
@@ -291,7 +289,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           </Card>
 
           {/* Previous Trades */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Previous Trades</CardTitle>
               <Button variant="outline" size="sm">View All</Button>
