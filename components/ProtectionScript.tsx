@@ -6,10 +6,12 @@ import { useEffect } from "react";
 export default function ProtectionScript() {
   useEffect(() => {
     try {
+      // منع الترجمة من الأساس
       document.documentElement.setAttribute("translate", "no");
       document.body.setAttribute("translate", "no");
       document.body.setAttribute("data-react-protected", "true");
 
+      // ✅ قائمة أوسع لتغطية كل عناصر Google Translate
       const selectors = [
         '[class*="goog-"]',
         '[id*="goog-"]',
@@ -18,65 +20,57 @@ export default function ProtectionScript() {
         '#goog-gt-tt',
         '.goog-te-banner-frame',
         '.goog-te-spinner',
+        'iframe.goog-te-menu-frame',
+        '.goog-tooltip',
+        '.goog-text-highlight',
       ];
 
+      // 🔒 لا نلمس عناصر داخل React root
       function isInsideReactRoot(el: Node | null) {
         if (!(el instanceof Element)) return false;
-        return !!el.closest("[data-react-component], [data-reactroot], #__next, #__react-root");
+        return !!el.closest(
+          "[data-react-component], [data-reactroot], #__next, #__react-root"
+        );
       }
 
+      // 🚫 إخفاء أو إزالة العنصر
       const hideOrRemoveNode = (n: Node) => {
+        if (!(n instanceof Element)) return;
         try {
-          if (!(n instanceof Element)) return;
-          // لا تعبث بعناصر تابعة لـ React root
           if (isInsideReactRoot(n) || isInsideReactRoot(n.parentElement)) {
-            // آمن: بدلاً من الحذف، نخفي العنصر
-            try {
-              (n as HTMLElement).style.setProperty("display", "none", "important");
-              (n as HTMLElement).setAttribute("data-translate-hidden", "true");
-            } catch (e) {
-              // fallback: لا تفعل شيئًا
-            }
+            // إذا داخل React → نخفي فقط
+            (n as HTMLElement).style.setProperty("display", "none", "important");
+            (n as HTMLElement).setAttribute("data-translate-hidden", "true");
             return;
           }
 
-          // نختفي بالافتراضي بدلاً من الحذف — أكثر أمانًا ولا يخفّف React
+          // افتراضياً → نخفي بدلاً من الحذف (آمن أكثر)
+          (n as HTMLElement).style.setProperty("display", "none", "important");
+          (n as HTMLElement).setAttribute("data-translate-hidden", "true");
+        } catch {
           try {
-            (n as HTMLElement).style.setProperty("display", "none", "important");
-            (n as HTMLElement).setAttribute("data-translate-hidden", "true");
-            // console.debug("[TranslateProtection] hid node:", n);
-          } catch (e) {
-            // fallback to remove if hide impossible (wrapped safely)
-            try {
-              n.parentNode?.removeChild(n);
-            } catch (err) {
-              // swallow
-            }
+            n.parentNode?.removeChild(n); // fallback
+          } catch {
+            // تجاهل الأخطاء
           }
-        } catch (e) {
-          // لا تدع أي خطأ يكسر الصفحة
         }
       };
 
+      // 🧹 البحث وإخفاء العناصر
       const removeGoogleNodes = (root: Node) => {
         if (!(root instanceof Element)) return;
         selectors.forEach((sel) => {
           root.querySelectorAll(sel).forEach((n) => {
-            try {
-              hideOrRemoveNode(n);
-            } catch (e) {
-              // ignore
-            }
+            hideOrRemoveNode(n);
           });
         });
       };
 
+      // 👀 مراقبة DOM لأي عناصر جديدة
       const observer = new MutationObserver((mutations) => {
         for (const m of mutations) {
           if (m.addedNodes) {
-            m.addedNodes.forEach((n) => {
-              removeGoogleNodes(n);
-            });
+            m.addedNodes.forEach((n) => removeGoogleNodes(n));
           }
           if (m.type === "attributes" && m.target instanceof Element) {
             removeGoogleNodes(m.target);
@@ -88,15 +82,15 @@ export default function ProtectionScript() {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ["class", "id", "translate"],
+        attributeFilter: ["class", "id", "translate", "style"],
       });
 
+      // ⏱️ تنظيف دوري (احتياطي) كل 3 ثوانٍ
       const cleanupInterval = window.setInterval(() => {
-        try {
-          removeGoogleNodes(document.documentElement);
-        } catch (e) {}
-      }, 2500);
+        removeGoogleNodes(document.documentElement);
+      }, 3000);
 
+      // 🧹 إيقاف عند إغلاق الصفحة
       window.addEventListener(
         "beforeunload",
         () => {
