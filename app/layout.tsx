@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -34,17 +33,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // حافظ على هذا كـ Server Component
-    <html lang="en" translate="no" suppressHydrationWarning>
+    <html
+      lang="en"
+      translate="no"            // ⛔️ يمنع الترجمة من Google Translate
+      suppressHydrationWarning
+    >
       <head>
-        {/* تحذير: metadata export سيتم التعامل معه من Next.js تلقائياً */}
+        {/* منع الترجمة على مستوى الميتا */}
         <meta name="google" content="notranslate" />
         <meta httpEquiv="Content-Language" content="en" />
         <meta name="robots" content="notranslate" />
         <meta name="googlebot" content="notranslate" />
       </head>
-      <body className={inter.className} translate="no" data-react-component>
-        {/* ClientProviders هو مكوّن client يضم كل الـ providers والـ protection script */}
+      <body
+        className={inter.className}
+        translate="no"           // ⛔️ منع الترجمة على مستوى البودي
+        data-react-protected     // حماية من أي تدخل DOM خارجي
+      >
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
