@@ -91,49 +91,151 @@ export default function DashboardClient({
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // === PROTECTION: تعطيل ترجمة Google فقط لهذه الصفحة + إزالة عناصر جوجل المشبوهة بأمان ===
+  useEffect(() => {
+    try {
+      // منع الترجمة (تأثير فقط على هذه الصفحة لأن المكون client-only)
+      document.documentElement.setAttribute("translate", "no")
+      document.body.setAttribute("translate", "no")
+      document.body.setAttribute("data-react-protected", "true")
+
+      const selectors = [
+        '[class*="goog-"]',
+        '[id*="goog-"]',
+        '[class*="google-translate"]',
+        '[id*="google-translate"]',
+        '#goog-gt-tt',
+        '.goog-te-banner-frame',
+        '.goog-te-spinner',
+      ]
+
+      const removeGoogleNodes = (root: Node | null) => {
+        if (!root) return
+        try {
+          if (root instanceof Element) {
+            // إذا العقدة نفسها تطابق حدفها بأمان
+            for (const sel of selectors) {
+              if ((root as Element).matches && (root as Element).matches(sel)) {
+                ;(root as any).remove?.()
+                return
+              }
+            }
+            // ابحث داخل العنصر
+            selectors.forEach((sel) =>
+              Array.from((root as Element).querySelectorAll(sel)).forEach((n) => {
+                try {
+                  // لا نحذف عناصر محمية داخل تطبيقنا
+                  if ((n as Element).closest && (n as Element).closest("[data-react-protected]")) return
+                  ;(n as any).remove?.()
+                } catch (e) {
+                  /* safe-guard */
+                }
+              })
+            )
+          } else {
+            // node could be a Text or Comment; ignore
+          }
+        } catch (e) {
+          // لا نفشل التطبيق بسبب خطأ في التنظيف
+          console.warn("[TranslateProtection] removeGoogleNodes error:", e)
+        }
+      }
+
+      const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          // added nodes
+          if (m.addedNodes && m.addedNodes.length) {
+            m.addedNodes.forEach((n) => removeGoogleNodes(n))
+          }
+          // attributes changed
+          if (m.type === "attributes" && m.target) {
+            removeGoogleNodes(m.target)
+          }
+        }
+      })
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "id", "translate"],
+      })
+
+      const cleanupInterval = window.setInterval(() => {
+        removeGoogleNodes(document.documentElement)
+      }, 2500)
+
+      // cleanup on unmount
+      return () => {
+        try {
+          observer.disconnect()
+          clearInterval(cleanupInterval)
+          document.documentElement.removeAttribute("translate")
+          document.body.removeAttribute("translate")
+          document.body.removeAttribute("data-react-protected")
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      // حماية إضافية من أي خطأ غير متوقع
+      console.warn("[TranslateProtection] init failed:", e)
+      return
+    }
+  }, [])
+
   const fetchUserData = async () => {
     try {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("user_profiles")
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
         .single()
-      if (profileData) setProfile(profileData)
+      if (!profileError && profileData) setProfile(profileData)
+      else if (profileError) console.error("[Dashboard] profile error:", profileError)
 
-      const { data: walletsData } = await supabase
+      const { data: walletsData, error: walletsError } = await supabase
         .from("user_wallets")
         .select("*")
         .eq("user_id", userId)
-      setWallets(walletsData || [])
+      if (!walletsError) setWallets(walletsData || [])
+      else console.error("[Dashboard] wallets error:", walletsError)
 
-      const { data: tradesRows } = await supabase
+      const { data: tradesRows, error: tradesError } = await supabase
         .from("trades")
         .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(4)
-      setRecentTrades(tradesRows || [])
+      if (!tradesError) setRecentTrades(tradesRows || [])
+      else console.error("[Dashboard] trades error:", tradesError)
 
-      const { count: tradesCount } = await supabase
+      const { count: tradesCount, error: countError } = await supabase
         .from("trades")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-      setTotalTradesCount(tradesCount ?? 0)
-      setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
+      if (!countError) {
+        setTotalTradesCount(tradesCount ?? 0)
+        setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
+      } else {
+        console.error("[Dashboard] trades count error:", countError)
+      }
 
-      const { data: packagesData } = await supabase
+      const { data: packagesData, error: packagesError } = await supabase
         .from("investment_packages")
         .select("*")
         .eq("is_active", true)
         .limit(3)
-      setPackages(packagesData || [])
+      if (!packagesError) setPackages(packagesData || [])
+      else console.error("[Dashboard] packages error:", packagesError)
 
-      const { data: userPackagesData } = await supabase
+      const { data: userPackagesData, error: userPackagesError } = await supabase
         .from("user_package_purchases")
         .select(`*, package:investment_packages(*)`)
         .eq("user_id", userId)
         .in("status", ["active", "running"])
-      setUserPackages(userPackagesData || [])
+      if (!userPackagesError) setUserPackages(userPackagesData || [])
+      else console.error("[Dashboard] user packages error:", userPackagesError)
     } catch (err) {
       console.error("[Dashboard] fetchUserData exception:", err)
     } finally {
@@ -141,10 +243,11 @@ export default function DashboardClient({
     }
   }
 
+  // Realtime subscription (only when userId present)
   useEffect(() => {
     if (!userId) return
     if (typeof window === "undefined") return
-    if (!supabase || !supabase.channel) return
+    if (!supabase || !("channel" in supabase)) return
 
     let channel: any = null
     try {
@@ -192,6 +295,7 @@ export default function DashboardClient({
         console.warn("[Dashboard] market unsub error:", e)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
   const totalBalance = profile?.balance ?? balance
@@ -211,16 +315,9 @@ export default function DashboardClient({
   }
 
   const cryptoData = marketData
-    .filter((item) => ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
+    .filter((item) => item?.symbol && ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(item.symbol))
     .slice(0, 5)
 
-  
-      
-
-     
-  
-
-  // ---------------- UI ----------------
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
@@ -306,23 +403,23 @@ export default function DashboardClient({
             {cryptoData.map((asset) => {
               const price = Number(asset.price ?? 0)
               return (
-                <div key={asset.symbol} className="flex items-center justify-between">
+                <div key={asset.symbol ?? Math.random().toString(36).slice(2)} className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
-                        {asset.symbol.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol.slice(0, 2)}
+                        {asset.symbol?.includes("/") ? asset.symbol.split("/")[0].slice(0, 2) : asset.symbol?.slice(0, 2)}
                       </span>
                     </div>
                     <div>
                       <p className="text-white font-medium">{asset.symbol}</p>
-                      <p className="text-muted-foreground text-sm">Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K</p>
+                      <p className="text-muted-foreground text-sm">Vol: {((asset.volume ?? 0) / 1000).toFixed(0)}K</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-white font-medium">
-                      {asset.symbol.includes("XAU")
+                      {asset.symbol?.includes("XAU")
                         ? `$${price.toFixed(1)}`
-                        : asset.symbol.includes("JPY")
+                        : asset.symbol?.includes("JPY")
                         ? price.toFixed(2)
                         : price >= 1000
                         ? `$${price.toLocaleString()}`
