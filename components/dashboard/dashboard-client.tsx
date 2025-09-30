@@ -278,18 +278,27 @@ export default function DashboardClient({
     const initialData = marketDataService.getAllMarketData()
     setMarketData(initialData)
 
-    
+    const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"];
+    const unsubscribers = cryptoPairs.map((symbol) =>
+      marketDataService.subscribe(symbol, (updatedData) => {
+        setMarketData((prev) =>
+          prev.map((item) =>
+            item.symbol === updatedData.symbol ? updatedData : item
+          )
+        );
+      })
+    );
 
-    fetchUserData()
+    fetchUserData();
     return () => {
       try {
-        
+        unsubscribers.forEach((unsub) => unsub && unsub());
       } catch (e) {
-        console.warn("[Dashboard] market unsub error:", e)
+        console.warn("[Dashboard] market unsub error:", e);
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+    };
+  }, [userId]);
+
 
   const totalBalance = profile?.balance ?? balance
   const todayProfit = wallets.reduce((sum, w) => sum + (w.total_profit ?? 0), 0)
@@ -306,6 +315,15 @@ export default function DashboardClient({
       </div>
     )
   }
+
+  const cryptoData = marketData
+    .filter((item) =>
+      ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(
+        item.symbol
+      )
+    )
+    .slice(0, 5);
+
 
  
   return (
@@ -377,7 +395,77 @@ export default function DashboardClient({
         </div>
 
         {/* Top Assets */}
-        
+        <Card className="trading-card" translate="no">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white">Top Assets</CardTitle>
+              <Link href="/dashboard/trading">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View All
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {cryptoData.map((asset) => {
+              const price = Number(asset.price ?? 0);
+              return (
+                <div
+                  key={asset.symbol}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {asset.symbol.includes("/")
+                          ? asset.symbol.split("/")[0].slice(0, 2)
+                          : asset.symbol.slice(0, 2)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">{asset.symbol}</p>
+                      <p className="text-muted-foreground text-sm">
+                        Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-medium">
+                      {asset.symbol.includes("XAU")
+                        ? `$${price.toFixed(1)}`
+                        : asset.symbol.includes("JPY")
+                        ? price.toFixed(2)
+                        : price >= 1000
+                        ? `$${price.toLocaleString()}`
+                        : `$${price.toFixed(4)}`}
+                    </p>
+                    <p
+                      className={`text-sm flex items-center justify-end ${
+                        (asset.changePercent ?? 0) >= 0
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {(asset.changePercent ?? 0) >= 0 ? (
+                        <ArrowUpRight className="w-3 h-3 mr-1" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3 mr-1" />
+                      )}
+                      {(asset.changePercent ?? 0) >= 0 ? "+" : ""}
+                      {(asset.changePercent ?? 0).toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
 
         {/* Recent Trading Activity */}
         <Card className="trading-card" translate="no">
