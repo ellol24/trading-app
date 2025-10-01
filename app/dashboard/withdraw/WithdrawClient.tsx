@@ -47,7 +47,7 @@ export default function WithdrawClient({ user }: Props) {
   const [amount, setAmount] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [addWalletOpen, setAddWalletOpen] = useState(false)
-  const [feePercentage, setFeePercentage] = useState<number>(10) // ✅ القيمة من قاعدة البيانات
+  const [feePercentage, setFeePercentage] = useState<number>(10)
   const [newWallet, setNewWallet] = useState<{ asset: WithdrawalWallet["asset"] | ""; address: string; label: string }>({
     asset: "",
     address: "",
@@ -88,7 +88,6 @@ export default function WithdrawClient({ user }: Props) {
 
       if (!error && data) setFeePercentage(Number(data.fee_percentage))
     }
-
     fetchSettings()
   }, [])
 
@@ -96,7 +95,7 @@ export default function WithdrawClient({ user }: Props) {
   const fee = amount ? Math.max(0, Number.parseFloat(amount) * (feePercentage / 100)) : 0
   const net = amount ? Math.max(0, Number.parseFloat(amount) - fee) : 0
 
-  // ✅ إرسال طلب سحب (بدون OTP)
+  // ✅ إرسال طلب سحب
   const submitWithdrawal = async () => {
     if (!selectedWallet || !amount || Number.parseFloat(amount) < 10) return
     setIsSubmitting(true)
@@ -140,7 +139,7 @@ export default function WithdrawClient({ user }: Props) {
         asset: newWallet.asset,
         address: newWallet.address,
         label: newWallet.label || null,
-        otp_verified: true, // مؤقتاً
+        otp_verified: true,
       },
     ])
 
@@ -155,8 +154,12 @@ export default function WithdrawClient({ user }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
+      translate="no"           // ⛔️ منع الترجمة للصفحة
+      data-react-protected      // ⛔️ حماية إضافية
+    >
+      <div className="max-w-6xl mx-auto space-y-6" translate="no">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Withdraw Funds</h1>
@@ -168,7 +171,7 @@ export default function WithdrawClient({ user }: Props) {
           </Badge>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" translate="no">
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="withdraw" className="space-y-6">
               <TabsList className="grid w-full grid-cols-2 bg-background/20 border border-border/30">
@@ -178,7 +181,7 @@ export default function WithdrawClient({ user }: Props) {
 
               {/* ✅ صفحة السحب */}
               <TabsContent value="withdraw">
-                <Card className="trading-card">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
                       <DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal
@@ -193,6 +196,7 @@ export default function WithdrawClient({ user }: Props) {
                       </AlertDescription>
                     </Alert>
 
+                    {/* form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-white">Select Wallet</Label>
@@ -224,6 +228,7 @@ export default function WithdrawClient({ user }: Props) {
                       </div>
                     </div>
 
+                    {/* Summary */}
                     <div className="p-4 bg-background/20 rounded-lg border border-border/30 space-y-2">
                       <h3 className="text-white font-semibold">Summary</h3>
                       <div className="flex justify-between text-sm">
@@ -253,13 +258,14 @@ export default function WithdrawClient({ user }: Props) {
 
               {/* ✅ صفحة المحافظ */}
               <TabsContent value="wallets">
-                <Card className="trading-card">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
                       <Wallet className="w-5 h-5 mr-2" /> Manage Withdrawal Wallets
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* إضافة محفظة */}
                     <div className="flex justify-end">
                       <Dialog open={addWalletOpen} onOpenChange={setAddWalletOpen}>
                         <DialogTrigger asChild>
@@ -313,6 +319,7 @@ export default function WithdrawClient({ user }: Props) {
                       </Dialog>
                     </div>
 
+                    {/* قائمة المحافظ */}
                     <div className="space-y-3">
                       {wallets.map((w) => (
                         <div key={w.id} className="p-4 rounded-lg bg-background/10 border border-border/30">
@@ -337,13 +344,13 @@ export default function WithdrawClient({ user }: Props) {
 
           {/* ✅ الشريط الجانبي */}
           <div className="space-y-6">
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white text-lg">Recent Withdrawals</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {withdrawals.map((r: WithdrawalRequest) => (
-                  <div key={r.id} className="p-3 bg-background/20 rounded-lg border border-border/30">
+                  <div key={r.id} className="p-3 bg-background/20 rounded-lg border border-border/30" translate="no">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-white font-semibold">${r.amount}</span>
                       <Badge
@@ -366,7 +373,7 @@ export default function WithdrawClient({ user }: Props) {
               </CardContent>
             </Card>
 
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white text-lg flex items-center">
                   <Lock className="w-5 h-5 mr-2" /> Security Tips
