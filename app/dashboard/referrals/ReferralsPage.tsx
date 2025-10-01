@@ -134,7 +134,7 @@ export default function ReferralsPage() {
         const allRefs = [...level1Refs, ...level2Refs, ...level3Refs];
         setHistory(allRefs);
 
-        // 🟢 7. العمولات (لكل المستويات)
+        // 🟢 7. العمولات
         const { data: commissionsData } = await supabase
           .from("referral_commissions")
           .select("amount")
@@ -202,19 +202,23 @@ export default function ReferralsPage() {
 
   if (!profile) {
     return (
-      <div className="p-6">
+      <div className="p-6" translate="no" data-react-protected>
         <p className="text-white">Please login to view referrals.</p>
       </div>
     );
   }
 
-  // ✅ عرض الصفحة
+  // ✅ عرض الصفحة مع حماية الترجمة
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20"
+      translate="no"
+      data-react-protected
+    >
       <div className="p-6 space-y-6">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between" translate="no">
             <div>
               <h1 className="text-3xl font-bold text-white">
                 Professional Referral Program
@@ -233,7 +237,7 @@ export default function ReferralsPage() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" translate="no">
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
@@ -284,7 +288,7 @@ export default function ReferralsPage() {
           </div>
 
           {/* Referral Link */}
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm" translate="no">
             <CardHeader>
               <CardTitle className="text-white flex items-center space-x-2">
                 <Share className="h-5 w-5" />
@@ -319,7 +323,7 @@ export default function ReferralsPage() {
           </Card>
 
           {/* History by Level */}
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-800/50 border-slate-700" translate="no">
             <CardHeader>
               <CardTitle className="text-white">Referral History</CardTitle>
             </CardHeader>
