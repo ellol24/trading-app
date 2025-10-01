@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   TrendingUp,
   TrendingDown,
@@ -16,65 +16,67 @@ import {
   Wallet,
   PieChart,
   CreditCard,
-} from "lucide-react"
-import Link from "next/link"
-import { marketDataService, type MarketData } from "@/lib/market-data"
-import { supabase } from "@/lib/supabase/client"
+} from "lucide-react";
+import Link from "next/link";
+import { marketDataService, type MarketData } from "@/lib/market-data";
+import { supabase } from "@/lib/supabase/client";
 
+// ------------------ Interfaces ------------------
 interface UserProfile {
-  balance: number
-  total_referrals: number
-  total_trades: number
+  balance: number;
+  total_referrals: number;
+  total_trades: number;
 }
 
 interface UserWallet {
-  currency: string
-  balance: number
-  total_profit: number
-  total_loss: number
-  total_deposited: number
+  currency: string;
+  balance: number;
+  total_profit: number;
+  total_loss: number;
+  total_deposited: number;
 }
 
 interface BinaryTrade {
-  id: string
-  asset: string
-  type: string
-  amount: number
-  profit_loss: number | null
-  created_at: string
-  roi_percentage: number | null
-  result: string | null
+  id: string;
+  asset: string;
+  type: string;
+  amount: number;
+  profit_loss: number | null;
+  created_at: string;
+  roi_percentage: number | null;
+  result: string | null;
 }
 
 interface InvestmentPackage {
-  id: string
-  title: string
-  min_investment: number
-  max_investment: number
-  roi_daily_percentage: number
-  duration_days: number
-  image_url: string | null
-  is_active: boolean
+  id: string;
+  title: string;
+  min_investment: number;
+  max_investment: number;
+  roi_daily_percentage: number;
+  duration_days: number;
+  image_url: string | null;
+  is_active: boolean;
 }
 
 interface UserPackagePurchase {
-  id: string
-  amount: number
-  status: string
-  daily_profit: number
-  total_credited: number
-  days_completed: number
-  package: InvestmentPackage
+  id: string;
+  amount: number;
+  status: string;
+  daily_profit: number;
+  total_credited: number;
+  days_completed: number;
+  package: InvestmentPackage;
 }
 
 type DashboardClientProps = {
-  userName: string
-  userId: string
-  balance: number
-  totalReferrals: number
-  totalTrades: number
-}
+  userName: string;
+  userId: string;
+  balance: number;
+  totalReferrals: number;
+  totalTrades: number;
+};
 
+// ------------------ Component ------------------
 export default function DashboardClient({
   userName,
   userId,
@@ -82,201 +84,112 @@ export default function DashboardClient({
   totalReferrals,
   totalTrades,
 }: DashboardClientProps) {
-  const [marketData, setMarketData] = useState<MarketData[]>([])
-  const [wallets, setWallets] = useState<UserWallet[]>([])
-  const [recentTrades, setRecentTrades] = useState<BinaryTrade[]>([])
-  const [totalTradesCount, setTotalTradesCount] = useState<number>(totalTrades)
-  const [packages, setPackages] = useState<InvestmentPackage[]>([])
-  const [userPackages, setUserPackages] = useState<UserPackagePurchase[]>([])
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [marketData, setMarketData] = useState<MarketData[]>([]);
+  const [wallets, setWallets] = useState<UserWallet[]>([]);
+  const [recentTrades, setRecentTrades] = useState<BinaryTrade[]>([]);
+  const [totalTradesCount, setTotalTradesCount] = useState<number>(totalTrades);
+  const [packages, setPackages] = useState<InvestmentPackage[]>([]);
+  const [userPackages, setUserPackages] = useState<UserPackagePurchase[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // === PROTECTION: تعطيل ترجمة Google فقط لهذه الصفحة + إزالة عناصر جوجل المشبوهة بأمان ===
-  useEffect(() => {
-    try {
-      // منع الترجمة (تأثير فقط على هذه الصفحة لأن المكون client-only)
-      document.documentElement.setAttribute("translate", "no")
-      document.body.setAttribute("translate", "no")
-      document.body.setAttribute("data-react-protected", "true")
-
-      const selectors = [
-        '[class*="goog-"]',
-        '[id*="goog-"]',
-        '[class*="google-translate"]',
-        '[id*="google-translate"]',
-        '#goog-gt-tt',
-        '.goog-te-banner-frame',
-        '.goog-te-spinner',
-      ]
-
-      const removeGoogleNodes = (root: Node | null) => {
-        if (!root) return
-        try {
-          if (root instanceof Element) {
-            // إذا العقدة نفسها تطابق حدفها بأمان
-            for (const sel of selectors) {
-              if ((root as Element).matches && (root as Element).matches(sel)) {
-                ;(root as any).remove?.()
-                return
-              }
-            }
-            // ابحث داخل العنصر
-            selectors.forEach((sel) =>
-              Array.from((root as Element).querySelectorAll(sel)).forEach((n) => {
-                try {
-                  // لا نحذف عناصر محمية داخل تطبيقنا
-                  if ((n as Element).closest && (n as Element).closest("[data-react-protected]")) return
-                  ;(n as any).remove?.()
-                } catch (e) {
-                  /* safe-guard */
-                }
-              })
-            )
-          } else {
-            // node could be a Text or Comment; ignore
-          }
-        } catch (e) {
-          // لا نفشل التطبيق بسبب خطأ في التنظيف
-          console.warn("[TranslateProtection] removeGoogleNodes error:", e)
-        }
-      }
-
-      const observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          // added nodes
-          if (m.addedNodes && m.addedNodes.length) {
-            m.addedNodes.forEach((n) => removeGoogleNodes(n))
-          }
-          // attributes changed
-          if (m.type === "attributes" && m.target) {
-            removeGoogleNodes(m.target)
-          }
-        }
-      })
-
-      observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["class", "id", "translate"],
-      })
-
-      const cleanupInterval = window.setInterval(() => {
-        removeGoogleNodes(document.documentElement)
-      }, 2500)
-
-      // cleanup on unmount
-      return () => {
-        try {
-          observer.disconnect()
-          clearInterval(cleanupInterval)
-          document.documentElement.removeAttribute("translate")
-          document.body.removeAttribute("translate")
-          document.body.removeAttribute("data-react-protected")
-        } catch (e) {
-          /* ignore */
-        }
-      }
-    } catch (e) {
-      // حماية إضافية من أي خطأ غير متوقع
-      console.warn("[TranslateProtection] init failed:", e)
-      return
-    }
-  }, [])
-
+  // ------------------ Fetch Data ------------------
   const fetchUserData = async () => {
     try {
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from("user_profiles")
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
-        .single()
-      if (!profileError && profileData) setProfile(profileData)
-      else if (profileError) console.error("[Dashboard] profile error:", profileError)
+        .single();
+      if (profileData) setProfile(profileData);
 
-      const { data: walletsData, error: walletsError } = await supabase
+      const { data: walletsData } = await supabase
         .from("user_wallets")
         .select("*")
-        .eq("user_id", userId)
-      if (!walletsError) setWallets(walletsData || [])
-      else console.error("[Dashboard] wallets error:", walletsError)
+        .eq("user_id", userId);
+      setWallets(walletsData || []);
 
-      const { data: tradesRows, error: tradesError } = await supabase
+      const { data: tradesRows } = await supabase
         .from("trades")
-        .select("id, asset, type, amount, profit_loss, created_at, roi_percentage, result")
+        .select(
+          "id, asset, type, amount, profit_loss, created_at, roi_percentage, result"
+        )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(4)
-      if (!tradesError) setRecentTrades(tradesRows || [])
-      else console.error("[Dashboard] trades error:", tradesError)
+        .limit(4);
+      setRecentTrades(tradesRows || []);
 
-      const { count: tradesCount, error: countError } = await supabase
+      const { count: tradesCount } = await supabase
         .from("trades")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-      if (!countError) {
-        setTotalTradesCount(tradesCount ?? 0)
-        setProfile((prev) => (prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev))
-      } else {
-        console.error("[Dashboard] trades count error:", countError)
-      }
+        .eq("user_id", userId);
+      setTotalTradesCount(tradesCount ?? 0);
+      setProfile((prev) =>
+        prev ? { ...prev, total_trades: tradesCount ?? 0 } : prev
+      );
 
-      const { data: packagesData, error: packagesError } = await supabase
+      const { data: packagesData } = await supabase
         .from("investment_packages")
         .select("*")
         .eq("is_active", true)
-        .limit(3)
-      if (!packagesError) setPackages(packagesData || [])
-      else console.error("[Dashboard] packages error:", packagesError)
+        .limit(3);
+      setPackages(packagesData || []);
 
-      const { data: userPackagesData, error: userPackagesError } = await supabase
+      const { data: userPackagesData } = await supabase
         .from("user_package_purchases")
         .select(`*, package:investment_packages(*)`)
         .eq("user_id", userId)
-        .in("status", ["active", "running"])
-      if (!userPackagesError) setUserPackages(userPackagesData || [])
-      else console.error("[Dashboard] user packages error:", userPackagesError)
+        .in("status", ["active", "running"]);
+      setUserPackages(userPackagesData || []);
     } catch (err) {
-      console.error("[Dashboard] fetchUserData exception:", err)
+      console.error("[Dashboard] fetchUserData exception:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // Realtime subscription (only when userId present)
+  // ------------------ Realtime ------------------
   useEffect(() => {
-    if (!userId) return
-    if (typeof window === "undefined") return
-    if (!supabase || !("channel" in supabase)) return
+    if (!userId) return;
+    if (typeof window === "undefined") return;
+    if (!supabase || !supabase.channel) return;
 
-    let channel: any = null
+    let channel: any = null;
     try {
       channel = supabase
         .channel("trades_changes")
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "trades",
+            filter: `user_id=eq.${userId}`,
+          },
           () => {
-            fetchUserData().catch((e) => console.error("[Dashboard] fetchUserData error", e))
+            fetchUserData().catch((e) =>
+              console.error("[Dashboard] fetchUserData error", e)
+            );
           }
         )
-        .subscribe()
+        .subscribe();
     } catch (err) {
-      console.error("[Dashboard] realtime subscribe failed:", err)
+      console.error("[Dashboard] realtime subscribe failed:", err);
     }
 
     return () => {
       try {
-        if (channel) supabase.removeChannel(channel)
+        if (channel) supabase.removeChannel(channel);
       } catch (e) {
-        console.warn("[Dashboard] removeChannel failed:", e)
+        console.warn("[Dashboard] removeChannel failed:", e);
       }
-    }
-  }, [userId])
+    };
+  }, [userId]);
 
+  // ------------------ Market Data ------------------
   useEffect(() => {
-    const initialData = marketDataService.getAllMarketData()
-    setMarketData(initialData)
+    const initialData = marketDataService.getAllMarketData();
+    setMarketData(initialData);
 
     const cryptoPairs = ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD"];
     const unsubscribers = cryptoPairs.map((symbol) =>
@@ -299,21 +212,26 @@ export default function DashboardClient({
     };
   }, [userId]);
 
+  // ------------------ Derived Values ------------------
+  const totalBalance = profile?.balance ?? balance;
+  const todayProfit = wallets.reduce(
+    (sum, w) => sum + (w.total_profit ?? 0),
+    0
+  );
+  const todayProfitPercent =
+    totalBalance > 0 ? (todayProfit / totalBalance) * 100 : 0;
 
-  const totalBalance = profile?.balance ?? balance
-  const todayProfit = wallets.reduce((sum, w) => sum + (w.total_profit ?? 0), 0)
-  const todayProfitPercent = totalBalance > 0 ? (todayProfit / totalBalance) * 100 : 0
-
+  // ------------------ Loading State ------------------
   if (loading) {
     return (
       <div
-        className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24 flex items-center justify-center"
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
         translate="no"
         data-react-protected
       >
         <div className="text-white text-xl">Loading your dashboard...</div>
       </div>
-    )
+    );
   }
 
   const cryptoData = marketData
@@ -324,8 +242,7 @@ export default function DashboardClient({
     )
     .slice(0, 5);
 
-
- 
+  // ------------------ UI ------------------
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
@@ -334,21 +251,33 @@ export default function DashboardClient({
     >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-white">Welcome Back, {userName}!</h1>
-          <p className="text-blue-200">Here's your trading overview for today</p>
+        <div className="text-center space-y-2" translate="no">
+          <h1 className="text-3xl font-bold text-white">
+            Welcome Back, {userName}!
+          </h1>
+          <p className="text-blue-200">
+            Here's your trading overview for today
+          </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+          translate="no"
+        >
           {/* Total Balance */}
           <Card className="trading-card" translate="no">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-300">Total Balance</h2>
+                  <h2 className="text-lg font-semibold text-gray-300">
+                    Total Balance
+                  </h2>
                   <p className="text-3xl font-bold text-white mt-2">
-                    ${Number(totalBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    $
+                    {Number(totalBalance ?? 0).toLocaleString(undefined, {
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
                 <div className="p-3 bg-blue-500/20 rounded-full">
@@ -363,10 +292,22 @@ export default function DashboardClient({
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-300">Total Referrals</h2>
-                  <p className="text-3xl font-bold text-white mt-2">{totalReferrals}</p>
-                  <p className={`text-sm flex items-center ${todayProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {todayProfit >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                  <h2 className="text-lg font-semibold text-gray-300">
+                    Total Referrals
+                  </h2>
+                  <p className="text-3xl font-bold text-white mt-2">
+                    {totalReferrals}
+                  </p>
+                  <p
+                    className={`text-sm flex items-center ${
+                      todayProfit >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    {todayProfit >= 0 ? (
+                      <TrendingUp className="w-4 h-4 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 mr-1" />
+                    )}
                     {todayProfit >= 0 ? "+" : ""}
                     {todayProfitPercent.toFixed(2)}%
                   </p>
@@ -384,7 +325,9 @@ export default function DashboardClient({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm">Total Trades</p>
-                  <p className="text-2xl font-bold text-white">{totalTradesCount}</p>
+                  <p className="text-2xl font-bold text-white">
+                    {totalTradesCount}
+                  </p>
                 </div>
                 <div className="p-3 bg-orange-500/20 rounded-full">
                   <PieChart className="w-6 h-6 text-orange-400" />
@@ -466,7 +409,6 @@ export default function DashboardClient({
           </CardContent>
         </Card>
 
-
         {/* Recent Trading Activity */}
         <Card className="trading-card" translate="no">
           <CardHeader>
@@ -478,18 +420,32 @@ export default function DashboardClient({
           <CardContent className="space-y-4">
             {recentTrades.length > 0 ? (
               recentTrades.map((trade) => (
-                <div key={trade.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                <div
+                  key={trade.id}
+                  className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
                       <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                      <span className="text-white font-medium">{trade.asset}</span>
-                      <Badge variant={trade.type === "CALL" ? "default" : "secondary"} className="text-xs">
+                      <span className="text-white font-medium">
+                        {trade.asset}
+                      </span>
+                      <Badge
+                        variant={
+                          trade.type === "CALL" ? "default" : "secondary"
+                        }
+                        className="text-xs"
+                      >
                         {trade.type}
                       </Badge>
                     </div>
                     <span
                       className={`text-sm font-medium ${
-                        (trade.profit_loss ?? 0) > 0 ? "text-green-400" : (trade.profit_loss ?? 0) < 0 ? "text-red-400" : "text-slate-300"
+                        (trade.profit_loss ?? 0) > 0
+                          ? "text-green-400"
+                          : (trade.profit_loss ?? 0) < 0
+                          ? "text-red-400"
+                          : "text-slate-300"
                       }`}
                     >
                       {trade.result === "win"
@@ -502,7 +458,11 @@ export default function DashboardClient({
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Amount: ${Number(trade.amount ?? 0).toFixed(2)}</span>
                     <span>ROI: {trade.roi_percentage ?? 0}%</span>
-                    <span>{trade.created_at ? new Date(trade.created_at).toLocaleString() : ""}</span>
+                    <span>
+                      {trade.created_at
+                        ? new Date(trade.created_at).toLocaleString()
+                        : ""}
+                    </span>
                   </div>
                 </div>
               ))
@@ -510,7 +470,7 @@ export default function DashboardClient({
               <div className="text-center text-muted-foreground py-8">
                 <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No recent trades found</p>
-                <p className="text-sm">Start trading to see your activity here</p>
+                <p className="text-sm">Start trading to see your activity</p>
               </div>
             )}
           </CardContent>
@@ -525,7 +485,11 @@ export default function DashboardClient({
                 Investment Packages
               </CardTitle>
               <Link href="/dashboard/packages">
-                <Button variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
+                >
                   <Eye className="w-4 h-4 mr-2" />
                   View All
                 </Button>
@@ -536,7 +500,10 @@ export default function DashboardClient({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {packages.length > 0 ? (
                 packages.map((pkg) => (
-                  <div key={pkg.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                  <div
+                    key={pkg.id}
+                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                  >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-white font-medium">{pkg.title}</h3>
                       <Badge variant="secondary">Available</Badge>
@@ -544,15 +511,21 @@ export default function DashboardClient({
                     <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <p className="text-muted-foreground">Min</p>
-                        <p className="text-white font-medium">${pkg.min_investment.toLocaleString()}</p>
+                        <p className="text-white font-medium">
+                          ${pkg.min_investment.toLocaleString()}
+                        </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Duration</p>
-                        <p className="text-white font-medium">{pkg.duration_days} days</p>
+                        <p className="text-white font-medium">
+                          {pkg.duration_days} days
+                        </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Daily ROI</p>
-                        <p className="text-green-400 font-medium">{pkg.roi_daily_percentage}%</p>
+                        <p className="text-green-400 font-medium">
+                          {pkg.roi_daily_percentage}%
+                        </p>
                       </div>
                     </div>
                     <Link href="/dashboard/packages">
@@ -604,7 +577,7 @@ export default function DashboardClient({
                 </Button>
               </Link>
               <Link href="/dashboard/withdraw">
-                <Button className="w-full h-16 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700">
+                <Button className="w-full h-16 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-purple-700">
                   <div className="text-center">
                     <DollarSign className="w-6 h-6 mx-auto mb-1" />
                     <span className="text-sm">Withdraw</span>
@@ -616,5 +589,5 @@ export default function DashboardClient({
         </Card>
       </div>
     </div>
-  )
+  );
 }
