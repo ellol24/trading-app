@@ -13,7 +13,11 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 
 function formatUSD(n: number) {
-  return n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 })
+  return n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  })
 }
 
 export default function PackagesClient({ userId }: { userId: string }) {
@@ -32,35 +36,32 @@ export default function PackagesClient({ userId }: { userId: string }) {
 
     const fetchData = async () => {
       try {
-        // 1. الباقات (مرئية)
+        // باقات مرئية
         const { data: pkgs, error: pkgErr } = await supabase
           .from("investment_packages")
           .select("*")
           .eq("is_active", true)
-
-        if (pkgErr) console.error(pkgErr)
+        if (pkgErr) console.error("[Packages] packages fetch error:", pkgErr)
         if (pkgs) setPackages(pkgs)
 
-        // 2. استثمارات المستخدم (مع relation للباقات)
+        // استثمارات المستخدم مع relation
         const { data: invs, error: invErr } = await supabase
           .from("investments")
           .select("*, investment_packages(*)")
           .eq("user_id", userId)
-
-        if (invErr) console.error(invErr)
+        if (invErr) console.error("[Packages] investments fetch error:", invErr)
         if (invs) setInvestments(invs)
 
-        // 3. الرصيد
+        // رصيد المستخدم
         const { data: bal, error: balErr } = await supabase
           .from("user_profiles")
           .select("balance")
           .eq("uid", userId)
           .single()
-
-        if (balErr) console.error(balErr)
-        if (bal) setWallet(Number(bal.balance || 0))
+        if (balErr) console.error("[Packages] balance fetch error:", balErr)
+        if (bal && typeof bal.balance !== "undefined") setWallet(Number(bal.balance))
       } catch (err) {
-        console.error("fetchData error", err)
+        console.error("[Packages] fetchData error:", err)
       }
     }
 
@@ -70,9 +71,9 @@ export default function PackagesClient({ userId }: { userId: string }) {
   // شراء باقة
   const handleBuy = async (pkg: any) => {
     if (!userId) return
-    const amt = amounts[pkg.id] ?? pkg.min_investment
+    const amt = amounts[pkg.id] ?? pkg.min_investment ?? 0
 
-    if (amt < pkg.min_investment || amt > pkg.max_investment) {
+    if (amt < (pkg.min_investment ?? 0) || amt > (pkg.max_investment ?? Infinity)) {
       toast({
         title: "Invalid amount",
         description: `Amount must be between ${pkg.min_investment} and ${pkg.max_investment}`,
@@ -81,7 +82,6 @@ export default function PackagesClient({ userId }: { userId: string }) {
       return
     }
 
-    // التحقق من الرصيد
     if (wallet < amt) {
       toast({
         title: "Insufficient Balance",
@@ -92,22 +92,22 @@ export default function PackagesClient({ userId }: { userId: string }) {
     }
 
     try {
-      // تحديث الرصيد أولاً (يتم حجز المال الآن)
+      // حجز المبلغ أولاً (ببساطة تخفيض الرصيد)
       const { error: balErr } = await supabase
         .from("user_profiles")
         .update({ balance: wallet - amt })
         .eq("uid", userId)
 
       if (balErr) {
-        toast({ title: "Error", description: balErr.message, variant: "destructive" })
+        toast({ title: "Error", description: balErr.message ?? "Unable to update balance", variant: "destructive" })
         return
       }
 
-      // إدخال الاستثمار - نضع start_date صريحاً لكي نحسب من عند العميل فوراً
+      // إدخال الاستثمار
       const { error: invErr } = await supabase.from("investments").insert([
         {
           user_id: userId,
-          package_id: pkg.id, // يفترض أن المرجعية صحيحة في قاعدة بياناتك
+          package_id: pkg.id,
           amount: amt,
           status: "active",
           start_date: new Date().toISOString(),
@@ -115,23 +115,22 @@ export default function PackagesClient({ userId }: { userId: string }) {
       ])
 
       if (invErr) {
-        // إذا فشل الإدخال، سنعيد الرصيد (محاولة علاج بسيط)
+        // محاولة إعادة الرصيد عند الفشل
         await supabase.from("user_profiles").update({ balance: wallet }).eq("uid", userId)
-        toast({ title: "Error", description: invErr.message, variant: "destructive" })
+        toast({ title: "Error", description: invErr.message ?? "Failed to create investment", variant: "destructive" })
         return
       }
 
       toast({ title: "Package activated", description: `${pkg.title} started.` })
+      // تحديث محلي للواجهة
+      setWallet((prev) => prev - amt)
 
-      // إعادة تحميل البيانات
+      // إعادة جلب الاستثمارات لتحديث القائمة
       const { data: invs } = await supabase
         .from("investments")
         .select("*, investment_packages(*)")
         .eq("user_id", userId)
       if (invs) setInvestments(invs)
-
-      // تحديث الرصيد في الواجهة
-      setWallet((prev) => prev - amt)
     } catch (err) {
       console.error("handleBuy error", err)
       toast({ title: "Error", description: "An unexpected error occurred", variant: "destructive" })
@@ -148,14 +147,13 @@ export default function PackagesClient({ userId }: { userId: string }) {
       const roiDaily = Number(inv.investment_packages?.roi_daily_percentage ?? inv.roi_daily_percentage ?? 0)
       const durationDays = Number(inv.investment_packages?.duration_days ?? inv.duration_days ?? 0)
 
-      // حساب الأرباح النهائية (sum of daily ROI over duration)
       const profit = Number(((amount * (roiDaily / 100)) * durationDays).toFixed(2))
       const totalReturn = Number((amount + profit).toFixed(2))
 
-      // 1) تحديث حالة الاستثمار وإضافة الحقل profit
+      // تحديث حالة الاستثمار
       const { error: invUpdErr } = await supabase
         .from("investments")
-        .update({ status: "completed", profit: profit })
+        .update({ status: "completed", profit })
         .eq("id", inv.id)
 
       if (invUpdErr) {
@@ -163,40 +161,30 @@ export default function PackagesClient({ userId }: { userId: string }) {
         return
       }
 
-      // 2) جلب رصيد المستخدم الحالي (من user_profiles)
+      // تحديث رصيد المستخدم (يمكن تحسين ذلك باستخدام RPC/transaction على Postgres)
       const { data: bal, error: balErr } = await supabase
         .from("user_profiles")
         .select("balance")
         .eq("uid", inv.user_id || userId)
         .single()
 
-      if (balErr) {
-        console.error("Failed to read user balance:", balErr)
-        // لا نعيد العملية هنا - نحاول على الأقل إعادة تحميل البيانات أدناه
-      }
-
+      if (balErr) console.error("Failed to read user balance:", balErr)
       const currentBalance = Number(bal?.balance ?? wallet ?? 0)
       const newBalance = Number((currentBalance + totalReturn).toFixed(2))
 
-      // 3) تحديث رصيد المستخدم (غير ذرّي — إذا رغبت بالدقة استخدم RPC على Postgres)
       const { error: balUpdErr } = await supabase
         .from("user_profiles")
         .update({ balance: newBalance })
         .eq("uid", inv.user_id || userId)
 
-      if (balUpdErr) {
-        console.error("Failed to update user balance:", balUpdErr)
-      } else {
-        // تحديث الواجهة
-        setWallet(newBalance)
-      }
+      if (balUpdErr) console.error("Failed to update user balance:", balUpdErr)
+      else setWallet(newBalance)
 
-      // 4) إعادة تحميل الاستثمارات لتحديث الحالة في الواجهة
+      // إعادة تحميل الاستثمارات
       const { data: invs } = await supabase
         .from("investments")
         .select("*, investment_packages(*)")
         .eq("user_id", userId)
-
       if (invs) setInvestments(invs)
     } catch (err) {
       console.error("handleInvestmentComplete error", err)
@@ -213,7 +201,6 @@ export default function PackagesClient({ userId }: { userId: string }) {
       if (!inv) return
       if (localDone) return
 
-      // حساب وقت البداية/النهاية
       const startTime = new Date(inv.start_date ?? inv.created_at ?? Date.now()).getTime()
       const durationDays = Number(inv.investment_packages?.duration_days ?? inv.duration_days ?? 0)
       const durationMs = durationDays * 24 * 60 * 60 * 1000
@@ -230,7 +217,6 @@ export default function PackagesClient({ userId }: { userId: string }) {
           setTimeLeftText("انتهت الباقة")
           setProgress(100)
           setLocalDone(true)
-          // استدعاء إنهاء الباقة بعد زمن قصير للتأكد من عدم تضارب مع setState المتزامنة
           setTimeout(() => {
             void handleInvestmentComplete(inv)
           }, 300)
@@ -241,11 +227,8 @@ export default function PackagesClient({ userId }: { userId: string }) {
         const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
         const minutes = Math.floor((diff / (1000 * 60)) % 60)
         const seconds = Math.floor((diff / 1000) % 60)
-        // عرض بالعربية مختصر
         setTimeLeftText(`${days}d ${hours}h ${minutes}m ${seconds}s`)
 
-
-        // حساب نسبة التقدم (النسبة من الوقت المنقضي)
         const elapsed = now - startTime
         const pct = durationMs > 0 ? Math.min(100, Math.max(0, (elapsed / durationMs) * 100)) : 0
         setProgress(pct)
@@ -260,7 +243,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
     }, [inv, localDone])
 
     return (
-      <div>
+      <div translate="no" data-react-protected>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm text-muted-foreground">Remaining</div>
           <div className="text-sm font-medium text-blue-200">{timeLeftText}</div>
@@ -271,11 +254,15 @@ export default function PackagesClient({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900"
+      translate="no" // منع الترجمة على مستوى الصفحة
+      data-react-protected // وسم لحماية عناصر داخل الصفحة
+    >
       <div className="p-6 pb-24">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Wallet summary */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no" data-react-protected>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-white">
                 <Wallet className="h-5 w-5" />
@@ -299,7 +286,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
           </Card>
 
           {/* Active Packages Overview */}
-          <Card className="trading-card">
+          <Card className="trading-card" translate="no" data-react-protected>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 text-white">
                 <Package className="h-5 w-5" />
@@ -353,12 +340,12 @@ export default function PackagesClient({ userId }: { userId: string }) {
                 {packages.map((pkg) => {
                   const amt = amounts[pkg.id] ?? pkg.min_investment
                   return (
-                    <Card key={pkg.id} className="trading-card">
+                    <Card key={pkg.id} className="trading-card" translate="no" data-react-protected>
                       <CardContent className="p-0">
                         <div className="relative">
                           <img
                             src={pkg.image_url || "/placeholder.svg"}
-                            alt={pkg.title}
+                            alt={pkg.title ?? "package"}
                             className="w-full h-44 object-cover rounded-t-lg"
                           />
                           <div className="absolute top-4 right-4">
@@ -419,6 +406,11 @@ export default function PackagesClient({ userId }: { userId: string }) {
                     </Card>
                   )
                 })}
+                {packages.length === 0 && (
+                  <div className="col-span-1 text-center text-muted-foreground py-8">
+                    <p>No packages available</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -426,7 +418,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-white">My Packages</h2>
               {investments.length === 0 ? (
-                <Card className="trading-card">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardContent className="p-6 text-muted-foreground">
                     You have no packages yet. Activate one to start earning daily profits.
                   </CardContent>
@@ -434,7 +426,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
               ) : (
                 <div className="space-y-4">
                   {investments.map((inv) => (
-                    <Card key={inv.id} className="trading-card">
+                    <Card key={inv.id} className="trading-card" translate="no" data-react-protected>
                       <CardContent className="p-5 space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -459,8 +451,8 @@ export default function PackagesClient({ userId }: { userId: string }) {
             </div>
           </div>
 
-          {/* Helpful Links */}
-          
+          {/* Helpful Links — يمكنك إضافة روابط مساعدة هنا */}
+          <div />
         </div>
       </div>
     </div>
