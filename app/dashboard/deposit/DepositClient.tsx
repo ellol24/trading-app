@@ -161,10 +161,14 @@ export default function DepositClient({ user, profile }: any) {
   }, [user?.id]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
+      translate="no"           // ⛔️ منع الترجمة لهذه الصفحة بالكامل
+      data-react-protected      // ⛔️ حماية إضافية من أي تدخل خارجي
+    >
+      <div className="max-w-5xl mx-auto space-y-6" translate="no">
         {/* header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" translate="no">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
             <p className="text-blue-200 mt-1">
@@ -181,9 +185,9 @@ export default function DepositClient({ user, profile }: any) {
         </div>
 
         {/* Deposit Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" translate="no">
           <div className="lg:col-span-2 space-y-6">
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white">Wallet & Amount</CardTitle>
               </CardHeader>
@@ -230,7 +234,7 @@ export default function DepositClient({ user, profile }: any) {
               </CardContent>
             </Card>
 
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white">Deposit Proof</CardTitle>
               </CardHeader>
@@ -261,7 +265,7 @@ export default function DepositClient({ user, profile }: any) {
             </Card>
 
             {/* ✅ قسم الهستوري */}
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white">My Deposit History</CardTitle>
               </CardHeader>
@@ -275,6 +279,7 @@ export default function DepositClient({ user, profile }: any) {
                     <div
                       key={dep.id}
                       className="p-4 border border-border/30 rounded-md bg-background/30"
+                      translate="no" // ⛔️ حتى تفاصيل التاريخ غير قابلة للترجمة
                     >
                       <p className="text-white">
                         <strong>Amount:</strong> {dep.amount}
@@ -313,7 +318,7 @@ export default function DepositClient({ user, profile }: any) {
 
           {/* Instructions */}
           <div className="space-y-6">
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white text-lg">How It Works</CardTitle>
               </CardHeader>
