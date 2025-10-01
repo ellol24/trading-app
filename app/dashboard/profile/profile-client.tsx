@@ -32,6 +32,13 @@ import {
   EyeOff,
 } from "lucide-react";
 
+/**
+ * التحسينات المضافة:
+ * - translate="no" على الحاوية الأساسية وبعض المكونات المهمة لمنع Google Translate من التلاعب بالمحتوى.
+ * - data-react-protected على الحاويات الحسّاسة للإشارة إلى ProtectionScript/ClientProviders بعدم حذف عناصر React.
+ * - لم أغير منطق Supabase أو الواجهات الأصلية — فقط أضفت سمات حماية وتعليقات.
+ */
+
 interface ProfileClientProps {
   user: any | null; // supabase user object
   profile?: any | null; // optional preloaded profile row
@@ -100,8 +107,12 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       }
 
       setProfileData({
-        firstName: profileRow?.first_name ?? (user?.user_metadata?.full_name ? String(user.user_metadata.full_name).split(" ")[0] : ""),
-        lastName: profileRow?.last_name ?? (user?.user_metadata?.full_name ? String(user.user_metadata.full_name).split(" ")[1] : ""),
+        firstName:
+          profileRow?.first_name ??
+          (user?.user_metadata?.full_name ? String(user.user_metadata.full_name).split(" ")[0] : ""),
+        lastName:
+          profileRow?.last_name ??
+          (user?.user_metadata?.full_name ? String(user.user_metadata.full_name).split(" ")[1] : ""),
         email: user?.email ?? "",
         phone: profileRow?.phone ?? "",
         country: profileRow?.country ?? "",
@@ -207,43 +218,39 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   };
 
   // Change password using supabase auth (client)
-const handleChangePassword = async () => {
-  if (!newPassword) {
-    toast({
-      title: "Missing field",
-      description: "Please enter a new password.",
-      variant: "destructive",
-    })
-    return
-  }
+  const handleChangePassword = async () => {
+    if (!newPassword) {
+      toast({
+        title: "Missing field",
+        description: "Please enter a new password.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  setIsPasswordSaving(true)
-  try {
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) throw error
+    setIsPasswordSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
 
-    toast({
-      title: "Password updated",
-      description: "Your password has been changed successfully.",
-    })
+      toast({
+        title: "Password updated",
+        description: "Your password has been changed successfully.",
+      });
 
-    setCurrentPassword("")
-    setNewPassword("")
-  } catch (err: any) {
-    console.error("password change error:", err)
-    toast({
-      title: "Password error",
-      description: err?.message || "Failed to change password.",
-      variant: "destructive",
-    })
-  } finally {
-    setIsPasswordSaving(false)
-  }
-}
-
-
-
-
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (err: any) {
+      console.error("password change error:", err);
+      toast({
+        title: "Password error",
+        description: err?.message || "Failed to change password.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPasswordSaving(false);
+    }
+  };
 
   // Export data client-side (no server route)
   const handleExportData = async () => {
@@ -294,35 +301,34 @@ const handleChangePassword = async () => {
   };
 
   // sign out
-// ------------------- Handlers -------------------
-const handleLogout = async () => {
-  setIsLoggingOut(true);
-  try {
-    // تسجيل الخروج من Supabase
-    await supabase.auth.signOut();
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // تسجيل الخروج من Supabase
+      await supabase.auth.signOut();
 
-    // ✅ إعادة التوجيه مباشرة إلى login
-    router.replace("/auth/login");
-  } catch (err: any) {
-    console.error("sign out err:", err);
-    toast({
-      title: "Logout failed",
-      description: err?.message || "Could not sign out.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoggingOut(false);
-  }
-};
-
-
-
-
+      // ✅ إعادة التوجيه مباشرة إلى login
+      router.replace("/auth/login");
+    } catch (err: any) {
+      console.error("sign out err:", err);
+      toast({
+        title: "Logout failed",
+        description: err?.message || "Could not sign out.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   // If not logged in show message
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
+      <div
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6"
+        translate="no" // ⛔️ منع الترجمة لهذه الحاوية
+        data-react-protected // ⛔️ علامة حماية لتتوافق مع ProtectionScript
+      >
         <p className="text-white">Please login to view your profile.</p>
       </div>
     );
@@ -330,10 +336,17 @@ const handleLogout = async () => {
 
   // ---------- Render ----------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
+      translate="no" // ⛔️ منع ترجمة الصفحة بالكامل
+      data-react-protected // ⛔️ حماية إضافية: تمنع الحذف الخاطئ لعناصر React من قبل سكربتات خارجية
+    >
+      <div className="max-w-6xl mx-auto space-y-6" translate="no" data-react-protected>
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+        <div
+          className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0"
+          translate="no"
+        >
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white text-xl font-bold">
@@ -347,7 +360,6 @@ const handleLogout = async () => {
                 <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
                   <CheckCircle className="w-3 h-3 mr-1" />{user?.email_confirmed_at ? "Verified Account" : "Unverified Account"}
                 </Badge>
-                
               </div>
             </div>
           </div>
@@ -357,33 +369,38 @@ const handleLogout = async () => {
               <Download className="w-4 h-4 mr-2" />{isExporting ? "Exporting..." : "Export Data"}
             </Button>
             <Button
-  variant="outline"
-  className="border-red-600 text-red-400 hover:bg-red-600/10 bg-transparent"
-  onClick={handleLogout}
-  disabled={isLoggingOut}
->
-  <LogOut className="w-4 h-4 mr-2" />
-  {isLoggingOut ? "Signing Out..." : "Sign Out"}
-</Button>
-
-
+              variant="outline"
+              className="border-red-600 text-red-400 hover:bg-red-600/10 bg-transparent"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              {isLoggingOut ? "Signing Out..." : "Sign Out"}
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6" translate="no">
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="trading-card">
+            <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white text-lg">Account Overview</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between"><span className="text-muted-foreground">Account Status</span><Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge></div>
-                <div className="flex items-center justify-between"><span className="text-muted-foreground">2FA Security</span><Badge className={prefs?.two_factor_enabled ? "bg-green-600 text-white" : "bg-red-600 text-white"}>{prefs?.two_factor_enabled ? "Enabled" : "Disabled"}</Badge></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Account Status</span>
+                  <Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">2FA Security</span>
+                  <Badge className={prefs?.two_factor_enabled ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
+                    {prefs?.two_factor_enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
                 <div className="pt-4 border-t border-slate-700">
                   <p className="text-muted-foreground text-sm">Last Login</p>
                   <p className="text-white text-sm">{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Never"}</p>
-                  
                 </div>
               </CardContent>
             </Card>
@@ -391,37 +408,32 @@ const handleLogout = async () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <Tabs defaultValue="profile" className="space-y-6">
+            <Tabs defaultValue="profile" className="space-y-6" >
               {/* Responsive grid: on small screens 2 columns (so two per row), on md+ show 5 */}
-            <TabsList
-  className="
-    flex justify-between w-full 
-    bg-gradient-to-r from-slate-800/60 to-slate-900/60 
-    backdrop-blur-sm border border-slate-700/50 
-    p-2 rounded-xl shadow-inner
-  "
->
-  <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-    <User className="w-4 h-4" /> Profile
-  </TabsTrigger>
-  <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-    <Shield className="w-4 h-4" /> Security
-  </TabsTrigger>
-  <TabsTrigger value="notifications" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-    <Bell className="w-4 h-4" /> Notifications
-  </TabsTrigger>
-{/*  <TabsTrigger value="kyc" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-    <FileText className="w-4 h-4" /> KYC
-  </TabsTrigger>
-  <TabsTrigger value="activity" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-    <Activity className="w-4 h-4" /> Activity
-  </TabsTrigger>*/}
-</TabsList>
-
+              <TabsList
+                className="
+                  flex justify-between w-full 
+                  bg-gradient-to-r from-slate-800/60 to-slate-900/60 
+                  backdrop-blur-sm border border-slate-700/50 
+                  p-2 rounded-xl shadow-inner
+                "
+                translate="no"
+              >
+                <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
+                  <User className="w-4 h-4" /> Profile
+                </TabsTrigger>
+                <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
+                  <Shield className="w-4 h-4" /> Security
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
+                  <Bell className="w-4 h-4" /> Notifications
+                </TabsTrigger>
+                {/* Uncomment KYC / Activity if needed */}
+              </TabsList>
 
               {/* Profile Tab */}
-              <TabsContent value="profile">
-                <Card className="trading-card">
+              <TabsContent value="profile" translate="no">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader className="flex items-center justify-between">
                     <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />Personal Information</CardTitle>
                     <div>
@@ -483,14 +495,17 @@ const handleLogout = async () => {
               </TabsContent>
 
               {/* Security */}
-              <TabsContent value="security">
-                <Card className="trading-card">
+              <TabsContent value="security" translate="no">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
                     <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />Security Settings</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
-                      <div><h3 className="text-white font-medium">Two-Factor Authentication</h3><p className="text-slate-400 text-sm">Add an extra layer of security to your account</p></div>
+                      <div>
+                        <h3 className="text-white font-medium">Two-Factor Authentication</h3>
+                        <p className="text-slate-400 text-sm">Add an extra layer of security to your account</p>
+                      </div>
                       <Switch checked={prefs.two_factor_enabled} onCheckedChange={(val) => { setPrefs(p => ({ ...p, two_factor_enabled: val })); updatePreference("two_factor_enabled", val); }} />
                     </div>
 
@@ -501,7 +516,9 @@ const handleLogout = async () => {
                           <Label htmlFor="currentPassword" className="text-slate-300">Current Password</Label>
                           <div className="relative">
                             <Input id="currentPassword" type={showPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
-                            <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                            <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowPassword(!showPassword)}>
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
                           </div>
                         </div>
 
@@ -509,13 +526,17 @@ const handleLogout = async () => {
                           <Label htmlFor="newPassword" className="text-slate-300">New Password</Label>
                           <div className="relative">
                             <Input id="newPassword" type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
-                            <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowNewPassword(!showNewPassword)}>{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button>
+                            <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowNewPassword(!showNewPassword)}>
+                              {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex justify-end">
-                        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white" onClick={handleChangePassword} disabled={isPasswordSaving}>{isPasswordSaving ? "Updating..." : "Update Password"}</Button>
+                        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white" onClick={handleChangePassword} disabled={isPasswordSaving}>
+                          {isPasswordSaving ? "Updating..." : "Update Password"}
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -523,8 +544,8 @@ const handleLogout = async () => {
               </TabsContent>
 
               {/* Notifications */}
-              <TabsContent value="notifications">
-                <Card className="trading-card">
+              <TabsContent value="notifications" translate="no">
+                <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
                     <CardTitle className="text-white flex items-center"><Bell className="w-5 h-5 mr-2" />Notification Preferences</CardTitle>
                   </CardHeader>
@@ -533,9 +554,7 @@ const handleLogout = async () => {
                       <div key={key} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
                         <div>
                           <h3 className="text-white font-medium capitalize">{key.replace(/_/g, " ")}</h3>
-                          <p className="text-slate-400 text-sm">
-                            {/* description mapping can be extended */}
-                          </p>
+                          <p className="text-slate-400 text-sm">{/* optional descriptions */}</p>
                         </div>
                         <Switch checked={Boolean(value)} onCheckedChange={(checked) => updatePreference(key, checked)} />
                       </div>
@@ -546,9 +565,11 @@ const handleLogout = async () => {
 
               {/* KYC (optional hide) */}
               {showKyc && (
-                <TabsContent value="kyc">
-                  <Card className="trading-card">
-                    <CardHeader><CardTitle className="text-white flex items-center"><FileText className="w-5 h-5 mr-2" />KYC Verification</CardTitle></CardHeader>
+                <TabsContent value="kyc" translate="no">
+                  <Card className="trading-card" translate="no" data-react-protected>
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center"><FileText className="w-5 h-5 mr-2" />KYC Verification</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <div className="text-center py-8">
                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="w-8 h-8 text-slate-400" /></div>
@@ -562,9 +583,11 @@ const handleLogout = async () => {
               )}
 
               {/* Activity */}
-              <TabsContent value="activity">
-                <Card className="trading-card">
-                  <CardHeader><CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />Recent Activity</CardTitle></CardHeader>
+              <TabsContent value="activity" translate="no">
+                <Card className="trading-card" translate="no" data-react-protected>
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />Recent Activity</CardTitle>
+                  </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
