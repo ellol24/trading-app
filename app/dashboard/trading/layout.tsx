@@ -1,5 +1,6 @@
 // app/trading/layout.tsx
 import type { ReactNode } from "react";
+import ClientProviders from "@/components/ClientProviders";
 
 export default function TradingLayout({ children }: { children: ReactNode }) {
   return (
