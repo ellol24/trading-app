@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -6,10 +5,8 @@ import "./globals.css";
 import ClientProviders from "@/components/ClientProviders";
 import { BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/brand";
 
-// تحميل خط Inter من Google Fonts
 const inter = Inter({ subsets: ["latin"] });
 
-// بيانات الـ SEO والـ Metadata (تُعالج تلقائياً بواسطة Next.js)
 export const metadata: Metadata = {
   title: `${BRAND_NAME} - Professional Trading Platform`,
   description: BRAND_DESCRIPTION,
@@ -36,31 +33,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // الـ <html> هو الجذر لكل الصفحات
-    // هنا نضيف translate="no" لمنع Google Translate من التلاعب
-    <html lang="en" translate="no" suppressHydrationWarning>
+    <html
+      lang="en"
+      translate="no"            // ⛔️ يمنع الترجمة من Google Translate
+      suppressHydrationWarning
+    >
       <head>
-        {/* ⛔️ هذه الـ meta tags تقول صراحةً لمحركات البحث وأدوات جوجل "لا تترجم" */}
+        {/* منع الترجمة على مستوى الميتا */}
         <meta name="google" content="notranslate" />
         <meta httpEquiv="Content-Language" content="en" />
         <meta name="robots" content="notranslate" />
         <meta name="googlebot" content="notranslate" />
       </head>
-
-      {/* ⛔️ هنا نكرر translate="no" على مستوى <body> 
-          ونضيف data-react-protected لتمييز أن المحتوى محمي من أي تلاعب DOM خارجي */}
       <body
         className={inter.className}
-        translate="no"
-        data-react-protected
+        translate="no"           // ⛔️ منع الترجمة على مستوى البودي
+        data-react-protected     // حماية من أي تدخل DOM خارجي
       >
-        {/* ClientProviders:
-            - يحتوي على جميع الـ Providers (Theme, Auth, Language, إلخ)
-            - يحتوي على ProtectionScript الذي يراقب DOM ويحذف أي عناصر
-              مضافة من Google Translate (مثل البانر أو التولبار)
-        */}
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
-  ); 
+  );
 }
