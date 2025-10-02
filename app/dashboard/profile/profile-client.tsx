@@ -102,7 +102,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
       let prefsRow = preferences ?? null;
       if (!prefsRow) {
-        const { data, error } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).single();
+        const { data, error } = await supabase.from("").select("*").eq("user_id", user.id).single();
         if (!error) prefsRow = data;
       }
 
@@ -203,7 +203,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       const upsertPayload: any = { user_id: user.id, updated_at: new Date().toISOString() };
       upsertPayload[key] = value;
 
-      const { error } = await supabase.from("user_preferences").upsert(upsertPayload, { onConflict: "user_id" });
+      const { error } = await supabase.from("").upsert(upsertPayload, { onConflict: "user_id" });
       if (error) throw error;
     } catch (err: any) {
       console.error("update pref err:", err);
@@ -259,7 +259,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     try {
       const [{ data: profileRow }, { data: prefsRow }] = await Promise.all([
         supabase.from("user_profiles").select("*").eq("uid", user.id).single(),
-        supabase.from("user_preferences").select("*").eq("user_id", user.id).single(),
+        supabase.from("").select("*").eq("user_id", user.id).single(),
       ]);
 
       const exportObj = {
