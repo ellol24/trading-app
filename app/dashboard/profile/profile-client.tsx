@@ -102,7 +102,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
       let prefsRow = preferences ?? null;
       if (!prefsRow) {
-        const { data, error } = await supabase.from("").select("*").eq("user_id", user.id).single();
+        const { data, error } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).single();
         if (!error) prefsRow = data;
       }
 
