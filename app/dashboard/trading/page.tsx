@@ -45,3 +45,4 @@ export default async function TradingPage() {
     <TradingClient user={safeUser} profile={safeProfile} />
   )
 }
+ 
