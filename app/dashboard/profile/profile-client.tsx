@@ -425,9 +425,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
                   <Shield className="w-4 h-4" /> Security
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <Bell className="w-4 h-4" /> Notifications
-                </TabsTrigger>
+                
                 {/* Uncomment KYC / Activity if needed */}
               </TabsList>
 
