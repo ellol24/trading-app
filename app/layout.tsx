@@ -54,7 +54,7 @@ export default function RootLayout({
         <ClientProviders>{children}</ClientProviders>
 
         {/* ✅ إضافة شريط التنقل السفلي بشكل دائم */}
-        <BottomNavigation />
+        
       </body>
     </html>
   );
