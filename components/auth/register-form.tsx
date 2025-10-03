@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,9 @@ import { Loader2, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/lib/auth-actions";
 
+type Props = {
+  referralCode?: string;
+};
 
 function SubmitButton({ pending }: { pending: boolean }) {
   return (
@@ -35,14 +38,22 @@ function SubmitButton({ pending }: { pending: boolean }) {
   );
 }
 
-export default function RegisterForm() {
+export default function RegisterForm({ referralCode: referralCodeFromUrl }: Props) {
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
+  const [referralCode, setReferralCode] = useState(referralCodeFromUrl || "");
 
   async function handleSubmit(formData: FormData) {
+    // ✅ تحقق أن كود الإحالة موجود
+    if (!referralCode) {
+      setState({ error: "Referral code is required to register." });
+      return;
+    }
+
     startTransition(async () => {
-      const result = await signUp(state, formData); // ✅ يرسل state + formData
-      setState(result); // ✅ يخزن نتيجة السيرفر (نجاح/خطأ)
+      formData.set("referralCode", referralCode);
+      const result = await signUp(state, formData);
+      setState(result);
     });
   }
 
@@ -118,23 +129,24 @@ export default function RegisterForm() {
                 minLength={8}
                 className="professional-input pl-10 h-12"
               />
-              
             </div>
-            <div className="space-y-2">
-  <Label htmlFor="referralCode" className="text-slate-200 font-medium">
-    Referral Code (optional)
-  </Label>
-  <div className="relative">
-    <Input
-      id="referralCode"
-      name="referralCode"
-      type="text"
-      placeholder="Enter referral code if you have one"
-      className="professional-input h-12"
-    />
-  </div>
-</div>
+          </div>
 
+          {/* Referral Code (إجباري) */}
+          <div className="space-y-2">
+            <Label htmlFor="referralCode" className="text-slate-200 font-medium">
+              Referral Code
+            </Label>
+            <Input
+              id="referralCode"
+              name="referralCode"
+              type="text"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
+              readOnly={!!referralCodeFromUrl} // إذا جاي من الرابط → لا يتعدل
+              required
+              className="professional-input h-12"
+            />
           </div>
 
           <div className="text-xs text-slate-400 leading-relaxed">
