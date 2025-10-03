@@ -25,7 +25,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // 🔑 تحقق من الجلسة
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -33,20 +32,27 @@ export async function updateSession(request: NextRequest) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // ✅ الصفحات العامة
+  // ✅ 1) التعامل مع روابط الإحالة مثل /REF_db109c54
+  if (pathname.startsWith("/REF_")) {
+    const code = pathname.replace("/REF_", "");
+    const redirectUrl = new URL("/auth/register", request.url);
+    redirectUrl.searchParams.set("ref", code);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // ✅ 2) الصفحات العامة
   const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/callback"];
   const isPublicRoute = publicRoutes.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
-  // 🛑 لو مفيش جلسة والمستخدم في صفحة محمية → روح تسجيل الدخول
+  // 🛑 3) لو مفيش جلسة والمستخدم في صفحة محمية → روح تسجيل الدخول
   if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  // 🛑 لو في جلسة والمستخدم بيحاول يفتح صفحة تسجيل الدخول
+  // 🛑 4) لو في جلسة والمستخدم بيحاول يفتح صفحة تسجيل الدخول
   if (session && pathname.startsWith("/auth/login")) {
-    // 📌 تحقق من role من جدول user_profiles
     const { data: profile } = await supabase
       .from("user_profiles")
       .select("role")
@@ -62,3 +68,8 @@ export async function updateSession(request: NextRequest) {
 
   return response;
 }
+
+// ✅ middleware matcher لتشغيله على كل الروابط
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
