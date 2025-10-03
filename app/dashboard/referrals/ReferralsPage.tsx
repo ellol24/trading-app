@@ -163,8 +163,10 @@ export default function ReferralsPage() {
     loadData();
   }, []);
 
-  const referralCode = profile?.referral_code ?? "";
-  const referralLink = `https://xspy-trader.com/ref/${referralCode}`;
+    const referralCode = profile?.referral_code ?? "";
+  // ✅ تحديث: الرابط الآن مثل المطلوب (REF_xxxx)
+  const referralLink = `https://xspy-trader.com/REF_${referralCode}`;
+
 
   const copyToClipboard = async (text: string) => {
     try {
