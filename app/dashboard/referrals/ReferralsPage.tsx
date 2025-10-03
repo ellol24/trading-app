@@ -164,7 +164,7 @@ export default function ReferralsPage() {
   }, []);
 
   const referralCode = profile?.referral_code ?? "";
-  const referralLink = `https://xspy-trader.com/${referralCode}`;
+  const referralLink = `https://xspy-trader.com/auth/register${referralCode}`;
 
   const copyToClipboard = async (text: string) => {
     try {
