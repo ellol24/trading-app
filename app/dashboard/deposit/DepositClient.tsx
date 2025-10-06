@@ -32,7 +32,7 @@ type Deposit = {
   deposit_wallets?: {
     asset: string;
     address: string;
-  }[] | null; // ✅ مصفوفة بدل كائن واحد
+  } | null;
 };
 
 export default function DepositClient({ user, profile }: any) {
@@ -70,10 +70,12 @@ export default function DepositClient({ user, profile }: any) {
 
   const onUploadChange = (file: File | null) => {
     setScreenshot(file);
-    if (file) toast.info("📸 Screenshot attached!");
+    if (file)
+      toast.info(`📸 Screenshot attached: ${file.name}`, {
+        duration: 3000,
+      });
   };
 
-  // ✅ تحويل الصورة إلى Base64 بوعد (Promise)
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -85,12 +87,12 @@ export default function DepositClient({ user, profile }: any) {
 
   const onCompletedPayment = async () => {
     if (!user?.id || !amount || Number(amount) <= 0 || !screenshot || !selected?.id) {
-      toast.warning("⚠️ Please fill in all required fields");
+      toast.warning("⚠️ Please fill all required fields before submitting.");
       return;
     }
 
     setIsSubmitting(true);
-    toast.loading("⏳ Submitting your deposit...");
+    const loadingToast = toast.loading("💸 Submitting your deposit...");
 
     try {
       const proofBase64 = await fileToBase64(screenshot);
@@ -111,25 +113,27 @@ export default function DepositClient({ user, profile }: any) {
         .insert(insertPayload);
 
       if (insertError) {
-        console.error("insert deposit error:", insertError);
-        toast.error("❌ Deposit failed!");
+        console.error("Insert deposit error:", insertError);
+        toast.error("❌ Deposit failed. Try again.");
+        toast.dismiss(loadingToast);
         return;
       }
 
       setAmount("");
       setScreenshot(null);
-      toast.success("✅ Deposit submitted successfully!");
+      toast.success("✅ Deposit submitted successfully and under review.", {
+        duration: 5000,
+      });
       loadHistory();
     } catch (err) {
-      console.error("submit deposit error:", err);
-      toast.error("❌ Something went wrong while submitting deposit");
+      console.error("Submit deposit error:", err);
+      toast.error("❌ Something went wrong while submitting deposit.");
     } finally {
-      toast.dismiss();
+      toast.dismiss(loadingToast);
       setIsSubmitting(false);
     }
   };
 
-  // ✅ تحميل التاريخ
   async function loadHistory() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -151,7 +155,7 @@ export default function DepositClient({ user, profile }: any) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("history error:", error);
+      console.error("History error:", error);
       toast.error("❌ Failed to load deposit history");
     } else {
       setHistory(data ?? []);
@@ -164,15 +168,20 @@ export default function DepositClient({ user, profile }: any) {
   }, [user?.id]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24" translate="no">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
-            <p className="text-blue-200 mt-1">Choose a wallet, send crypto, then upload proof</p>
+            <p className="text-blue-200 mt-1">
+              Choose a wallet, send crypto, then upload proof
+            </p>
           </div>
-          <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
+          <Badge
+            variant="outline"
+            className="text-green-400 border-green-400 bg-green-400/10"
+          >
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Secure
           </Badge>
@@ -181,6 +190,7 @@ export default function DepositClient({ user, profile }: any) {
         {/* Deposit Form */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Wallet & Amount */}
             <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white">Wallet & Amount</CardTitle>
@@ -188,7 +198,7 @@ export default function DepositClient({ user, profile }: any) {
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="text-white">Select Wallet</Label>
-                  <Select value={networkId} onValueChange={(v) => setNetworkId(v)}>
+                  <Select value={networkId} onValueChange={setNetworkId}>
                     <SelectTrigger className="h-12 bg-background/50 border-border/50 text-white">
                       <SelectValue placeholder="Select wallet" />
                     </SelectTrigger>
@@ -228,6 +238,7 @@ export default function DepositClient({ user, profile }: any) {
               </CardContent>
             </Card>
 
+            {/* Proof Upload */}
             <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white">Deposit Proof</CardTitle>
@@ -277,7 +288,10 @@ export default function DepositClient({ user, profile }: any) {
                 )}
                 <div className="space-y-4">
                   {history.map((dep) => (
-                    <div key={dep.id} className="p-4 border border-border/30 rounded-md bg-background/30">
+                    <div
+                      key={dep.id}
+                      className="p-4 border border-border/30 rounded-md bg-background/30"
+                    >
                       <p className="text-white">
                         <strong>Amount:</strong> {dep.amount}
                       </p>
@@ -299,13 +313,19 @@ export default function DepositClient({ user, profile }: any) {
                           {dep.status}
                         </Badge>
                       </p>
-                      {dep.deposit_wallets &&
-                        dep.deposit_wallets.length > 0 && (
-                          <p className="text-blue-300 text-sm">
-                            Wallet: {dep.deposit_wallets[0].asset} —{" "}
-                            {dep.deposit_wallets[0].address}
-                          </p>
-                        )}
+                      {dep.proof_base64 && (
+                        <img
+                          src={dep.proof_base64}
+                          alt="Deposit Proof"
+                          className="w-32 mt-2 rounded border border-border/30"
+                        />
+                      )}
+                      {dep.deposit_wallets && (
+                        <p className="text-blue-300 text-sm mt-1">
+                          Wallet: {dep.deposit_wallets.asset} —{" "}
+                          {dep.deposit_wallets.address}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
