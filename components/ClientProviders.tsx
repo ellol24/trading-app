@@ -6,7 +6,7 @@ import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "sonner"; // ✅ استخدم toasts الخاصة بـ sonner
 import ProtectionScript from "@/components/ProtectionScript";
-import BottomNavigation from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/bottom-navigation";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
@@ -17,7 +17,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
           <main className="min-h-screen">{children}</main>
 
           {/* ✅ الشريط السفلي */}
-          <BottomNavigation />
+          <bottom-navigation />
 
           {/* ✅ الـ Toaster الخاص بـ sonner */}
           <Toaster
@@ -32,3 +32,4 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+
