@@ -3,7 +3,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import BottomNavigation from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/bottom-navigation.tsx";
 import ClientProviders from "@/components/ClientProviders";
 
 /**
