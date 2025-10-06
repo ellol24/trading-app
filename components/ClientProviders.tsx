@@ -2,10 +2,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ThemeProvider } from "@/contexts/theme-context";        // يجب أن يبدأ هذا الملف بـ "use client"
-import { LanguageProvider } from "@/contexts/language-context"; // يجب أن يبدأ هذا الملف بـ "use client"
+import { ThemeProvider } from "@/contexts/theme-context";
+import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner"; // تأكد أنه من sonner إذا كنت تستخدم مكتبة sonner
 import ProtectionScript from "@/components/ProtectionScript";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
@@ -15,7 +15,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
         <AuthProvider>
           <ProtectionScript />
           {children}
-          <Toaster />
+          <Toaster richColors position="top-center" />
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
