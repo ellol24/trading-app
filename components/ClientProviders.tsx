@@ -6,7 +6,7 @@ import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/toaster";
 import ProtectionScript from "@/components/ProtectionScript";
-import BottomNavigation from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/bottom-navigation.tsx";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
@@ -22,3 +22,4 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+
