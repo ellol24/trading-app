@@ -1,65 +1,50 @@
-// app/layout.tsx
-import type React from "react";
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import ClientProviders from "@/components/ClientProviders";
-import { BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/brand";
+// app/dashboard/layout.tsx
+"use client";
 
-const inter = Inter({ subsets: ["latin"] });
+import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import BottomNavigation from "@/components/BottomNavigation";
+import ClientProviders from "@/components/ClientProviders";
 
 /**
- * Next.js metadata API (Next سيستخدمها تلقائياً)
- * لا تضَع هنا أشياء غير قابلة للتسلسل (مثل دوال).
+ * ✅ Dashboard Layout
+ * هذا الملف مسؤول عن تغليف كل صفحات لوحة التحكم فقط.
+ * - يحتوي على الشريط السفلي.
+ * - يخفي الشريط في صفحات معينة (مثل الإيداع والسحب).
+ * - يضمن بقاء الإشعارات (Toaster) عاملة من خلال ClientProviders.
  */
-export const metadata: Metadata = {
-  title: `${BRAND_NAME} - Professional Trading Platform`,
-  description: BRAND_DESCRIPTION,
-  applicationName: BRAND_NAME,
-  generator: "v0.dev",
-  openGraph: {
-    title: BRAND_NAME,
-    siteName: BRAND_NAME,
-    description: BRAND_DESCRIPTION,
-  },
-  twitter: {
-    title: BRAND_NAME,
-    description: BRAND_DESCRIPTION,
-    card: "summary_large_image",
-  },
-  appleWebApp: {
-    title: BRAND_NAME,
-  },
-};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
+  // ✅ الصفحات التي لا نريد فيها الشريط السفلي
+  const hideBottomNav = [
+    "/dashboard/deposit",
+    "/dashboard/withdraw",
+    "/dashboard/deposits",
+    "/dashboard/withdraws",
+  ];
+
+  // ✅ تحقق مما إذا كنا في صفحة يجب فيها إخفاء الشريط
+  const shouldHideNav = hideBottomNav.some((path) => pathname.startsWith(path));
+
   return (
-    // هذا ملف Server Component (افتراضي في app/layout.tsx)
-    <html lang="en" translate="no">
-      {/* 
-        لا تضع منطق React/JS داخل <head> هنا — Next يتعامل مع metadata. 
-        إن أردت meta إضافية خاصة (غير مدعومة بالـ metadata API) أضفها هنا بحذر.
-      */}
-      <head>
-        {/* بعض محركات البحث/عناصر الترجمة تستجيب لهذه الميتا */}
-        <meta name="google" content="notranslate" />
-        <meta httpEquiv="Content-Language" content="en" />
-        <meta name="robots" content="notranslate" />
-        <meta name="googlebot" content="notranslate" />
-      </head>
+    <ClientProviders>
+      <div
+        className="min-h-screen relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900"
+        translate="no"
+        data-react-protected
+      >
+        {/* ✅ المحتوى الرئيسي */}
+        <main className="pb-20">{children}</main>
 
-      {/* 
-        className من الخطوط، translate="no" للـ html/body، و data-react-component علامة خفيفة
-        — لا تقم بتغيير DOM هنا أو تمرير عناصر React غير قابلة للتسلسل إلى ClientProviders.
-      */}
-      <body className={inter.className} translate="no" data-react-component>
-        {/* ClientProviders هو مكوّن من نوع client (يجب أن يبدأ بـ "use client") */}
-        <ClientProviders>{children}</ClientProviders>
-      </body>
-    </html>
+        {/* ✅ الشريط السفلي يظهر فقط إذا لم تكن الصفحة من صفحات الإيداع أو السحب */}
+        {!shouldHideNav && (
+          <div className="fixed bottom-0 left-0 w-full z-50">
+            <BottomNavigation />
+          </div>
+        )}
+      </div>
+    </ClientProviders>
   );
 }
