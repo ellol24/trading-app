@@ -13,9 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { toast } from "sonner"; // ✅ مكتبة الإشعارات
+import { toast } from "sonner"; // مكتبة الإشعارات الحديثة
 
 type Network = {
   id: string;
@@ -42,11 +42,11 @@ export default function DepositClient({ user, profile }: any) {
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ✅ جديد: الإيداعات السابقة
+  // الإيداعات السابقة
   const [history, setHistory] = useState<Deposit[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // ✅ تحميل المحافظ
+  // تحميل المحافظ المتاحة
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -55,7 +55,7 @@ export default function DepositClient({ user, profile }: any) {
 
       if (error) {
         console.error("load wallets error:", error);
-        toast.error("❌ Failed to load wallets");
+        toast.error("❌ Failed to load wallets. Please refresh.");
         return;
       }
 
@@ -73,60 +73,68 @@ export default function DepositClient({ user, profile }: any) {
   const onUploadChange = (file: File | null) => {
     setScreenshot(file);
     if (file) {
-      console.log("Screenshot attached:", file.name);
-      toast.info("📸 Screenshot attached!");
+      toast.info(`📸 Attached: ${file.name}`);
     }
   };
 
+  // دالة قراءة الصورة وتحويلها إلى Base64
+  const readFileAsBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // تنفيذ عملية الإيداع
   const onCompletedPayment = async () => {
     if (!user?.id || !amount || Number(amount) <= 0 || !screenshot || !selected?.id) {
-      toast.error("⚠️ Missing required fields");
+      toast.error("⚠️ Please fill all required fields correctly.");
       return;
     }
 
     setIsSubmitting(true);
+    toast.loading("💸 Submitting your deposit... Please wait", { id: "deposit" });
+
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(screenshot);
+      const proofBase64 = await readFileAsBase64(screenshot);
 
-      reader.onloadend = async () => {
-        const proofBase64 = reader.result as string;
-
-        const insertPayload = {
-          user_id: user.id,
-          uid: profile?.uid ?? null,
-          username: profile?.full_name || user.email || null,
-          email: user.email || null,
-          network_id: selected.id,
-          amount: Number(amount),
-          status: "pending",
-          proof_base64: proofBase64,
-        };
-
-        const { error: insertError } = await supabase
-          .from("deposits")
-          .insert(insertPayload);
-
-        if (insertError) {
-          console.error("insert deposit error:", insertError);
-          toast.error("❌ Deposit failed!");
-          return;
-        }
-
-        setAmount("");
-        setScreenshot(null);
-        toast.success("✅ Deposit submitted successfully!");
-        loadHistory(); // ✅ بعد الإيداع نحدث التاريخ
+      const insertPayload = {
+        user_id: user.id,
+        uid: profile?.uid ?? null,
+        username: profile?.full_name || user.email || null,
+        email: user.email || null,
+        network_id: selected.id,
+        amount: Number(amount),
+        status: "pending",
+        proof_base64: proofBase64,
       };
+
+      const { error: insertError } = await supabase.from("deposits").insert(insertPayload);
+
+      if (insertError) {
+        console.error("insert deposit error:", insertError);
+        toast.error("❌ Deposit failed! Please try again.", { id: "deposit" });
+        return;
+      }
+
+      setAmount("");
+      setScreenshot(null);
+
+      toast.success("✅ Your deposit has been submitted successfully and is under review!", {
+        id: "deposit",
+      });
+
+      loadHistory(); // تحديث السجل بعد العملية
     } catch (err) {
       console.error("submit deposit error:", err);
-      toast.error("❌ Something went wrong while submitting deposit");
+      toast.error("❌ Something went wrong while submitting deposit.", { id: "deposit" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ✅ تحميل تاريخ الإيداعات
+  // تحميل سجل الإيداعات السابقة
   async function loadHistory() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -149,7 +157,7 @@ export default function DepositClient({ user, profile }: any) {
 
     if (error) {
       console.error("history error:", error);
-      toast.error("❌ Failed to load deposit history");
+      toast.error("❌ Failed to load deposit history.");
     } else {
       setHistory(data ?? []);
     }
@@ -161,13 +169,9 @@ export default function DepositClient({ user, profile }: any) {
   }, [user?.id]);
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      translate="no"           // ⛔️ منع الترجمة لهذه الصفحة بالكامل
-      data-react-protected      // ⛔️ حماية إضافية من أي تدخل خارجي
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24" translate="no">
       <div className="max-w-5xl mx-auto space-y-6" translate="no">
-        {/* header */}
+        {/* Header */}
         <div className="flex items-center justify-between" translate="no">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
@@ -175,10 +179,7 @@ export default function DepositClient({ user, profile }: any) {
               Choose a wallet, send crypto, then upload proof
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className="text-green-400 border-green-400 bg-green-400/10"
-          >
+          <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Secure
           </Badge>
@@ -187,11 +188,12 @@ export default function DepositClient({ user, profile }: any) {
         {/* Deposit Form */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" translate="no">
           <div className="lg:col-span-2 space-y-6">
-            <Card className="trading-card" translate="no" data-react-protected>
+            <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white">Wallet & Amount</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Select Wallet */}
                 <div className="space-y-2">
                   <Label className="text-white">Select Wallet</Label>
                   <Select value={networkId} onValueChange={(v) => setNetworkId(v)}>
@@ -208,6 +210,7 @@ export default function DepositClient({ user, profile }: any) {
                   </Select>
                 </div>
 
+                {/* Platform Wallet */}
                 <div className="space-y-2">
                   <Label className="text-white">Platform Wallet</Label>
                   <Input
@@ -217,6 +220,7 @@ export default function DepositClient({ user, profile }: any) {
                   />
                 </div>
 
+                {/* Deposit Amount */}
                 <div className="space-y-2">
                   <Label htmlFor="amount" className="text-white">
                     Deposit Amount
@@ -234,7 +238,8 @@ export default function DepositClient({ user, profile }: any) {
               </CardContent>
             </Card>
 
-            <Card className="trading-card" translate="no" data-react-protected>
+            {/* Deposit Proof */}
+            <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white">Deposit Proof</CardTitle>
               </CardHeader>
@@ -255,17 +260,18 @@ export default function DepositClient({ user, profile }: any) {
                 )}
 
                 <Button
-                  className="w-full h-12 text-base font-semibold professional-gradient"
+                  className="w-full h-12 text-base font-semibold professional-gradient flex items-center justify-center"
                   onClick={onCompletedPayment}
                   disabled={isSubmitting}
                 >
+                  {isSubmitting && <Loader2 className="w-5 h-5 mr-2 animate-spin" />}
                   {isSubmitting ? "Submitting..." : "I completed payment"}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* ✅ قسم الهستوري */}
-            <Card className="trading-card" translate="no" data-react-protected>
+            {/* Deposit History */}
+            <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white">My Deposit History</CardTitle>
               </CardHeader>
@@ -279,7 +285,6 @@ export default function DepositClient({ user, profile }: any) {
                     <div
                       key={dep.id}
                       className="p-4 border border-border/30 rounded-md bg-background/30"
-                      translate="no" // ⛔️ حتى تفاصيل التاريخ غير قابلة للترجمة
                     >
                       <p className="text-white">
                         <strong>Amount:</strong> {dep.amount}
@@ -318,7 +323,7 @@ export default function DepositClient({ user, profile }: any) {
 
           {/* Instructions */}
           <div className="space-y-6">
-            <Card className="trading-card" translate="no" data-react-protected>
+            <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white text-lg">How It Works</CardTitle>
               </CardHeader>
