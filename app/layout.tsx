@@ -1,50 +1,31 @@
-// app/dashboard/layout.tsx
-"use client";
-
-import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import BottomNavigation from "@/components/bottom-navigation.tsx";
+// app/layout.tsx
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 import ClientProviders from "@/components/ClientProviders";
+import { BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/brand";
 
-/**
- * ✅ Dashboard Layout
- * هذا الملف مسؤول عن تغليف كل صفحات لوحة التحكم فقط.
- * - يحتوي على الشريط السفلي.
- * - يخفي الشريط في صفحات معينة (مثل الإيداع والسحب).
- * - يضمن بقاء الإشعارات (Toaster) عاملة من خلال ClientProviders.
- */
+const inter = Inter({ subsets: ["latin"] });
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+export const metadata: Metadata = {
+  title: `${BRAND_NAME} - Professional Trading Platform`,
+  description: BRAND_DESCRIPTION,
+};
 
-  // ✅ الصفحات التي لا نريد فيها الشريط السفلي
-  const hideBottomNav = [
-    "/dashboard/deposit",
-    "/dashboard/withdraw",
-    "/dashboard/deposits",
-    "/dashboard/withdraws",
-  ];
-
-  // ✅ تحقق مما إذا كنا في صفحة يجب فيها إخفاء الشريط
-  const shouldHideNav = hideBottomNav.some((path) => pathname.startsWith(path));
-
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <ClientProviders>
-      <div
-        className="min-h-screen relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900"
-        translate="no"
-        data-react-protected
-      >
-        {/* ✅ المحتوى الرئيسي */}
-        <main className="pb-20">{children}</main>
-
-        {/* ✅ الشريط السفلي يظهر فقط إذا لم تكن الصفحة من صفحات الإيداع أو السحب */}
-        {!shouldHideNav && (
-          <div className="fixed bottom-0 left-0 w-full z-50">
-            <BottomNavigation />
-          </div>
-        )}
-      </div>
-    </ClientProviders>
+    <html lang="en" translate="no">
+      <head>
+        <meta name="google" content="notranslate" />
+        <meta httpEquiv="Content-Language" content="en" />
+      </head>
+      <body className={inter.className} translate="no">
+        <ClientProviders>{children}</ClientProviders>
+      </body>
+    </html>
   );
 }
