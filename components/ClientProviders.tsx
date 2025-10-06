@@ -1,12 +1,12 @@
-// components/ClientProviders.tsx
 "use client";
 
-import type { ReactNode } from "react";
+import { ReactNode } from "react";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { Toaster } from "@/components/ui/sonner"; // تأكد أنه من sonner إذا كنت تستخدم مكتبة sonner
+import { Toaster } from "@/components/ui/toaster";
 import ProtectionScript from "@/components/ProtectionScript";
+import BottomNavigation from "@/components/BottomNavigation";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
@@ -14,8 +14,9 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       <LanguageProvider>
         <AuthProvider>
           <ProtectionScript />
-          {children}
-          <Toaster richColors position="top-center" />
+          <main>{children}</main>
+          <BottomNavigation />
+          <Toaster />
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
