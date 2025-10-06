@@ -393,9 +393,9 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   <Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">2FA Security</span>
+                  
                   <Badge className={prefs?.two_factor_enabled ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
-                    {prefs?.two_factor_enabled ? "Enabled" : "Disabled"}
+                    
                   </Badge>
                 </div>
                 <div className="pt-4 border-t border-slate-700">
@@ -499,13 +499,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                     <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />Security Settings</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
-                      <div>
-                        <h3 className="text-white font-medium">Two-Factor Authentication</h3>
-                        <p className="text-slate-400 text-sm">Add an extra layer of security to your account</p>
-                      </div>
-                      <Switch checked={prefs.two_factor_enabled} onCheckedChange={(val) => { setPrefs(p => ({ ...p, two_factor_enabled: val })); updatePreference("two_factor_enabled", val); }} />
-                    </div>
+                    
 
                     <div className="space-y-4">
                       <h3 className="text-white font-medium">Change Password</h3>
