@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner"; // ✅ استخدم toasts الخاصة بـ sonner
 import ProtectionScript from "@/components/ProtectionScript";
-import BottomNavigation from "@/components/bottom-navigation";
+import BottomNavigation from "@/components/BottomNavigation";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
@@ -14,18 +14,21 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       <LanguageProvider>
         <AuthProvider>
           <ProtectionScript />
-
-          {/* المحتوى الأساسي للصفحة */}
           <main className="min-h-screen">{children}</main>
 
           {/* ✅ الشريط السفلي */}
-          <bottom-navigation />
+          <BottomNavigation />
 
-          {/* ✅ إشعارات النظام */}
-          <Toaster />
+          {/* ✅ الـ Toaster الخاص بـ sonner */}
+          <Toaster
+            position="top-center"
+            theme="dark"
+            richColors
+            closeButton
+            expand
+          />
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
 }
-
