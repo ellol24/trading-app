@@ -16,7 +16,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
           <ProtectionScript />
 
           {/* المحتوى الأساسي للصفحة */}
-          <main className="min-h-screen pb-20">{children}</main>
+          <main className="min-h-screen">{children}</main>
 
           {/* ✅ الشريط السفلي */}
           <bottom-navigation />
@@ -28,3 +28,4 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+
