@@ -394,7 +394,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 </div>
                 <div className="flex items-center justify-between">
                   
-                  <Badge className={prefs?.two_factor_enabled ? "bg-green-600 text-white" : "bg-red-600 text-white"}>
+                  <Badge className={prefs?.two_factor_enabled ? "bg-green-600 text-white" : " text-white"}>
                     
                   </Badge>
                 </div>
