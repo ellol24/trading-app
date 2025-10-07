@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -18,8 +18,6 @@ import {
   updateSetting,
   type PlatformSettings,
 } from "@/lib/settings-store";
-
-const supabase = createClientComponentClient();
 
 const mockActivityLogs = [
   { id: 1, timestamp: "2024-07-30 10:30 AM", action: "Trading enabled by AdminUser1" },
