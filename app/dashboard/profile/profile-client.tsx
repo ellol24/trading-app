@@ -394,9 +394,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 </div>
                 <div className="flex items-center justify-between">
                   
-                  <Badge className={prefs?.two_factor_enabled ? "" : " "}>
-                    
-                  </Badge>
+                  
                 </div>
                 <div className="pt-4 border-t border-slate-700">
                   <p className="text-muted-foreground text-sm">Last Login</p>
