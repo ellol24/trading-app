@@ -1,74 +1,134 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { ProfessionalButton } from "@/components/ui/professional-button"
-import { useToast } from "@/hooks/use-toast"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Terminal, ShieldCheck, Gift, Percent } from "lucide-react"
+import { useEffect, useState } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { ProfessionalButton } from "@/components/ui/professional-button";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal, ShieldCheck, Gift, Percent } from "lucide-react";
 import {
   getSettings,
   setBroadcastMessage,
   subscribeSettings,
   updateSetting,
   type PlatformSettings,
-} from "@/lib/settings-store"
+} from "@/lib/settings-store";
+
+const supabase = createClientComponentClient();
 
 const mockActivityLogs = [
   { id: 1, timestamp: "2024-07-30 10:30 AM", action: "Trading enabled by AdminUser1" },
   { id: 2, timestamp: "2024-07-29 03:15 PM", action: "Broadcast message updated by AdminUser2" },
   { id: 3, timestamp: "2024-07-28 09:00 AM", action: "Maintenance mode activated by AdminUser1" },
-]
+];
 
 export default function AdminPlatformControlsPage() {
-  const [settings, setSettings] = useState<PlatformSettings>(getSettings())
-  const [broadcastInput, setBroadcastInput] = useState(settings.broadcastMessage)
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const [settings, setSettings] = useState<PlatformSettings>(getSettings());
+  const [broadcastInput, setBroadcastInput] = useState(settings.broadcastMessage);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
-  // ✅ sync across tabs
+  // ✅ مزامنة الإعدادات بين علامات التبويب
   useEffect(() => {
-    const unsub = subscribeSettings(() => setSettings(getSettings()))
-    return () => unsub()
-  }, [])
+    const unsub = subscribeSettings(() => setSettings(getSettings()));
+    return () => unsub();
+  }, []);
 
+  // ✅ تحميل نسب الإحالات من Supabase عند الدخول
+  useEffect(() => {
+    const fetchReferralRates = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("referral_commission_rates")
+        .select("level, percentage")
+        .order("level", { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error Loading Referral Rates",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        const next = { ...settings };
+        data.forEach((row) => {
+          next[`referralLevel${row.level}Commission`] = Number(row.percentage);
+        });
+        setSettings(next);
+      }
+      setLoading(false);
+    };
+
+    fetchReferralRates();
+  }, []);
+
+  // ✅ تحديث نسبة إحالة معينة في Supabase
+  const handleReferralChange = async (level: number, percentage: number) => {
+    setLoading(true);
+
+    const { error } = await supabase
+      .from("referral_commission_rates")
+      .upsert({ level, percentage });
+
+    if (error) {
+      toast({
+        title: "Error Updating Referral Rate",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      const next = { ...settings, [`referralLevel${level}Commission`]: percentage };
+      setSettings(next);
+      toast({
+        title: "Referral Rate Updated",
+        description: `Level ${level} commission set to ${percentage.toFixed(2)}%.`,
+      });
+    }
+
+    setLoading(false);
+  };
+
+  // ✅ تحديث الإعدادات الأخرى (التبديلات)
   const handleSettingChange = async (key: keyof PlatformSettings, value: PlatformSettings[typeof key]) => {
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 200)) // simulate API
-    const next = updateSetting(key, value as any)
-    setSettings(next)
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 200));
+    const next = updateSetting(key, value as any);
+    setSettings(next);
     toast({
       title: "Setting Updated",
       description: `${String(key)
         .replace(/([A-Z])/g, " $1")
         .toLowerCase()} has been ${typeof value === "boolean" ? (value ? "enabled" : "disabled") : "updated"}.`,
-    })
-    setLoading(false)
-  }
+    });
+    setLoading(false);
+  };
 
+  // ✅ إرسال رسالة البث
   const handleBroadcastMessage = async () => {
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 300))
-    setBroadcastMessage(broadcastInput)
-    toast({ title: "Message Broadcasted", description: "Your message has been sent to all users." })
-    setLoading(false)
-  }
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 300));
+    setBroadcastMessage(broadcastInput);
+    toast({ title: "Message Broadcasted", description: "Your message has been sent to all users." });
+    setLoading(false);
+  };
 
+  // ✅ تسجيل الخروج الإجباري
   const handleForceLogout = async () => {
-    if (!window.confirm("Are you sure you want to force logout all users? This action cannot be undone.")) return
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 500))
+    if (!window.confirm("Are you sure you want to force logout all users? This action cannot be undone.")) return;
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 500));
     toast({
       title: "All Users Logged Out",
       description: "All active user sessions have been terminated.",
       variant: "destructive",
-    })
-    setLoading(false)
-  }
+    });
+    setLoading(false);
+  };
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -76,49 +136,30 @@ export default function AdminPlatformControlsPage() {
         <h1 className="text-2xl font-bold">Platform Controls</h1>
       </div>
 
-      {/* Core Toggles */}
+      {/* 🔧 Core Toggles */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Core Functionality Toggles</CardTitle>
           <CardDescription>Enable or disable key features across the entire platform.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="trading-toggle">Trading Enabled</Label>
-            <Switch
-              id="trading-toggle"
-              checked={settings.tradingEnabled}
-              onCheckedChange={(v) => handleSettingChange("tradingEnabled", v)}
-              disabled={loading}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="withdrawals-toggle">Withdrawals Enabled</Label>
-            <Switch
-              id="withdrawals-toggle"
-              checked={settings.withdrawalsEnabled}
-              onCheckedChange={(v) => handleSettingChange("withdrawalsEnabled", v)}
-              disabled={loading}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="deposits-toggle">Deposits Enabled</Label>
-            <Switch
-              id="deposits-toggle"
-              checked={settings.depositsEnabled}
-              onCheckedChange={(v) => handleSettingChange("depositsEnabled", v)}
-              disabled={loading}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="registrations-toggle">User Registrations Enabled</Label>
-            <Switch
-              id="registrations-toggle"
-              checked={settings.registrationsEnabled}
-              onCheckedChange={(v) => handleSettingChange("registrationsEnabled", v)}
-              disabled={loading}
-            />
-          </div>
+          {[
+            ["Trading Enabled", "tradingEnabled"],
+            ["Withdrawals Enabled", "withdrawalsEnabled"],
+            ["Deposits Enabled", "depositsEnabled"],
+            ["User Registrations Enabled", "registrationsEnabled"],
+          ].map(([label, key]) => (
+            <div key={key} className="flex items-center justify-between">
+              <Label htmlFor={key}>{label}</Label>
+              <Switch
+                id={key}
+                checked={settings[key as keyof PlatformSettings] as boolean}
+                onCheckedChange={(v) => handleSettingChange(key as keyof PlatformSettings, v)}
+                disabled={loading}
+              />
+            </div>
+          ))}
+
           <div className="flex items-center justify-between">
             <Label htmlFor="maintenance-toggle">Maintenance Mode</Label>
             <Switch
@@ -128,6 +169,7 @@ export default function AdminPlatformControlsPage() {
               disabled={loading}
             />
           </div>
+
           <div className="flex items-center justify-between">
             <Label htmlFor="kyc-toggle" className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" /> KYC Required
@@ -152,7 +194,7 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* Welcome Bonus */}
+      {/* 🎁 Welcome Bonus */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Welcome Bonus</CardTitle>
@@ -184,8 +226,8 @@ export default function AdminPlatformControlsPage() {
                 className="w-40"
                 value={Number.isFinite(settings.welcomeBonusAmount) ? settings.welcomeBonusAmount : 0}
                 onChange={(e) => {
-                  const n = Number(e.target.value)
-                  handleSettingChange("welcomeBonusAmount", Number.isFinite(n) ? n : 0)
+                  const n = Number(e.target.value);
+                  handleSettingChange("welcomeBonusAmount", Number.isFinite(n) ? n : 0);
                 }}
                 disabled={loading || !settings.welcomeBonusEnabled}
               />
@@ -195,7 +237,7 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* Referral Commission Levels */}
+      {/* 💸 Referral Commission Levels */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Referral Commission Levels</CardTitle>
@@ -214,23 +256,8 @@ export default function AdminPlatformControlsPage() {
                 max={100}
                 step="0.1"
                 className="w-40"
-                value={
-                  level === 1
-                    ? settings.referralLevel1Commission
-                    : level === 2
-                    ? settings.referralLevel2Commission
-                    : settings.referralLevel3Commission
-                }
-                onChange={(e) =>
-                  handleSettingChange(
-                    level === 1
-                      ? "referralLevel1Commission"
-                      : level === 2
-                      ? "referralLevel2Commission"
-                      : "referralLevel3Commission",
-                    Number(e.target.value),
-                  )
-                }
+                value={settings[`referralLevel${level}Commission`] ?? ""}
+                onChange={(e) => handleReferralChange(level, Number(e.target.value))}
                 disabled={loading}
               />
             </div>
@@ -245,7 +272,7 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* Broadcast Message */}
+      {/* 📢 Broadcast Message */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Broadcast Message</CardTitle>
@@ -269,7 +296,7 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* Admin Logs */}
+      {/* 🧾 Admin Logs */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Admin Activity Logs</CardTitle>
@@ -288,7 +315,7 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* Critical Actions */}
+      {/* ⚠️ Critical Actions */}
       <Card className="bg-card/50 backdrop-blur-md border-destructive/50">
         <CardHeader>
           <CardTitle className="text-destructive">Critical Actions</CardTitle>
@@ -301,5 +328,5 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
