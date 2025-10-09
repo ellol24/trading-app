@@ -14,14 +14,10 @@ type Withdrawal = {
   amount: number;
   status: string;
   created_at: string;
-  user_profiles?: {
-    full_name: string;
-    email: string;
-  } | null;
-  wallet?: {
-    asset: string;
-    address: string;
-  } | null;
+  user_name?: string;
+  user_email?: string;
+  wallet_asset?: string;
+  wallet_address?: string;
 };
 
 export default function AdminWithdrawalsPage() {
@@ -29,21 +25,13 @@ export default function AdminWithdrawalsPage() {
   const [feePercentage, setFeePercentage] = useState<number>(10);
   const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ تحميل السحوبات مع بيانات المستخدم والمحفظة
+  // ✅ تحميل السحوبات + بيانات المستخدم + المحفظة بشكل يدوي
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase
+      // 1️⃣ جلب السحوبات
+      const { data: wd, error } = await supabase
         .from("withdrawals")
-        .select(
-          `
-          id,
-          user_id,
-          amount,
-          status,
-          created_at,
-          user_profiles(full_name, email)
-        `
-        )
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -51,19 +39,39 @@ export default function AdminWithdrawalsPage() {
         return;
       }
 
-      // ✅ الآن نضيف بيانات المحفظة لكل مستخدم من جدول withdrawal_wallets
-      const userIds = data?.map((w) => w.user_id);
+      if (!wd?.length) {
+        setWithdrawals([]);
+        return;
+      }
+
+      const userIds = wd.map((w) => w.user_id);
+
+      // 2️⃣ جلب بيانات المستخدمين
+      const { data: users } = await supabase
+        .from("user_profiles")
+        .select("uid, full_name, email")
+        .in("uid", userIds);
+
+      // 3️⃣ جلب المحافظ الخاصة بكل مستخدم
       const { data: wallets } = await supabase
         .from("withdrawal_wallets")
         .select("user_id, asset, address")
-        .in("user_id", userIds || []);
+        .in("user_id", userIds);
 
-      const enriched = data?.map((w) => ({
-        ...w,
-        wallet: wallets?.find((ww) => ww.user_id === w.user_id) || null,
-      }));
+      // 4️⃣ دمج البيانات يدويًا
+      const enriched = wd.map((w) => {
+        const user = users?.find((u) => u.uid === w.user_id);
+        const wallet = wallets?.find((wa) => wa.user_id === w.user_id);
+        return {
+          ...w,
+          user_name: user?.full_name || "Unknown",
+          user_email: user?.email || "—",
+          wallet_asset: wallet?.asset || "—",
+          wallet_address: wallet?.address || "—",
+        };
+      });
 
-      setWithdrawals(enriched || []);
+      setWithdrawals(enriched);
     }
 
     load();
@@ -156,11 +164,12 @@ export default function AdminWithdrawalsPage() {
                 <TableRow key={w.id}>
                   <TableCell className="text-xs">{w.id}</TableCell>
                   <TableCell>
-                    {w.user_profiles?.full_name || "Unknown"} <br />
-                    <span className="text-xs text-muted-foreground">{w.user_profiles?.email}</span>
+                    {w.user_name}
+                    <br />
+                    <span className="text-xs text-muted-foreground">{w.user_email}</span>
                   </TableCell>
-                  <TableCell>{w.wallet?.asset || "—"}</TableCell>
-                  <TableCell className="truncate max-w-[160px]">{w.wallet?.address || "—"}</TableCell>
+                  <TableCell>{w.wallet_asset}</TableCell>
+                  <TableCell className="truncate max-w-[160px]">{w.wallet_address}</TableCell>
                   <TableCell>${w.amount}</TableCell>
                   <TableCell>
                     <Badge
