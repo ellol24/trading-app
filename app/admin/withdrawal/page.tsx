@@ -1,37 +1,73 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase/client"
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase/client";
 
 type Withdrawal = {
-  id: string
-  username: string
-  email: string
-  asset: string
-  address: string
-  amount: number
-  status: string
-  created_at: string
-}
+  id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  user_profiles?: {
+    full_name: string;
+    email: string;
+  } | null;
+  wallet?: {
+    asset: string;
+    address: string;
+  } | null;
+};
 
 export default function AdminWithdrawalsPage() {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
-  const [feePercentage, setFeePercentage] = useState<number>(10) // القيمة الافتراضية
-  const [isSaving, setIsSaving] = useState(false)
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [feePercentage, setFeePercentage] = useState<number>(10);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ تحميل السحوبات
+  // ✅ تحميل السحوبات مع بيانات المستخدم والمحفظة
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase.from("withdrawals").select("*").order("created_at", { ascending: false })
-      if (!error) setWithdrawals(data || [])
+      const { data, error } = await supabase
+        .from("withdrawals")
+        .select(
+          `
+          id,
+          user_id,
+          amount,
+          status,
+          created_at,
+          user_profiles(full_name, email)
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading withdrawals:", error);
+        return;
+      }
+
+      // ✅ الآن نضيف بيانات المحفظة لكل مستخدم من جدول withdrawal_wallets
+      const userIds = data?.map((w) => w.user_id);
+      const { data: wallets } = await supabase
+        .from("withdrawal_wallets")
+        .select("user_id, asset, address")
+        .in("user_id", userIds || []);
+
+      const enriched = data?.map((w) => ({
+        ...w,
+        wallet: wallets?.find((ww) => ww.user_id === w.user_id) || null,
+      }));
+
+      setWithdrawals(enriched || []);
     }
-    load()
-  }, [])
+
+    load();
+  }, []);
 
   // ✅ تحميل إعدادات العمولة
   useEffect(() => {
@@ -41,37 +77,40 @@ export default function AdminWithdrawalsPage() {
         .select("fee_percentage")
         .order("updated_at", { ascending: false })
         .limit(1)
-        .single()
+        .single();
 
       if (!error && data) {
-        setFeePercentage(Number(data.fee_percentage))
+        setFeePercentage(Number(data.fee_percentage));
       }
     }
-    loadSettings()
-  }, [])
+    loadSettings();
+  }, []);
 
   // ✅ تحديث حالة السحب
   const updateStatus = async (id: string, status: string) => {
-    await supabase.from("withdrawals").update({ status }).eq("id", id)
-    setWithdrawals((prev) => prev.map((w) => (w.id === id ? { ...w, status } : w)))
-  }
+    const { error } = await supabase.from("withdrawals").update({ status }).eq("id", id);
+    if (error) {
+      alert("Error updating status: " + error.message);
+      return;
+    }
+    setWithdrawals((prev) => prev.map((w) => (w.id === id ? { ...w, status } : w)));
+  };
 
   // ✅ تحديث نسبة العمولة
   const saveFeePercentage = async () => {
-    setIsSaving(true)
-    const { error } = await supabase.from("withdrawal_settings").insert([{ fee_percentage: feePercentage }])
-    setIsSaving(false)
+    setIsSaving(true);
+    const { error } = await supabase.from("withdrawal_settings").insert([{ fee_percentage: feePercentage }]);
+    setIsSaving(false);
     if (error) {
-      alert("Error updating fee: " + error.message)
+      alert("Error updating fee: " + error.message);
     } else {
-      alert("Fee percentage updated successfully ✅")
+      alert("Fee percentage updated successfully ✅");
     }
-  }
+  };
 
   return (
     <div className="p-6 space-y-6">
-      
-      {/* ✅ إعدادات العمولة */}
+      {/* ⚙️ إعدادات العمولة */}
       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Settings</CardTitle>
@@ -94,7 +133,7 @@ export default function AdminWithdrawalsPage() {
         </CardContent>
       </Card>
 
-      {/* ✅ جدول السحوبات */}
+      {/* 💸 جدول السحوبات */}
       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Requests</CardTitle>
@@ -115,12 +154,13 @@ export default function AdminWithdrawalsPage() {
             <TableBody>
               {withdrawals.map((w) => (
                 <TableRow key={w.id}>
-                  <TableCell>{w.id}</TableCell>
+                  <TableCell className="text-xs">{w.id}</TableCell>
                   <TableCell>
-                    {w.username} <br /> <span className="text-xs text-muted-foreground">{w.email}</span>
+                    {w.user_profiles?.full_name || "Unknown"} <br />
+                    <span className="text-xs text-muted-foreground">{w.user_profiles?.email}</span>
                   </TableCell>
-                  <TableCell>{w.asset}</TableCell>
-                  <TableCell className="truncate max-w-[150px]">{w.address}</TableCell>
+                  <TableCell>{w.wallet?.asset || "—"}</TableCell>
+                  <TableCell className="truncate max-w-[160px]">{w.wallet?.address || "—"}</TableCell>
                   <TableCell>${w.amount}</TableCell>
                   <TableCell>
                     <Badge
@@ -156,5 +196,5 @@ export default function AdminWithdrawalsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
