@@ -18,11 +18,13 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
             {/* ✅ سكربت الحماية */}
             <ProtectionScript />
 
+              {/* ✅ الشريط السفلي */}
+            <bottom-navigation />
+
             {/* ✅ المحتوى الرئيسي */}
             <main className="min-h-screen">{children}</main>
 
-            {/* ✅ الشريط السفلي */}
-            <bottom-navigation />
+          
 
             {/* ✅ إشعارات Sonner */}
             <Toaster
@@ -38,4 +40,5 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+
 
