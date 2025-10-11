@@ -22,7 +22,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
             <main className="min-h-screen">{children}</main>
 
             {/* ✅ الشريط السفلي */}
-            <Bottom-navigation />
+            <bottom-navigation />
 
             {/* ✅ إشعارات Sonner */}
             <Toaster
@@ -38,3 +38,4 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+
