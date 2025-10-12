@@ -7,14 +7,14 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "sonner";
 import ProtectionScript from "@/components/ProtectionScript";
 import BottomNavigation from "@/components/bottom-navigation";
-import { ImpersonationProvider } from "@/contexts/impersonation-context"; // ✅ أضفنا مزود الانتحال
+
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <ImpersonationProvider>
+          
             {/* ✅ سكربت الحماية */}
             <ProtectionScript />
 
@@ -34,12 +34,13 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
               closeButton
               expand
             />
-          </ImpersonationProvider>
+          
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
 }
+
 
 
 
