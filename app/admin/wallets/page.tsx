@@ -22,7 +22,7 @@ const supabase = createClient(
 // النوع في قاعدة البيانات
 type PlatformWallet = {
   id: string
-  asset: "BTC" | "ETH" | "USDT" | "USDC"
+  asset: "USDT(TRC20)" | "USDT(BEB20)"
   address: string
   visible: boolean
   created_at?: string
