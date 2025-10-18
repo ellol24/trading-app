@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { toast } from "sonner"
 import ForexChart from "@/components/ui/trading-chart"
 import { Clock, ShieldAlert } from "lucide-react"
 
