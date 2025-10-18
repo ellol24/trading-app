@@ -110,7 +110,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     }
   };
 
-  const onTrade = async (type: "CALL" | "PUT") => {
+  const onTrade = async (type: "BUY" | "SELL") => {
     if (!activeDeal) {
       toast.error("⚠️ No active trading round available.");
       return;
