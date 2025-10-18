@@ -340,7 +340,7 @@ export default function DepositClient({ user, profile }: any) {
                 <CardTitle className="text-white text-lg">How It Works</CardTitle>
               </CardHeader>
               <CardContent className="text-blue-200 space-y-3 text-sm">
-                <p>1. Select wallet (USDT, BTC, ETH, etc.).</p>
+                <p>1. Select wallet (USDT(TRC20), USDT(BEB20) .).</p>
                 <p>2. Send crypto to the platform wallet.</p>
                 <p>3. Upload your deposit screenshot.</p>
                 <p>4. Admin will review and confirm your deposit.</p>
