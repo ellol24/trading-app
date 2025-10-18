@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner"; // ✅ استخدم مكتبة Sonner مباشرة
 import ForexChart from "@/components/ui/trading-chart";
 import { Clock, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 
 type TradingClientProps = {
   user: any;
@@ -39,6 +39,7 @@ const PERIODS: { value: IntervalType; label: string }[] = [
   { value: "1h", label: "1 hour" },
 ];
 
+// Available forex pairs
 const FOREX = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
   "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "XAU/USD"
@@ -54,19 +55,26 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [trades, setTrades] = useState<any[]>([]);
   const userId = user?.id;
 
+  // Heartbeat refresh every 1 sec
   useEffect(() => {
     const id = setInterval(() => setHeartbeat((n) => (n + 1) % 1_000_000), 1000);
     return () => clearInterval(id);
   }, []);
 
   const fetchDeals = async () => {
-    const { data } = await supabase.from("trade_rounds").select("*").order("start_time", { ascending: true });
+    const { data } = await supabase
+      .from("trade_rounds")
+      .select("*")
+      .order("start_time", { ascending: true });
     setDeals(data || []);
   };
 
   const fetchJoined = async () => {
     if (!userId) return;
-    const { data } = await supabase.from("user_rounds").select("trade_round_id").eq("user_id", userId);
+    const { data } = await supabase
+      .from("user_rounds")
+      .select("trade_round_id")
+      .eq("user_id", userId);
     if (data) setJoinedRounds(data.map((d) => d.trade_round_id));
   };
 
@@ -89,36 +97,45 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
   const activeDeal = useMemo(() => deals.find((d) => d.status === "active") || null, [deals]);
   const nextDeal = useMemo(
-    () => deals.find((d) => d.status === "scheduled" && new Date(d.start_time).getTime() > Date.now()) || null,
+    () =>
+      deals.find(
+        (d) => d.status === "scheduled" && new Date(d.start_time).getTime() > Date.now()
+      ) || null,
     [deals]
   );
 
-  const secondsUntil = (time: string | number) =>
-    Math.max(0, Math.floor((new Date(time).getTime() - Date.now()) / 1000));
+  const secondsUntil = (time: string | number) => {
+    return Math.max(0, Math.floor((new Date(time).getTime() - Date.now()) / 1000));
+  };
 
+  // 🟢 Join round
   const joinRound = async (roundId: string) => {
     if (!userId) return;
     const { error } = await supabase.from("user_rounds").insert({
       user_id: userId,
       trade_round_id: roundId,
     });
+
     if (error) {
       toast.error(`❌ Failed to join round: ${error.message}`);
     } else {
-      toast.success("✅ You joined this round successfully.");
+      toast.success("✅ Joined round successfully!");
       setJoinedRounds([...joinedRounds, roundId]);
     }
   };
 
-  const onTrade = async (type: "BUY" | "SELL") => {
+  // 🟢 Place trade
+  const onTrade = async (type: "CALL" | "PUT") => {
     if (!activeDeal) {
-      toast.error("⚠️ No active trading round available.");
+      toast.warning("⚠️ No active trading round available.");
       return;
     }
+
     if (!userId) {
-      toast.error("❌ You must be logged in to trade.");
+      toast.error("❌ You must be logged in to place a trade.");
       return;
     }
+
     if (!joinedRounds.includes(activeDeal.id)) {
       toast.warning("⚠️ You must join this round before trading.");
       return;
@@ -137,11 +154,15 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     ]);
 
     if (error) {
-      toast.error(`❌ Error placing trade: ${error.message}`);
+      if (error.message.includes("duplicate key value") || error.code === "23505") {
+        toast.warning("⚠️ You cannot enter the same round more than once.");
+      } else {
+        toast.error(`❌ Error placing trade: ${error.message}`);
+      }
       return;
     }
 
-    toast.success(`✅ Trade placed: ${type} on ${symbol} with $${amount}`);
+    toast.success(`✅ Trade placed successfully! You entered ${type} on ${symbol} with $${amount}.`);
     fetchTrades();
   };
 
@@ -243,27 +264,22 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               {activeDeal && !joinedRounds.includes(activeDeal.id) ? (
-                <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => joinRound(activeDeal.id)}
-                >
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => joinRound(activeDeal.id)}>
                   Join Round
                 </Button>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <Button className="h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onTrade("CALL")}>
-                    BUY
+                    CALL
                   </Button>
                   <Button className="h-12 bg-red-600 hover:bg-red-700 text-white" onClick={() => onTrade("PUT")}>
-                    SELL
+                    PUT
                   </Button>
                 </div>
               )}
@@ -274,14 +290,17 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Previous Trades</CardTitle>
-              <Button variant="outline" size="sm">
-                View All
-              </Button>
+              <Button variant="outline" size="sm">View All</Button>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
-              {trades.length === 0 && <p className="text-slate-300 text-sm">No trades yet.</p>}
+              {trades.length === 0 && (
+                <p className="text-slate-300 text-sm">No trades yet.</p>
+              )}
               {trades.map((t) => (
-                <div key={t.id} className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between">
+                <div
+                  key={t.id}
+                  className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between"
+                >
                   <div>
                     <p className="text-white text-sm">
                       {t.asset} • {t.type}
