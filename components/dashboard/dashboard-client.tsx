@@ -236,7 +236,7 @@ export default function DashboardClient({
 
   const cryptoData = marketData
     .filter((item) =>
-      ["BTC/USD", "ETH/USD", "BNB/USD", "SOL/USD", "XAU/USD"].includes(
+      ["EUR/USD", "USD/JPY", "GBP/USD", "USD/CAD", "EUR/GBP"].includes(
         item.symbol
       )
     )
