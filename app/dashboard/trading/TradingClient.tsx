@@ -1,35 +1,36 @@
-"use client"
+// app/dashboard/trading/TradingClient.tsx  (أو مسار ملفك الفعلي)
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { supabase } from "@/lib/supabase/client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
-import ForexChart from "@/components/ui/trading-chart"
-import { Clock, ShieldAlert } from "lucide-react"
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner"; // <-- استخدم sonner مباشرة
+import ForexChart from "@/components/ui/trading-chart";
+import { Clock, ShieldAlert } from "lucide-react";
 
 type TradingClientProps = {
-  user: any
-  profile: any
-}
+  user: any;
+  profile: any;
+};
 
 type TradeRound = {
-  id: string
-  symbol: string
-  start_time: string
-  duration_sec: number
-  payout_percent: number
-  forced_outcome: "win" | "loss" | "draw"
-  entry_window_sec: number
-  status: "scheduled" | "active" | "completed" | "canceled"
-  admin_direction: "buy" | "sell" | null
-}
+  id: string;
+  symbol: string;
+  start_time: string;
+  duration_sec: number;
+  payout_percent: number;
+  forced_outcome: "win" | "loss" | "draw";
+  entry_window_sec: number;
+  status: "scheduled" | "active" | "completed" | "canceled";
+  admin_direction: "buy" | "sell" | null;
+};
 
-type IntervalType = "1min" | "5min" | "15min" | "30min" | "1h"
+type IntervalType = "1min" | "5min" | "15min" | "30min" | "1h";
 
 const PERIODS: { value: IntervalType; label: string }[] = [
   { value: "1min", label: "1 minute" },
@@ -37,147 +38,168 @@ const PERIODS: { value: IntervalType; label: string }[] = [
   { value: "15min", label: "15 minutes" },
   { value: "30min", label: "30 minutes" },
   { value: "1h", label: "1 hour" },
-]
+];
 
-// 📌 أزواج الفوركس المتاحة
 const FOREX = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
   "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY",
-   "XAU/USD"
-]
+  "XAU/USD"
+];
 
 export default function TradingClient({ user, profile }: TradingClientProps) {
-  const { toast } = useToast()
-  const [symbol, setSymbol] = useState("EUR/USD")
-  const [amount, setAmount] = useState<number>(100)
-  const [period, setPeriod] = useState<IntervalType>("5min")
-  const [heartbeat, setHeartbeat] = useState(0)
-  const [deals, setDeals] = useState<TradeRound[]>([])
-  const [joinedRounds, setJoinedRounds] = useState<string[]>([])
-  const [trades, setTrades] = useState<any[]>([])
-  const userId = user?.id
+  const [symbol, setSymbol] = useState("EUR/USD");
+  const [amount, setAmount] = useState<number>(100);
+  const [period, setPeriod] = useState<IntervalType>("5min");
+  const [heartbeat, setHeartbeat] = useState(0);
+  const [deals, setDeals] = useState<TradeRound[]>([]);
+  const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
+  const [trades, setTrades] = useState<any[]>([]);
+  const userId = user?.id;
 
   useEffect(() => {
-    const id = setInterval(() => setHeartbeat((n) => (n + 1) % 1_000_000), 1000)
-    return () => clearInterval(id)
-  }, [])
+    const id = setInterval(() => setHeartbeat((n) => (n + 1) % 1_000_000), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const fetchDeals = async () => {
-    const { data } = await supabase
-      .from("trade_rounds")
-      .select("*")
-      .order("start_time", { ascending: true })
-    setDeals(data || [])
-  }
+    try {
+      const { data } = await supabase
+        .from("trade_rounds")
+        .select("*")
+        .order("start_time", { ascending: true });
+      setDeals(data || []);
+    } catch (err) {
+      console.error("Error loading trade rounds:", err);
+      toast({
+        title: "Error loading rounds",
+        description: "Failed to load trade rounds. Try again later.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchJoined = async () => {
-    if (!userId) return
-    const { data } = await supabase
-      .from("user_rounds")
-      .select("trade_round_id")
-      .eq("user_id", userId)
-    if (data) setJoinedRounds(data.map((d) => d.trade_round_id))
-  }
+    if (!userId) return;
+    try {
+      const { data } = await supabase
+        .from("user_rounds")
+        .select("trade_round_id")
+        .eq("user_id", userId);
+      if (data) setJoinedRounds(data.map((d) => d.trade_round_id));
+    } catch (err) {
+      console.error("Error loading joined rounds:", err);
+    }
+  };
 
   const fetchTrades = async () => {
-    if (!userId) return
-    const { data } = await supabase
-      .from("trades")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(10)
-    setTrades(data || [])
-  }
+    if (!userId) return;
+    try {
+      const { data } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      setTrades(data || []);
+    } catch (err) {
+      console.error("Error loading trades:", err);
+    }
+  };
 
   useEffect(() => {
-    fetchDeals()
-    fetchJoined()
-    fetchTrades()
-  }, [heartbeat, userId])
+    fetchDeals();
+    fetchJoined();
+    fetchTrades();
+    // نجعل الصفحة تستعرض الأخطاء في الكونسل إن حصلت
+  }, [heartbeat, userId]);
 
   const activeDeal = useMemo(
     () => deals.find((d) => d.status === "active") || null,
     [deals]
-  )
+  );
   const nextDeal = useMemo(
     () =>
       deals.find(
-        (d) =>
-          d.status === "scheduled" &&
-          new Date(d.start_time).getTime() > Date.now()
+        (d) => d.status === "scheduled" && new Date(d.start_time).getTime() > Date.now()
       ) || null,
     [deals]
-  )
+  );
 
   const secondsUntil = (time: string | number) => {
-    return Math.max(
-      0,
-      Math.floor((new Date(time).getTime() - Date.now()) / 1000)
-    )
-  }
+    return Math.max(0, Math.floor((new Date(time).getTime() - Date.now()) / 1000));
+  };
 
   const joinRound = async (roundId: string) => {
-    if (!userId) return
-    const { error } = await supabase.from("user_rounds").insert({
-      user_id: userId,
-      trade_round_id: roundId,
-    })
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" })
-    } else {
-      toast({ title: "Joined", description: "You joined this round" })
-      setJoinedRounds([...joinedRounds, roundId])
+    if (!userId) {
+      toast({ title: "Error", description: "User not authenticated", variant: "destructive" });
+      return;
     }
-  }
+    try {
+      const { error } = await supabase.from("user_rounds").insert({
+        user_id: userId,
+        trade_round_id: roundId,
+      });
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Joined", description: "You joined this round" });
+        setJoinedRounds((prev) => [...prev, roundId]);
+      }
+    } catch (err: any) {
+      console.error("joinRound error:", err);
+      toast({ title: "Error", description: "Failed to join round", variant: "destructive" });
+    }
+  };
 
   const onTrade = async (type: "CALL" | "PUT") => {
     if (!activeDeal) {
-      toast({ title: "Trade rejected", description: "No active round available", variant: "destructive" })
-      return
+      toast({ title: "Trade rejected", description: "No active round available", variant: "destructive" });
+      return;
     }
     if (!userId) {
-      toast({ title: "Error", description: "User not authenticated", variant: "destructive" })
-      return
+      toast({ title: "Error", description: "User not authenticated", variant: "destructive" });
+      return;
     }
     if (!joinedRounds.includes(activeDeal.id)) {
-      toast({ title: "Join required", description: "You must join this round before trading", variant: "destructive" })
-      return
+      toast({ title: "Join required", description: "You must join this round before trading", variant: "destructive" });
+      return;
     }
 
-    const { error } = await supabase.from("trades").insert([{
-      user_id: userId,
-      trade_round_id: activeDeal.id,
-      asset: symbol,
-      amount,
-      duration_sec: activeDeal.duration_sec,
-      roi_percentage: activeDeal.payout_percent,
-      type,
-    }])
+    try {
+      const { error } = await supabase.from("trades").insert([{
+        user_id: userId,
+        trade_round_id: activeDeal.id,
+        asset: symbol,
+        amount,
+        duration_sec: activeDeal.duration_sec,
+        roi_percentage: activeDeal.payout_percent,
+        type,
+      }]);
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" })
-      return
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      toast({
+        title: "Trade placed",
+        description: `You entered ${type} on ${symbol} with $${amount}. Waiting for result...`,
+      });
+      fetchTrades();
+    } catch (err) {
+      console.error("onTrade error:", err);
+      toast({ title: "Error", description: "Failed to place trade", variant: "destructive" });
     }
-
-    toast({
-      title: "Trade placed",
-      description: `You entered ${type} on ${symbol} with $${amount}. Waiting for result...`,
-    })
-    fetchTrades()
-  }
+  };
 
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 sm:p-6"
-      translate="no"             // ⛔️ منع الترجمة على مستوى الصفحة
-      data-react-protected       // ✅ حماية DOM من أي تلاعب خارجي
+      translate="no"
+      data-react-protected
     >
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Assets */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Select Asset</CardTitle>
@@ -203,7 +225,6 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             </CardContent>
           </Card>
 
-          {/* Round Status */}
           <Card className="trading-card" translate="no">
             <CardContent className="py-4">
               {activeDeal ? (
@@ -214,8 +235,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                     <span className="font-mono text-white">
                       {secondsUntil(new Date(activeDeal.start_time).getTime() + activeDeal.duration_sec * 1000)}s
                     </span>{" "}
-                    • Admin Direction:{" "}
-                    <span className="uppercase">{activeDeal.admin_direction}</span>{" "}
+                    • Admin Direction: <span className="uppercase">{activeDeal.admin_direction}</span>{" "}
                     • Payout {activeDeal.payout_percent}%
                   </div>
                   <Clock className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
@@ -223,11 +243,8 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               ) : nextDeal ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
                   <div>
-                    Next round{" "}
-                    <span className="text-white font-semibold">{nextDeal.symbol}</span>{" "}
-                    starts in{" "}
-                    <span className="font-mono text-white">{secondsUntil(nextDeal.start_time)}s</span>{" "}
-                    • Duration {nextDeal.duration_sec}s • Entry window ±{nextDeal.entry_window_sec}s
+                    Next round <span className="text-white font-semibold">{nextDeal.symbol}</span> starts in{" "}
+                    <span className="font-mono text-white">{secondsUntil(nextDeal.start_time)}s</span> • Duration {nextDeal.duration_sec}s • Entry window ±{nextDeal.entry_window_sec}s
                   </div>
                   <ShieldAlert className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
                 </div>
@@ -237,13 +254,10 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             </CardContent>
           </Card>
 
-          {/* Chart */}
           <ForexChart from={symbol.split("/")[0]} to={symbol.split("/")[1]} interval={period} />
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
-          {/* Trade Setup */}
           <Card className="trading-card" translate="no">
             <CardHeader>
               <CardTitle className="text-white">Trade Setup</CardTitle>
@@ -271,6 +285,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                   </SelectContent>
                 </Select>
               </div>
+
               {activeDeal && !joinedRounds.includes(activeDeal.id) ? (
                 <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => joinRound(activeDeal.id)}>
                   Join Round
@@ -288,41 +303,25 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             </CardContent>
           </Card>
 
-          {/* Previous Trades */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Previous Trades</CardTitle>
               <Button variant="outline" size="sm">View All</Button>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
-              {trades.length === 0 && (
-                <p className="text-slate-300 text-sm">No trades yet.</p>
-              )}
-              {trades.map((t) => (
-                <div
-                  key={t.id}
-                  className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between"
-                >
+              {trades.length === 0 && <p className="text-slate-300 text-sm">No trades yet.</p>}
+              {trades.map((t: any) => (
+                <div key={t.id} className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between">
                   <div>
-                    <p className="text-white text-sm">
-                      {t.asset} • {t.type}
-                    </p>
-                    <p className="text-slate-400 text-xs">
-                      {new Date(t.created_at).toLocaleString()} • ${t.amount}
-                    </p>
-                    <p className="text-slate-400 text-xs">
-                      ROI: {t.roi_percentage}% • P/L: {t.profit_loss || 0}
-                    </p>
+                    <p className="text-white text-sm">{t.asset} • {t.type}</p>
+                    <p className="text-slate-400 text-xs">{new Date(t.created_at).toLocaleString()} • ${t.amount}</p>
+                    <p className="text-slate-400 text-xs">ROI: {t.roi_percentage}% • P/L: {t.profit_loss || 0}</p>
                   </div>
-                  <Badge
-                    className={`${
-                      t.result === "win"
-                        ? "bg-green-500/20 text-green-300 border-green-400"
-                        : t.result === "lose"
-                        ? "bg-red-500/20 text-red-300 border-red-400"
-                        : "bg-slate-500/20 text-slate-200 border-slate-400"
-                    }`}
-                  >
+                  <Badge className={`${
+                    t.result === "win" ? "bg-green-500/20 text-green-300 border-green-400" :
+                    t.result === "lose" ? "bg-red-500/20 text-red-300 border-red-400" :
+                    "bg-slate-500/20 text-slate-200 border-slate-400"
+                  }`}>
                     {t.result || "pending"}
                   </Badge>
                 </div>
@@ -332,5 +331,5 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
