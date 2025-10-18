@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner";
 import ForexChart from "@/components/ui/trading-chart"
 import { Clock, ShieldAlert } from "lucide-react"
 
@@ -42,8 +42,8 @@ const PERIODS: { value: IntervalType; label: string }[] = [
 // 📌 أزواج الفوركس المتاحة
 const FOREX = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
-  "AUD/USD", "NZD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY",
-  "AUD/JPY", "CAD/JPY", "CHF/JPY", "XAU/USD", "XAG/USD"
+  "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY",
+   "XAU/USD"
 ]
 
 export default function TradingClient({ user, profile }: TradingClientProps) {
