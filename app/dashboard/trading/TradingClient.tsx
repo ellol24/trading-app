@@ -125,7 +125,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   };
 
   // 🟢 Place trade
-  const onTrade = async (type: "CALL" | "PUT") => {
+  const onTrade = async (type: "BUY" | "SELL") => {
     if (!activeDeal) {
       toast.warning("⚠️ No active trading round available.");
       return;
@@ -276,10 +276,10 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <Button className="h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onTrade("CALL")}>
-                    CALL
+                    BUY
                   </Button>
                   <Button className="h-12 bg-red-600 hover:bg-red-700 text-white" onClick={() => onTrade("PUT")}>
-                    PUT
+                    SELL
                   </Button>
                 </div>
               )}
