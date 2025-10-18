@@ -109,10 +109,8 @@ export default function AdminWalletsPage() {
                 <Select value={form.asset} onValueChange={(v) => setForm(prev => ({ ...prev, asset: v as any }))}>
                   <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="BTC">BTC</SelectItem>
-                    <SelectItem value="ETH">ETH</SelectItem>
-                    <SelectItem value="USDT">USDT</SelectItem>
-                    <SelectItem value="USDC">USDC</SelectItem>
+                    <SelectItem value="USDT(TRC20)">USDT(TRC20)</SelectItem>
+                    <SelectItem value="USDT(BEB20)">USDT(BEB20)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
