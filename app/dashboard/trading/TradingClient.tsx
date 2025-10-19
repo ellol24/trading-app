@@ -6,11 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import ForexChart from "@/components/ui/trading-chart";
 import { Clock, ShieldAlert } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "sonner"; // ✅ إشعارات sonner الحديثة
 
 type TradingClientProps = {
   user: any;
@@ -39,10 +45,18 @@ const PERIODS: { value: IntervalType; label: string }[] = [
   { value: "1h", label: "1 hour" },
 ];
 
-// Available forex pairs
+// 📌 أزواج الفوركس المتاحة
 const FOREX = [
-  "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
-  "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "XAU/USD"
+  "EUR/USD",
+  "GBP/USD",
+  "USD/JPY",
+  "USD/CHF",
+  "USD/CAD",
+  "AUD/USD",
+  "EUR/GBP",
+  "EUR/JPY",
+  "GBP/JPY",
+  "XAU/USD",
 ];
 
 export default function TradingClient({ user, profile }: TradingClientProps) {
@@ -55,7 +69,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [trades, setTrades] = useState<any[]>([]);
   const userId = user?.id;
 
-  // Heartbeat refresh every 1 sec
+  // 🟢 تحديث كل ثانية
   useEffect(() => {
     const id = setInterval(() => setHeartbeat((n) => (n + 1) % 1_000_000), 1000);
     return () => clearInterval(id);
@@ -95,22 +109,31 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     fetchTrades();
   }, [heartbeat, userId]);
 
-  const activeDeal = useMemo(() => deals.find((d) => d.status === "active") || null, [deals]);
+  const activeDeal = useMemo(
+    () => deals.find((d) => d.status === "active") || null,
+    [deals]
+  );
   const nextDeal = useMemo(
     () =>
       deals.find(
-        (d) => d.status === "scheduled" && new Date(d.start_time).getTime() > Date.now()
+        (d) =>
+          d.status === "scheduled" &&
+          new Date(d.start_time).getTime() > Date.now()
       ) || null,
     [deals]
   );
 
   const secondsUntil = (time: string | number) => {
-    return Math.max(0, Math.floor((new Date(time).getTime() - Date.now()) / 1000));
+    return Math.max(
+      0,
+      Math.floor((new Date(time).getTime() - Date.now()) / 1000)
+    );
   };
 
-  // 🟢 Join round
+  // ✅ الانضمام إلى الجولة
   const joinRound = async (roundId: string) => {
     if (!userId) return;
+
     const { error } = await supabase.from("user_rounds").insert({
       user_id: userId,
       trade_round_id: roundId,
@@ -124,15 +147,15 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     }
   };
 
-  // 🟢 Place trade
-  const onTrade = async (type: "BUY" | "SELL") => {
+  // ✅ تنفيذ الصفقة
+  const onTrade = async (type: "CALL" | "PUT") => {
     if (!activeDeal) {
-      toast.warning("⚠️ No active trading round available.");
+      toast.warning("⚠️ No active round available.");
       return;
     }
 
     if (!userId) {
-      toast.error("❌ You must be logged in to place a trade.");
+      toast.error("❌ You must be logged in to trade.");
       return;
     }
 
@@ -154,15 +177,22 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     ]);
 
     if (error) {
-      if (error.message.includes("duplicate key value") || error.code === "23505") {
-        toast.warning("⚠️ You cannot enter the same round more than once.");
+      if (error.message.includes("Insufficient balance")) {
+        toast.error("❌ Not enough balance to place this trade.");
+      } else if (
+        error.message.includes("duplicate key value") ||
+        error.code === "23505"
+      ) {
+        toast.warning("⚠️ You already entered this round.");
       } else {
-        toast.error(`❌ Error placing trade: ${error.message}`);
+        toast.error(`❌ Trade failed: ${error.message}`);
       }
       return;
     }
 
-    toast.success(`✅ Trade placed successfully! You entered ${type} on ${symbol} with $${amount}.`);
+    toast.success(
+      `✅ Trade placed successfully! You entered ${type} on ${symbol} with $${amount}.`
+    );
     fetchTrades();
   };
 
@@ -180,9 +210,13 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Select Asset</CardTitle>
               {activeDeal ? (
-                <Badge className="bg-transparent border-green-400/40 text-green-300">Live</Badge>
+                <Badge className="bg-transparent border-green-400/40 text-green-300">
+                  Live
+                </Badge>
               ) : (
-                <Badge className="bg-transparent border-slate-400/40 text-slate-200">Waiting</Badge>
+                <Badge className="bg-transparent border-slate-400/40 text-slate-200">
+                  Waiting
+                </Badge>
               )}
             </CardHeader>
             <CardContent className="space-y-6">
@@ -207,13 +241,21 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               {activeDeal ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
                   <div>
-                    <span className="text-white font-semibold">{activeDeal.symbol}</span>{" "}
+                    <span className="text-white font-semibold">
+                      {activeDeal.symbol}
+                    </span>{" "}
                     round is live • Ends in{" "}
                     <span className="font-mono text-white">
-                      {secondsUntil(new Date(activeDeal.start_time).getTime() + activeDeal.duration_sec * 1000)}s
+                      {secondsUntil(
+                        new Date(activeDeal.start_time).getTime() +
+                          activeDeal.duration_sec * 1000
+                      )}
+                      s
                     </span>{" "}
                     • Admin Direction:{" "}
-                    <span className="uppercase">{activeDeal.admin_direction}</span>{" "}
+                    <span className="uppercase">
+                      {activeDeal.admin_direction}
+                    </span>{" "}
                     • Payout {activeDeal.payout_percent}%
                   </div>
                   <Clock className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
@@ -222,10 +264,15 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
                   <div>
                     Next round{" "}
-                    <span className="text-white font-semibold">{nextDeal.symbol}</span>{" "}
+                    <span className="text-white font-semibold">
+                      {nextDeal.symbol}
+                    </span>{" "}
                     starts in{" "}
-                    <span className="font-mono text-white">{secondsUntil(nextDeal.start_time)}s</span>{" "}
-                    • Duration {nextDeal.duration_sec}s • Entry window ±{nextDeal.entry_window_sec}s
+                    <span className="font-mono text-white">
+                      {secondsUntil(nextDeal.start_time)}s
+                    </span>{" "}
+                    • Duration {nextDeal.duration_sec}s • Entry window ±
+                    {nextDeal.entry_window_sec}s
                   </div>
                   <ShieldAlert className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
                 </div>
@@ -236,7 +283,11 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           </Card>
 
           {/* Chart */}
-          <ForexChart from={symbol.split("/")[0]} to={symbol.split("/")[1]} interval={period} />
+          <ForexChart
+            from={symbol.split("/")[0]}
+            to={symbol.split("/")[1]}
+            interval={period}
+          />
         </div>
 
         {/* Right column */}
@@ -258,28 +309,42 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               </div>
               <div className="space-y-2">
                 <Label className="text-white">Period</Label>
-                <Select value={period} onValueChange={(val: IntervalType) => setPeriod(val)}>
+                <Select
+                  value={period}
+                  onValueChange={(val: IntervalType) => setPeriod(val)}
+                >
                   <SelectTrigger className="bg-slate-800/60 border-slate-700 text-white">
                     <SelectValue placeholder="Select period" />
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               {activeDeal && !joinedRounds.includes(activeDeal.id) ? (
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => joinRound(activeDeal.id)}>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => joinRound(activeDeal.id)}
+                >
                   Join Round
                 </Button>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <Button className="h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onTrade("CALL")}>
-                    BUY
+                  <Button
+                    className="h-12 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => onTrade("CALL")}
+                  >
+                    CALL
                   </Button>
-                  <Button className="h-12 bg-red-600 hover:bg-red-700 text-white" onClick={() => onTrade("PUT")}>
-                    SELL
+                  <Button
+                    className="h-12 bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => onTrade("PUT")}
+                  >
+                    PUT
                   </Button>
                 </div>
               )}
@@ -290,7 +355,9 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
               <CardTitle className="text-white">Previous Trades</CardTitle>
-              <Button variant="outline" size="sm">View All</Button>
+              <Button variant="outline" size="sm">
+                View All
+              </Button>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
               {trades.length === 0 && (
