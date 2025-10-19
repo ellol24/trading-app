@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner"; // ✅ استخدمنا مكتبة Sonner للإشعارات
+import { useToast } from "@/hooks/use-toast";
 
 type TradeRound = {
   id: string;
@@ -30,21 +30,8 @@ type TradeRound = {
 
 type Outcome = "win" | "lose" | "draw";
 
-// ✅ نفس العملات المتوفرة في صفحة المستخدم
-const FOREX_PAIRS = [
-  "EUR/USD",
-  "GBP/USD",
-  "USD/JPY",
-  "USD/CHF",
-  "USD/CAD",
-  "AUD/USD",
-  "EUR/GBP",
-  "EUR/JPY",
-  "GBP/JPY",
-  "XAU/USD",
-];
-
 export default function AdminTradingControlsPage() {
+  const { toast } = useToast();
   const [rounds, setRounds] = useState<TradeRound[]>([]);
   const [symbol, setSymbol] = useState("EUR/USD");
   const [duration, setDuration] = useState(60);
@@ -52,9 +39,12 @@ export default function AdminTradingControlsPage() {
   const [entryWindow, setEntryWindow] = useState(30);
   const [direction, setDirection] = useState<"buy" | "sell">("buy");
   const [loading, setLoading] = useState(false);
-  const [selectedOutcome, setSelectedOutcome] = useState<Record<string, Outcome>>({});
 
-  // 🟢 Fetch all rounds
+  const [selectedOutcome, setSelectedOutcome] = useState<
+    Record<string, Outcome>
+  >({});
+
+  // جلب الجولات
   const fetchRounds = async () => {
     const { data, error } = await supabase
       .from("trade_rounds")
@@ -62,7 +52,11 @@ export default function AdminTradingControlsPage() {
       .order("start_time", { ascending: true });
 
     if (error) {
-      toast.error(`❌ Failed to fetch rounds: ${error.message}`);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
       return;
     }
     setRounds(data ?? []);
@@ -70,17 +64,12 @@ export default function AdminTradingControlsPage() {
 
   useEffect(() => {
     fetchRounds();
-    const id = setInterval(fetchRounds, 4000);
+    const id = setInterval(fetchRounds, 3000);
     return () => clearInterval(id);
   }, []);
 
-  // 🟢 Create new round
+  // إنشاء جولة
   const createRound = async () => {
-    if (!symbol || duration <= 0 || payout <= 0) {
-      toast.warning("⚠️ Please fill all fields correctly before creating a round.");
-      return;
-    }
-
     setLoading(true);
     const { error } = await supabase.from("trade_rounds").insert([
       {
@@ -96,14 +85,21 @@ export default function AdminTradingControlsPage() {
     setLoading(false);
 
     if (error) {
-      toast.error(`❌ Error creating round: ${error.message}`);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      toast.success("✅ New trading round created successfully!");
+      toast({
+        title: "Round created",
+        description: "New trade round scheduled",
+      });
       fetchRounds();
     }
   };
 
-  // 🟡 Activate round
+  // تفعيل الجولة
   const activateRound = async (id: string) => {
     const { error } = await supabase
       .from("trade_rounds")
@@ -111,72 +107,83 @@ export default function AdminTradingControlsPage() {
       .eq("id", id);
 
     if (error) {
-      toast.error(`❌ Error activating round: ${error.message}`);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      toast.success("✅ Round started successfully — it's now live!");
+      toast({ title: "Round started", description: "The round is now live" });
       fetchRounds();
     }
   };
 
-  // 🔴 Complete round and set outcome
+  // إكمال الجولة مع النتيجة
   const completeRoundWithOutcome = async (roundId: string) => {
     const outcome =
       selectedOutcome[roundId] ??
       rounds.find((r) => r.id === roundId)?.forced_outcome ??
-      null;
+      "draw";
 
-    if (!outcome || outcome === "draw") {
-      toast.warning("⚠️ Please select Win or Lose before completing the round.");
+    // ✅ منع إكمال الجولة بـ draw إلا إذا اختارها الأدمن صراحة
+    if (outcome === "draw") {
+      toast({
+        title: "No outcome selected",
+        description: "Please select Win or Lose before completing the round.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const { error } = await supabase
+    console.log("Completing round:", roundId, "with outcome:", outcome);
+
+    const { error: errRound } = await supabase
       .from("trade_rounds")
       .update({ status: "completed", forced_outcome: outcome })
       .eq("id", roundId);
 
-    if (error) {
-      toast.error(`❌ Error settling round: ${error.message}`);
+    if (errRound) {
+      toast({
+        title: "Error",
+        description: errRound.message,
+        variant: "destructive",
+      });
       return;
     }
 
-    toast.success(`✅ Round completed successfully — all trades marked as ${outcome.toUpperCase()}.`);
+    toast({
+      title: "Round settled",
+      description: `All trades marked as ${outcome}.`,
+    });
+
     fetchRounds();
   };
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 md:p-6"
-      translate="no"
-      data-react-protected
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* 🟢 Create new round */}
-        <Card className="bg-slate-800/70 border border-slate-700">
+        {/* إنشاء جولة جديدة */}
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-white">
               Create New Round
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Symbol */}
             <div className="space-y-2">
               <Label className="text-white">Symbol</Label>
               <Select value={symbol} onValueChange={setSymbol}>
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FOREX_PAIRS.map((pair) => (
-                    <SelectItem key={pair} value={pair}>
-                      {pair}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="EUR/USD">EUR/USD</SelectItem>
+                  <SelectItem value="BTC/USD">BTC/USD</SelectItem>
+                  <SelectItem value="ETH/USD">ETH/USD</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Duration */}
             <div className="space-y-2">
               <Label className="text-white">Duration (seconds)</Label>
               <Input
@@ -187,7 +194,6 @@ export default function AdminTradingControlsPage() {
               />
             </div>
 
-            {/* Payout */}
             <div className="space-y-2">
               <Label className="text-white">Payout % (ROI)</Label>
               <Input
@@ -199,9 +205,8 @@ export default function AdminTradingControlsPage() {
               />
             </div>
 
-            {/* Entry window */}
             <div className="space-y-2">
-              <Label className="text-white">Entry Window (seconds)</Label>
+              <Label className="text-white">Entry Window (sec)</Label>
               <Input
                 type="number"
                 min={5}
@@ -210,14 +215,13 @@ export default function AdminTradingControlsPage() {
               />
             </div>
 
-            {/* Direction (Buy/Sell) */}
             <div className="space-y-2">
               <Label className="text-white">Admin Direction</Label>
               <Select
                 value={direction}
                 onValueChange={(v: "buy" | "sell") => setDirection(v)}
               >
-                <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -227,64 +231,59 @@ export default function AdminTradingControlsPage() {
               </Select>
             </div>
 
-            {/* Create Button */}
             <div className="flex items-end">
-              <Button
-                onClick={createRound}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              >
+              <Button onClick={createRound} disabled={loading} className="w-full">
                 {loading ? "Creating..." : "Create Round"}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* 🟣 Rounds List */}
-        <Card className="bg-slate-800/70 border border-slate-700">
+        {/* لائحة الجولات */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl text-white">Active Rounds</CardTitle>
+            <CardTitle className="text-lg md:text-xl text-white">
+              Rounds
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {rounds.length === 0 ? (
-              <p className="text-blue-200">No rounds available yet.</p>
+              <p className="text-blue-200">No rounds yet.</p>
             ) : (
               rounds.map((r) => (
                 <div
                   key={r.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between bg-slate-900/80 p-3 rounded-lg gap-3 border border-slate-700"
+                  className="flex flex-col md:flex-row md:items-center justify-between bg-slate-800/60 p-3 rounded-lg gap-3"
                 >
                   <div className="space-y-1">
                     <p className="text-white font-semibold">{r.symbol}</p>
                     <p className="text-blue-300 text-sm">
-                      {r.status.toUpperCase()} • {r.duration_sec}s • Payout {r.payout_percent}% • Entry ±
-                      {r.entry_window_sec}s • Direction:{" "}
-                      <span className={r.admin_direction === "buy" ? "text-green-400" : "text-red-400"}>
-                        {r.admin_direction?.toUpperCase()}
-                      </span>
+                      {r.status.toUpperCase()} • {r.duration_sec}s • Payout{" "}
+                      {r.payout_percent}% • Entry ±{r.entry_window_sec}s •
+                      Direction: {r.admin_direction}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Select outcome */}
+                    {/* اختيار نتيجة الجولة */}
                     <Select
                       value={selectedOutcome[r.id] ?? r.forced_outcome ?? ""}
                       onValueChange={(v: Outcome) =>
                         setSelectedOutcome((old) => ({ ...old, [r.id]: v }))
                       }
                     >
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white w-[140px]">
+                      <SelectTrigger className="bg-slate-800 border-slate-700 text-white w-[140px]">
                         <SelectValue placeholder="Select Outcome" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="win">Win</SelectItem>
                         <SelectItem value="lose">Lose</SelectItem>
-                        <SelectItem value="draw">Draw (refund)</SelectItem>
+                        <SelectItem value="draw">Draw (refund only)</SelectItem>
                       </SelectContent>
                     </Select>
 
                     {r.status === "scheduled" && (
-                      <Button size="sm" onClick={() => activateRound(r.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                      <Button size="sm" onClick={() => activateRound(r.id)}>
                         Start
                       </Button>
                     )}
