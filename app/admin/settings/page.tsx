@@ -19,10 +19,11 @@ import {
   type PlatformSettings,
 } from "@/lib/settings-store";
 
+// نشاط إداري تجريبي فقط للعرض
 const mockActivityLogs = [
   { id: 1, timestamp: "2024-07-30 10:30 AM", action: "Trading enabled by AdminUser1" },
   { id: 2, timestamp: "2024-07-29 03:15 PM", action: "Broadcast message updated by AdminUser2" },
-  { id: 3, timestamp: "2024-07-28 09:00 AM", action: "Maintenance mode activated by AdminUser1" },
+  { id: 3, timestamp: "2024-07-28 09:00 AM", action: "Referral rates adjusted by AdminUser1" },
 ];
 
 export default function AdminPlatformControlsPage() {
@@ -31,47 +32,49 @@ export default function AdminPlatformControlsPage() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // ✅ مزامنة الإعدادات بين علامات التبويب
+  // ✅ مزامنة الإعدادات محليًا
   useEffect(() => {
     const unsub = subscribeSettings(() => setSettings(getSettings()));
     return () => unsub();
   }, []);
 
-  // ✅ تحميل نسب الإحالات من Supabase عند الدخول
+  // ✅ تحميل نسب الإحالة من قاعدة البيانات
   useEffect(() => {
     const fetchReferralRates = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("referral_commission_rates")
-        .select("level, percentage")
-        .order("level", { ascending: true });
+      const { data, error } = await supabase.from("settings").select("*").single();
 
-      if (error) {
+      if (error && error.code !== "PGRST116") {
         toast({
           title: "Error Loading Referral Rates",
           description: error.message,
           variant: "destructive",
         });
-      } else if (data) {
-        const next = { ...settings };
-        data.forEach((row) => {
-          next[`referralLevel${row.level}Commission`] = Number(row.percentage);
-        });
-        setSettings(next);
+      } else {
+        setSettings((prev) => ({
+          ...prev,
+          referralLevel1Commission: data?.level1_commission ?? 5,
+          referralLevel2Commission: data?.level2_commission ?? 2,
+          referralLevel3Commission: data?.level3_commission ?? 1,
+        }));
       }
+
       setLoading(false);
     };
 
     fetchReferralRates();
   }, []);
 
-  // ✅ تحديث نسبة إحالة معينة في Supabase
+  // ✅ تحديث نسبة عمولة إحالة معينة في قاعدة البيانات
   const handleReferralChange = async (level: number, percentage: number) => {
     setLoading(true);
 
+    const columnName =
+      level === 1 ? "level1_commission" : level === 2 ? "level2_commission" : "level3_commission";
+
     const { error } = await supabase
-      .from("referral_commission_rates")
-      .upsert({ level, percentage });
+      .from("settings")
+      .upsert({ id: 1, [columnName]: percentage }, { onConflict: "id" });
 
     if (error) {
       toast({
@@ -83,7 +86,7 @@ export default function AdminPlatformControlsPage() {
       const next = { ...settings, [`referralLevel${level}Commission`]: percentage };
       setSettings(next);
       toast({
-        title: "Referral Rate Updated",
+        title: "Referral Commission Updated",
         description: `Level ${level} commission set to ${percentage.toFixed(2)}%.`,
       });
     }
@@ -91,7 +94,7 @@ export default function AdminPlatformControlsPage() {
     setLoading(false);
   };
 
-  // ✅ تحديث الإعدادات الأخرى (التبديلات)
+  // ✅ تحديث الإعدادات الأخرى
   const handleSettingChange = async (key: keyof PlatformSettings, value: PlatformSettings[typeof key]) => {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 200));
@@ -99,9 +102,7 @@ export default function AdminPlatformControlsPage() {
     setSettings(next);
     toast({
       title: "Setting Updated",
-      description: `${String(key)
-        .replace(/([A-Z])/g, " $1")
-        .toLowerCase()} has been ${typeof value === "boolean" ? (value ? "enabled" : "disabled") : "updated"}.`,
+      description: `${String(key).replace(/([A-Z])/g, " $1").toLowerCase()} updated.`,
     });
     setLoading(false);
   };
@@ -117,7 +118,7 @@ export default function AdminPlatformControlsPage() {
 
   // ✅ تسجيل الخروج الإجباري
   const handleForceLogout = async () => {
-    if (!window.confirm("Are you sure you want to force logout all users? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to force logout all users?")) return;
     setLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     toast({
@@ -134,11 +135,50 @@ export default function AdminPlatformControlsPage() {
         <h1 className="text-2xl font-bold">Platform Controls</h1>
       </div>
 
-      {/* 🔧 Core Toggles */}
+      {/* 💸 Referral Commission Levels */}
+      <Card className="bg-card/50 backdrop-blur-md">
+        <CardHeader>
+          <CardTitle>Referral Profit Commission</CardTitle>
+          <CardDescription>
+            Define commission percentages for up to three referral levels.  
+            These apply on users' **winning trade profits**.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {[1, 2, 3].map((level) => (
+            <div key={level} className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
+              <Label htmlFor={`referral-l${level}`} className="flex items-center gap-2">
+                <Percent className="w-4 h-4" /> Level {level} Profit Commission (%)
+              </Label>
+              <Input
+                id={`referral-l${level}`}
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                className="w-40"
+                value={settings[`referralLevel${level}Commission`] ?? ""}
+                onChange={(e) => handleReferralChange(level, Number(e.target.value))}
+                disabled={loading}
+              />
+            </div>
+          ))}
+
+          <Alert className="mt-2 border-blue-500/30">
+            <AlertTitle>Note</AlertTitle>
+            <AlertDescription>
+              Commissions are applied only on **user trade profits** after winning rounds.  
+              Updating these values affects future rounds only.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
+      {/* 🔧 Other Core Toggles */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Core Functionality Toggles</CardTitle>
-          <CardDescription>Enable or disable key features across the entire platform.</CardDescription>
+          <CardDescription>Enable or disable main platform features.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           {[
@@ -157,116 +197,6 @@ export default function AdminPlatformControlsPage() {
               />
             </div>
           ))}
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="maintenance-toggle">Maintenance Mode</Label>
-            <Switch
-              id="maintenance-toggle"
-              checked={settings.maintenanceMode}
-              onCheckedChange={(v) => handleSettingChange("maintenanceMode", v)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="kyc-toggle" className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" /> KYC Required
-            </Label>
-            <Switch
-              id="kyc-toggle"
-              checked={settings.kycRequired}
-              onCheckedChange={(v) => handleSettingChange("kycRequired", v)}
-              disabled={loading}
-            />
-          </div>
-
-          {settings.maintenanceMode && (
-            <Alert className="mt-2">
-              <Terminal className="h-4 w-4" />
-              <AlertTitle>Heads up!</AlertTitle>
-              <AlertDescription>
-                When maintenance mode is active, only administrators can access the platform.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 🎁 Welcome Bonus */}
-      <Card className="bg-card/50 backdrop-blur-md">
-        <CardHeader>
-          <CardTitle>Welcome Bonus</CardTitle>
-          <CardDescription>
-            Automatically credit new users with a configurable welcome balance on account creation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="welcome-bonus-toggle" className="flex items-center gap-2">
-              <Gift className="w-4 h-4" /> Enable Welcome Bonus
-            </Label>
-            <Switch
-              id="welcome-bonus-toggle"
-              checked={settings.welcomeBonusEnabled}
-              onCheckedChange={(v) => handleSettingChange("welcomeBonusEnabled", v)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
-            <Label htmlFor="welcome-bonus-amount">Welcome Amount</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="welcome-bonus-amount"
-                type="number"
-                min={0}
-                step="1"
-                className="w-40"
-                value={Number.isFinite(settings.welcomeBonusAmount) ? settings.welcomeBonusAmount : 0}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  handleSettingChange("welcomeBonusAmount", Number.isFinite(n) ? n : 0);
-                }}
-                disabled={loading || !settings.welcomeBonusEnabled}
-              />
-              <span className="text-sm text-muted-foreground">Units: account currency</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 💸 Referral Commission Levels */}
-      <Card className="bg-card/50 backdrop-blur-md">
-        <CardHeader>
-          <CardTitle>Referral Commission Levels</CardTitle>
-          <CardDescription>Define commission percentages for each referral level.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          {[1, 2, 3].map((level) => (
-            <div key={level} className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
-              <Label htmlFor={`referral-l${level}`} className="flex items-center gap-2">
-                <Percent className="w-4 h-4" /> Level {level} Commission (%)
-              </Label>
-              <Input
-                id={`referral-l${level}`}
-                type="number"
-                min={0}
-                max={100}
-                step="0.1"
-                className="w-40"
-                value={settings[`referralLevel${level}Commission`] ?? ""}
-                onChange={(e) => handleReferralChange(level, Number(e.target.value))}
-                disabled={loading}
-              />
-            </div>
-          ))}
-
-          <Alert className="mt-2">
-            <AlertTitle>Note</AlertTitle>
-            <AlertDescription>
-              Commissions are applied only when a deposit is approved. Changing these values affects future deposits only.
-            </AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
 
@@ -274,7 +204,7 @@ export default function AdminPlatformControlsPage() {
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
           <CardTitle>Broadcast Message</CardTitle>
-          <CardDescription>Send a global announcement message to all users.</CardDescription>
+          <CardDescription>Send a message to all users.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <Textarea
@@ -294,30 +224,11 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* 🧾 Admin Logs */}
-      <Card className="bg-card/50 backdrop-blur-md">
-        <CardHeader>
-          <CardTitle>Admin Activity Logs</CardTitle>
-          <CardDescription>Recent administrative actions on the platform.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          {mockActivityLogs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{log.timestamp}</span>
-              <span>{log.action}</span>
-            </div>
-          ))}
-          <ProfessionalButton variant="ghost" className="mt-2 w-fit">
-            View Full Logs (Coming Soon)
-          </ProfessionalButton>
-        </CardContent>
-      </Card>
-
       {/* ⚠️ Critical Actions */}
       <Card className="bg-card/50 backdrop-blur-md border-destructive/50">
         <CardHeader>
           <CardTitle className="text-destructive">Critical Actions</CardTitle>
-          <CardDescription>Actions that have significant impact on the platform. Use with caution.</CardDescription>
+          <CardDescription>Danger zone — use with caution.</CardDescription>
         </CardHeader>
         <CardContent>
           <ProfessionalButton variant="destructive" onClick={handleForceLogout} loading={loading}>
