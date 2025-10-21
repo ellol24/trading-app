@@ -35,14 +35,16 @@ export default function AdminTradingControlsPage() {
   const [rounds, setRounds] = useState<TradeRound[]>([]);
   const [symbol, setSymbol] = useState("EUR/USD");
   const [duration, setDuration] = useState(60);
-  const [payout, setPayout] = useState(80);
-  const [entryWindow, setEntryWindow] = useState(15);
+  const [payout, setPayout] = useState(2);
+  const [entryWindow, setEntryWindow] = useState(30);
   const [direction, setDirection] = useState<"buy" | "sell">("buy");
   const [loading, setLoading] = useState(false);
 
-  const [selectedOutcome, setSelectedOutcome] = useState<Record<string, Outcome>>({});
+  const [selectedOutcome, setSelectedOutcome] = useState<
+    Record<string, Outcome>
+  >({});
 
-  // 🟢 Fetch trade rounds
+  // جلب الجولات
   const fetchRounds = async () => {
     const { data, error } = await supabase
       .from("trade_rounds")
@@ -62,11 +64,11 @@ export default function AdminTradingControlsPage() {
 
   useEffect(() => {
     fetchRounds();
-    const id = setInterval(fetchRounds, 5000);
+    const id = setInterval(fetchRounds, 3000);
     return () => clearInterval(id);
   }, []);
 
-  // 🟢 Create new round
+  // إنشاء جولة
   const createRound = async () => {
     setLoading(true);
     const { error } = await supabase.from("trade_rounds").insert([
@@ -77,24 +79,27 @@ export default function AdminTradingControlsPage() {
         entry_window_sec: entryWindow,
         status: "scheduled",
         admin_direction: direction,
-        start_time: new Date(Date.now() + 10000).toISOString(),
+        start_time: new Date(Date.now() + 10_000).toISOString(),
       },
     ]);
     setLoading(false);
 
     if (error) {
       toast({
-        title: "Error creating round",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
     } else {
-      toast({ title: "Round created", description: "New round scheduled successfully." });
+      toast({
+        title: "Round created",
+        description: "New trade round scheduled",
+      });
       fetchRounds();
     }
   };
 
-  // 🟡 Activate a round
+  // تفعيل الجولة
   const activateRound = async (id: string) => {
     const { error } = await supabase
       .from("trade_rounds")
@@ -103,17 +108,17 @@ export default function AdminTradingControlsPage() {
 
     if (error) {
       toast({
-        title: "Error activating round",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
     } else {
-      toast({ title: "Round started", description: "The round is now active." });
+      toast({ title: "Round started", description: "The round is now live" });
       fetchRounds();
     }
   };
 
-  // 🔴 Complete and settle the round
+  // ✅ إكمال الجولة + توزيع الأرباح + العمولات
   const completeRoundWithOutcome = async (roundId: string) => {
     const round = rounds.find((r) => r.id === roundId);
     if (!round) return;
@@ -121,105 +126,179 @@ export default function AdminTradingControlsPage() {
     const outcome =
       selectedOutcome[roundId] ?? round.forced_outcome ?? "draw";
 
-    if (!["win", "lose", "draw"].includes(outcome)) {
+    if (outcome === "draw") {
       toast({
-        title: "Select Outcome",
-        description: "Please select Win, Lose or Draw before completing.",
+        title: "No outcome selected",
+        description: "Please select Win or Lose before completing the round.",
         variant: "destructive",
       });
       return;
     }
 
-    // ✅ Update round
-    const { error: roundError } = await supabase
+    // ✅ تحديد الفوز بناءً على اتجاه الأدمن
+    const isAdminBuy = round.admin_direction === "buy";
+
+    // تحديث الجولة للحالة المكتملة
+    const { error: errRound } = await supabase
       .from("trade_rounds")
       .update({ status: "completed", forced_outcome: outcome })
       .eq("id", roundId);
 
-    if (roundError) {
+    if (errRound) {
       toast({
-        title: "Error updating round",
-        description: roundError.message,
+        title: "Error",
+        description: errRound.message,
         variant: "destructive",
       });
       return;
     }
 
-    // ✅ Fetch all trades in this round
-    const { data: trades, error: tradeError } = await supabase
+    // ✅ جلب الصفقات الخاصة بالجولة
+    const { data: trades, error: errTrades } = await supabase
       .from("trades")
       .select("*")
       .eq("trade_round_id", roundId);
 
-    if (tradeError) {
+    if (errTrades) {
       toast({
         title: "Error loading trades",
-        description: tradeError.message,
+        description: errTrades.message,
         variant: "destructive",
       });
       return;
     }
 
-    if (!trades || trades.length === 0) {
-      toast({
-        title: "No trades found",
-        description: "There were no trades in this round.",
-      });
-      return;
-    }
-
-    // ✅ Process user balances
+    // ✅ معالجة نتائج الصفقات وتحديث الأرصدة
     for (const trade of trades) {
-      try {
-        // determine if user wins
-        const userWins =
-          (outcome === "win" && trade.type.toLowerCase() === round.admin_direction) ||
-          (outcome === "lose" && trade.type.toLowerCase() !== round.admin_direction);
+      let result = "lose";
+      let profit = 0;
 
-        const { data: userProfile } = await supabase
+      // تحقق من نوع الصفقة مقارنة باتجاه الأدمن
+      const userBuy = trade.type === "CALL" || trade.type === "BUY";
+      const userSell = trade.type === "PUT" || trade.type === "SELL";
+
+      if (
+        (isAdminBuy && userBuy && outcome === "win") ||
+        (!isAdminBuy && userSell && outcome === "win")
+      ) {
+        result = "win";
+        profit = trade.amount * (trade.roi_percentage / 100);
+      } else if (outcome === "draw") {
+        result = "draw";
+        profit = 0;
+      } else {
+        result = "lose";
+        profit = -trade.amount;
+      }
+
+      // تحديث نتيجة الصفقة
+      await supabase
+        .from("trades")
+        .update({
+          result,
+          profit_loss: profit,
+          settled: true,
+          settled_at: new Date().toISOString(),
+        })
+        .eq("id", trade.id);
+
+      // ✅ تحديث رصيد المستخدم عند الفوز أو التعادل
+      if (result === "win" || result === "draw") {
+        const { data: user } = await supabase
           .from("user_profiles")
-          .select("balance, referral_earnings")
+          .select("uid, balance, referral_code_used")
           .eq("uid", trade.user_id)
           .single();
 
-        let newBalance = userProfile?.balance ?? 0;
+        if (user) {
+          let newBalance = user.balance;
 
-        if (outcome === "draw") {
-          // refund
-          newBalance += trade.amount;
-        } else if (userWins) {
-          const profit = trade.amount * (round.payout_percent / 100);
-          newBalance += trade.amount + profit;
-        } // lose → no refund
+          if (result === "win") newBalance += trade.amount + profit;
+          else if (result === "draw") newBalance += trade.amount;
 
-        await supabase
-          .from("user_profiles")
-          .update({ balance: newBalance })
-          .eq("uid", trade.user_id);
+          await supabase
+            .from("user_profiles")
+            .update({ balance: newBalance })
+            .eq("uid", user.uid);
 
-        // ✅ Update trade result
-        await supabase
-          .from("trades")
-          .update({
-            result: userWins ? "win" : outcome === "draw" ? "draw" : "lose",
-            profit_loss:
-              outcome === "draw"
-                ? 0
-                : userWins
-                ? trade.amount * (round.payout_percent / 100)
-                : -trade.amount,
-            settled: true,
-            settled_at: new Date().toISOString(),
-          })
-          .eq("id", trade.id);
-      } catch (err) {
-        console.error("Balance update failed for trade", trade.id, err);
+          // ✅ توزيع العمولات للمحيلين حتى 3 مستويات
+          if (result === "win" && profit > 0) {
+            const { data: settings } = await supabase
+              .from("settings")
+              .select("level1_commission, level2_commission, level3_commission")
+              .single();
+
+            const lvl1 = settings?.level1_commission ?? 5;
+            const lvl2 = settings?.level2_commission ?? 2;
+            const lvl3 = settings?.level3_commission ?? 1;
+
+            if (user.referral_code_used) {
+              const { data: ref1 } = await supabase
+                .from("user_profiles")
+                .select("uid, referral_code_used, balance, referral_earnings")
+                .eq("referral_code", user.referral_code_used)
+                .single();
+
+              if (ref1) {
+                const commission1 = (profit * lvl1) / 100;
+                await supabase
+                  .from("user_profiles")
+                  .update({
+                    referral_earnings:
+                      (ref1.referral_earnings ?? 0) + commission1,
+                    balance: (ref1.balance ?? 0) + commission1,
+                  })
+                  .eq("uid", ref1.uid);
+
+                if (ref1.referral_code_used) {
+                  const { data: ref2 } = await supabase
+                    .from("user_profiles")
+                    .select("uid, referral_code_used, balance, referral_earnings")
+                    .eq("referral_code", ref1.referral_code_used)
+                    .single();
+
+                  if (ref2) {
+                    const commission2 = (profit * lvl2) / 100;
+                    await supabase
+                      .from("user_profiles")
+                      .update({
+                        referral_earnings:
+                          (ref2.referral_earnings ?? 0) + commission2,
+                        balance: (ref2.balance ?? 0) + commission2,
+                      })
+                      .eq("uid", ref2.uid);
+
+                    if (ref2.referral_code_used) {
+                      const { data: ref3 } = await supabase
+                        .from("user_profiles")
+                        .select("uid, balance, referral_earnings")
+                        .eq("referral_code", ref2.referral_code_used)
+                        .single();
+
+                      if (ref3) {
+                        const commission3 = (profit * lvl3) / 100;
+                        await supabase
+                          .from("user_profiles")
+                          .update({
+                            referral_earnings:
+                              (ref3.referral_earnings ?? 0) + commission3,
+                            balance: (ref3.balance ?? 0) + commission3,
+                          })
+                          .eq("uid", ref3.uid);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
 
     toast({
-      title: "Round settled",
-      description: `All trades processed (${outcome.toUpperCase()})`,
+      title: "Round settled successfully",
+      description: `All trades marked as ${outcome}.`,
     });
 
     fetchRounds();
@@ -228,7 +307,7 @@ export default function AdminTradingControlsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Create New Round */}
+        {/* إنشاء جولة جديدة */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-white">
@@ -251,7 +330,7 @@ export default function AdminTradingControlsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Duration (sec)</Label>
+              <Label className="text-white">Duration (seconds)</Label>
               <Input
                 type="number"
                 min={10}
@@ -264,7 +343,8 @@ export default function AdminTradingControlsPage() {
               <Label className="text-white">Payout % (ROI)</Label>
               <Input
                 type="number"
-                min={1}
+                min={0}
+                step="0.01"
                 value={payout}
                 onChange={(e) => setPayout(Number(e.target.value))}
               />
@@ -282,7 +362,10 @@ export default function AdminTradingControlsPage() {
 
             <div className="space-y-2">
               <Label className="text-white">Admin Direction</Label>
-              <Select value={direction} onValueChange={(v: "buy" | "sell") => setDirection(v)}>
+              <Select
+                value={direction}
+                onValueChange={(v: "buy" | "sell") => setDirection(v)}
+              >
                 <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -301,24 +384,27 @@ export default function AdminTradingControlsPage() {
           </CardContent>
         </Card>
 
-        {/* List of Rounds */}
+        {/* لائحة الجولات */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg md:text-xl text-white">Rounds</CardTitle>
+            <CardTitle className="text-lg md:text-xl text-white">
+              Rounds
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {rounds.length === 0 ? (
-              <p className="text-blue-200">No rounds available.</p>
+              <p className="text-blue-200">No rounds yet.</p>
             ) : (
               rounds.map((r) => (
                 <div
                   key={r.id}
                   className="flex flex-col md:flex-row md:items-center justify-between bg-slate-800/60 p-3 rounded-lg gap-3"
                 >
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-white font-semibold">{r.symbol}</p>
                     <p className="text-blue-300 text-sm">
-                      {r.status.toUpperCase()} • {r.duration_sec}s • Payout {r.payout_percent}% •
+                      {r.status.toUpperCase()} • {r.duration_sec}s • Payout{" "}
+                      {r.payout_percent}% • Entry ±{r.entry_window_sec}s •
                       Direction: {r.admin_direction}
                     </p>
                   </div>
@@ -336,7 +422,9 @@ export default function AdminTradingControlsPage() {
                       <SelectContent>
                         <SelectItem value="win">Win</SelectItem>
                         <SelectItem value="lose">Lose</SelectItem>
-                        <SelectItem value="draw">Draw (refund only)</SelectItem>
+                        <SelectItem value="draw">
+                          Draw (refund only)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -352,7 +440,7 @@ export default function AdminTradingControlsPage() {
                         variant="destructive"
                         onClick={() => completeRoundWithOutcome(r.id)}
                       >
-                        Complete
+                        Complete & Set Outcome
                       </Button>
                     )}
 
