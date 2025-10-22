@@ -37,42 +37,50 @@ export default function AdminPlatformControlsPage() {
     return () => unsub();
   }, []);
 
-  // ✅ تحميل نسب الإحالات من Supabase عند الدخول
+  // ✅ تحميل نسب الإحالات (الإيداع + أرباح التداول)
   useEffect(() => {
     const fetchReferralRates = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // جلب نسب إحالات الإيداع
+      const { data: depositRates, error: depErr } = await supabase
         .from("referral_commission_rates")
         .select("level, percentage")
         .order("level", { ascending: true });
 
-      if (error) {
+      // جلب نسب إحالات أرباح التداول
+      const { data: tradeRates, error: tradeErr } = await supabase
+        .from("trade_profit_commission_rates")
+        .select("level, percentage")
+        .order("level", { ascending: true });
+
+      if (depErr || tradeErr) {
         toast({
           title: "Error Loading Referral Rates",
-          description: error.message,
+          description: depErr?.message || tradeErr?.message,
           variant: "destructive",
         });
-      } else if (data) {
+      } else {
         const next = { ...settings };
-        data.forEach((row) => {
+        depositRates?.forEach((row) => {
           next[`referralLevel${row.level}Commission`] = Number(row.percentage);
+        });
+        tradeRates?.forEach((row) => {
+          next[`tradeReferralLevel${row.level}Commission`] = Number(row.percentage);
         });
         setSettings(next);
       }
+
       setLoading(false);
     };
 
     fetchReferralRates();
   }, []);
 
-  // ✅ تحديث نسبة إحالة معينة في Supabase
+  // ✅ تحديث نسبة إحالة الإيداع
   const handleReferralChange = async (level: number, percentage: number) => {
     setLoading(true);
-
-    const { error } = await supabase
-      .from("referral_commission_rates")
-      .upsert({ level, percentage });
-
+    const { error } = await supabase.from("referral_commission_rates").upsert({ level, percentage });
     if (error) {
       toast({
         title: "Error Updating Referral Rate",
@@ -84,14 +92,34 @@ export default function AdminPlatformControlsPage() {
       setSettings(next);
       toast({
         title: "Referral Rate Updated",
-        description: `Level ${level} commission set to ${percentage.toFixed(2)}%.`,
+        description: `Level ${level} deposit commission set to ${percentage.toFixed(2)}%.`,
       });
     }
-
     setLoading(false);
   };
 
-  // ✅ تحديث الإعدادات الأخرى (التبديلات)
+  // ✅ تحديث نسبة إحالة أرباح التداول
+  const handleTradeReferralChange = async (level: number, percentage: number) => {
+    setLoading(true);
+    const { error } = await supabase.from("trade_profit_commission_rates").upsert({ level, percentage });
+    if (error) {
+      toast({
+        title: "Error Updating Trade Profit Commission",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      const next = { ...settings, [`tradeReferralLevel${level}Commission`]: percentage };
+      setSettings(next);
+      toast({
+        title: "Trade Profit Commission Updated",
+        description: `Level ${level} trading profit commission set to ${percentage.toFixed(2)}%.`,
+      });
+    }
+    setLoading(false);
+  };
+
+  // ✅ تحديث الإعدادات الأخرى
   const handleSettingChange = async (key: keyof PlatformSettings, value: PlatformSettings[typeof key]) => {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 200));
@@ -235,17 +263,17 @@ export default function AdminPlatformControlsPage() {
         </CardContent>
       </Card>
 
-      {/* 💸 Referral Commission Levels */}
+      {/* 💸 Referral Commission Levels (Deposits) */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
-          <CardTitle>Referral Commission Levels</CardTitle>
-          <CardDescription>Define commission percentages for each referral level.</CardDescription>
+          <CardTitle>Referral Commission Levels (Deposits)</CardTitle>
+          <CardDescription>Define commission percentages for deposit referrals.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           {[1, 2, 3].map((level) => (
             <div key={level} className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
               <Label htmlFor={`referral-l${level}`} className="flex items-center gap-2">
-                <Percent className="w-4 h-4" /> Level {level} Commission (%)
+                <Percent className="w-4 h-4" /> Level {level} Deposit Commission (%)
               </Label>
               <Input
                 id={`referral-l${level}`}
@@ -260,11 +288,39 @@ export default function AdminPlatformControlsPage() {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* 💹 Trading Profit Referral Commissions */}
+      <Card className="bg-card/50 backdrop-blur-md">
+        <CardHeader>
+          <CardTitle>Trading Profit Referral Levels</CardTitle>
+          <CardDescription>Set commission rates for referral earnings from users' trading profits.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {[1, 2, 3].map((level) => (
+            <div key={level} className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
+              <Label htmlFor={`trade-referral-l${level}`} className="flex items-center gap-2">
+                <Percent className="w-4 h-4" /> Level {level} Trade Profit Commission (%)
+              </Label>
+              <Input
+                id={`trade-referral-l${level}`}
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                className="w-40"
+                value={settings[`tradeReferralLevel${level}Commission`] ?? ""}
+                onChange={(e) => handleTradeReferralChange(level, Number(e.target.value))}
+                disabled={loading}
+              />
+            </div>
+          ))}
 
           <Alert className="mt-2">
             <AlertTitle>Note</AlertTitle>
             <AlertDescription>
-              Commissions are applied only when a deposit is approved. Changing these values affects future deposits only.
+              These commissions apply only on users’ trading profits and are separate from deposit referral earnings.
             </AlertDescription>
           </Alert>
         </CardContent>
