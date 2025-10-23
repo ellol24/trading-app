@@ -150,15 +150,16 @@ export default function ReferralsPage() {
         );
 
         // أرباح التداول
-        const { data: tradeCommissions } = await supabase
-          .from("trade_referral_commissions")
-          .select("amount")
-          .eq("recipient_uid", userId);
+const { data: tradeCommissions } = await supabase
+  .from("trade_referral_commissions")
+  .select("amount")
+  .eq("user_id", userId); // ✅ العمود الصحيح هو user_id
 
-        const tradeTotal = (tradeCommissions || []).reduce(
-          (s: number, c: any) => s + Number(c.amount || 0),
-          0
-        );
+const tradeTotal = (tradeCommissions || []).reduce(
+  (s: number, c: any) => s + Number(c.amount || 0),
+  0
+);
+
 
         // أرباح الباقات
         const { data: packageCommissions } = await supabase
