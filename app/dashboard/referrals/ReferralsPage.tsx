@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Share, Users, Target, DollarSign, Copy, Trophy } from "lucide-react";
+import { Share, Users, Target, DollarSign, Copy, Trophy, TrendingUp, Package } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import ReferralsLoading from "./loading"; // شاشة التحميل (إذا عندك هذا الملف)
@@ -28,6 +28,9 @@ type ReferralStats = {
   activeReferrals?: number;
   totalEarnings?: number;
   commissionsTotal?: number;
+  depositEarnings?: number;
+  tradeEarnings?: number;
+  packageEarnings?: number;
 };
 
 export default function ReferralsPage() {
@@ -37,6 +40,9 @@ export default function ReferralsPage() {
   const [stats, setStats] = useState<ReferralStats>({
     referralsCount: 0,
     commissionsTotal: 0,
+    depositEarnings: 0,
+    tradeEarnings: 0,
+    packageEarnings: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -132,23 +138,50 @@ export default function ReferralsPage() {
         const allRefs = [...level1Refs, ...level2Refs, ...level3Refs];
         setHistory(allRefs);
 
-        // العمولات
-        const { data: commissionsData } = await supabase
+        // عمولات الإيداع
+        const { data: depositCommissions } = await supabase
           .from("referral_commissions")
           .select("amount")
           .eq("recipient_uid", userId);
 
-        const totalCommission = (commissionsData || []).reduce(
+        const depositTotal = (depositCommissions || []).reduce(
           (s: number, c: any) => s + Number(c.amount || 0),
           0
         );
 
-        setCommissions(commissionsData || []);
+        // أرباح التداول
+        const { data: tradeCommissions } = await supabase
+          .from("trade_referral_commissions")
+          .select("amount")
+          .eq("recipient_uid", userId);
+
+        const tradeTotal = (tradeCommissions || []).reduce(
+          (s: number, c: any) => s + Number(c.amount || 0),
+          0
+        );
+
+        // أرباح الباقات
+        const { data: packageCommissions } = await supabase
+          .from("package_referral_commissions")
+          .select("amount")
+          .eq("recipient_uid", userId);
+
+        const packageTotal = (packageCommissions || []).reduce(
+          (s: number, c: any) => s + Number(c.amount || 0),
+          0
+        );
+
+        const totalCommission = depositTotal + tradeTotal + packageTotal;
+
+        setCommissions(depositCommissions || []);
         setStats({
           referralsCount: allRefs.length,
           activeReferrals: allRefs.length,
           totalEarnings: totalCommission,
           commissionsTotal: totalCommission,
+          depositEarnings: depositTotal,
+          tradeEarnings: tradeTotal,
+          packageEarnings: packageTotal,
         });
 
         setLoading(false);
@@ -162,7 +195,6 @@ export default function ReferralsPage() {
   }, []);
 
   const referralCode = profile?.referral_code ?? "";
-  // ❗ قرار: نجعل الرابط إلى صفحة التسجيل مع query param (حل ثابت وعملي)
   const referralLink = `https://xspy-trader.com/auth/register?ref=${encodeURIComponent(referralCode)}`;
 
   const copyToClipboard = async (text: string) => {
@@ -234,7 +266,8 @@ export default function ReferralsPage() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" translate="no">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4" translate="no">
+            {/* Total Referrals */}
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
@@ -251,6 +284,7 @@ export default function ReferralsPage() {
               </CardContent>
             </Card>
 
+            {/* Active Traders */}
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
@@ -267,16 +301,51 @@ export default function ReferralsPage() {
               </CardContent>
             </Card>
 
+            {/* Deposit Earnings */}
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-lg bg-yellow-500/20">
+                    <DollarSign className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Deposit Earnings</p>
+                    <p className="text-2xl font-bold text-white">
+                      ${(stats.depositEarnings ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Trade Earnings */}
             <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
                   <div className="p-3 rounded-lg bg-purple-500/20">
-                    <DollarSign className="h-6 w-6 text-purple-400" />
+                    <TrendingUp className="h-6 w-6 text-purple-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Total Earned</p>
+                    <p className="text-sm text-gray-400">Trading Earnings</p>
                     <p className="text-2xl font-bold text-white">
-                      ${(stats.totalEarnings ?? 0).toFixed(2)}
+                      ${(stats.tradeEarnings ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Package Earnings */}
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-lg bg-teal-500/20">
+                    <Package className="h-6 w-6 text-teal-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Package Earnings</p>
+                    <p className="text-2xl font-bold text-white">
+                      ${(stats.packageEarnings ?? 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -319,7 +388,7 @@ export default function ReferralsPage() {
             </CardContent>
           </Card>
 
-          {/* History by Level */}
+          {/* History */}
           <Card className="bg-slate-800/50 border-slate-700" translate="no">
             <CardHeader>
               <CardTitle className="text-white">Referral History</CardTitle>
