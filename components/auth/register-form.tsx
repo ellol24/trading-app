@@ -124,7 +124,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Minimum 8 characters"
+                placeholder="Please enter password(Minimum 8 characters)"
                 required
                 minLength={8}
                 className="professional-input pl-10 h-12"
