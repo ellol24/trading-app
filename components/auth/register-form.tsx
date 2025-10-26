@@ -82,7 +82,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
 
           <div className="space-y-2">
             <Label htmlFor="fullName" className="text-slate-200 font-medium">
-              Full Name
+              User Name
             </Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -90,7 +90,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="fullName"
                 name="fullName"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Please enter your name"
                 required
                 className="professional-input pl-10 h-12"
               />
@@ -107,7 +107,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="email"
                 name="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="Please enter in the email"
                 required
                 className="professional-input pl-10 h-12"
               />
@@ -141,6 +141,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
               id="referralCode"
               name="referralCode"
               type="text"
+              placeholder="Please enter the invitation code"
               value={referralCode}
               onChange={(e) => setReferralCode(e.target.value)}
               readOnly={!!referralCodeFromUrl} // إذا جاي من الرابط → لا يتعدل
