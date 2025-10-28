@@ -5,11 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Share, Users, Target, DollarSign, Copy, Trophy, TrendingUp, Package } from "lucide-react";
+import {
+  Share,
+  Users,
+  Target,
+  DollarSign,
+  Copy,
+  Trophy,
+  TrendingUp,
+  Package,
+  Wallet,
+  BarChart3,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
-import ReferralsLoading from "./loading"; // شاشة التحميل (إذا عندك هذا الملف)
+import ReferralsLoading from "./loading";
 
+// 🧱 أنواع البيانات
 type ReferralHistory = {
   id: string;
   referred_uid?: string;
@@ -18,7 +30,8 @@ type ReferralHistory = {
   referral_code?: string | null;
   joinDate?: string | null;
   status: string;
-  totalDeposits: number;
+  balance?: number;
+  totalReferrals?: number;
   yourCommission: number;
   level: number;
 };
@@ -36,7 +49,6 @@ type ReferralStats = {
 export default function ReferralsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<ReferralHistory[]>([]);
-  const [commissions, setCommissions] = useState<any[]>([]);
   const [stats, setStats] = useState<ReferralStats>({
     referralsCount: 0,
     commissionsTotal: 0,
@@ -46,21 +58,32 @@ export default function ReferralsPage() {
   });
   const [loading, setLoading] = useState(true);
 
+  // ✉️ إخفاء الإيميل جزئياً
+  const maskEmail = (email: string | null) => {
+    if (!email) return "";
+    const [name, domain] = email.split("@");
+    return name.length > 2
+      ? `${name.slice(0, 2)}***@${domain}`
+      : `${name[0]}***@${domain}`;
+  };
+
+  // 👤 إخفاء الاسم جزئياً
+  const maskName = (name: string) => {
+    if (!name) return "Unknown";
+    if (name.length <= 2) return name;
+    return `${name.slice(0, 2)}***${name.slice(-1)}`;
+  };
+
+  // 🚀 تحميل البيانات
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-
-        // المستخدم الحالي
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user) {
-          console.error("Auth error", userError);
-          setLoading(false);
-          return;
-        }
+        if (userError || !userData?.user) return setLoading(false);
+
         const userId = userData.user.id;
 
-        // البروفايل
         const { data: profileData } = await supabase
           .from("user_profiles")
           .select("*")
@@ -69,375 +92,230 @@ export default function ReferralsPage() {
 
         setProfile(profileData);
 
-        // المستوى الأول
+        // جلب الإحالات حسب المستويات
+        const getReferrals = async (refCodes: string[], level: number) => {
+          const { data } = await supabase
+            .from("user_profiles")
+            .select(
+              "uid, email, full_name, created_at, referral_code, referral_code_used, balance, total_referrals"
+            )
+            .in("referral_code_used", refCodes);
+          return (
+            data?.map((r) => ({
+              id: r.uid,
+              referred_uid: r.uid,
+              referred_email: r.email,
+              username: r.full_name || "Unknown",
+              referral_code: r.referral_code,
+              joinDate: r.created_at,
+              status: "Active",
+              balance: r.balance ?? 0,
+              totalReferrals: r.total_referrals ?? 0,
+              yourCommission: 0,
+              level,
+            })) ?? []
+          );
+        };
+
+        // المستوى 1
         const { data: level1 } = await supabase
           .from("user_profiles")
-          .select("uid, email, full_name, created_at, referral_code, referral_code_used")
+          .select(
+            "uid, email, full_name, created_at, referral_code, referral_code_used, balance, total_referrals"
+          )
           .eq("referral_code_used", profileData?.referral_code);
 
-        const level1Refs: ReferralHistory[] =
-          level1?.map((r: any) => ({
-            id: r.uid,
-            referred_uid: r.uid,
-            referred_email: r.email,
-            username: r.full_name || "Unknown",
-            referral_code: r.referral_code,
-            joinDate: r.created_at,
-            status: "Active",
-            totalDeposits: 0,
-            yourCommission: 0,
-            level: 1,
-          })) ?? [];
-
-        // المستوى الثاني
-        let level2Refs: ReferralHistory[] = [];
-        if (level1 && level1.length > 0) {
-          const { data: level2 } = await supabase
-            .from("user_profiles")
-            .select("uid, email, full_name, created_at, referral_code, referral_code_used")
-            .in("referral_code_used", level1.map((r: any) => r.referral_code));
-
-          level2Refs =
-            level2?.map((r: any) => ({
-              id: r.uid,
-              referred_uid: r.uid,
-              referred_email: r.email,
-              username: r.full_name || "Unknown",
-              referral_code: r.referral_code,
-              joinDate: r.created_at,
-              status: "Active",
-              totalDeposits: 0,
-              yourCommission: 0,
-              level: 2,
-            })) ?? [];
-        }
-
-        // المستوى الثالث
-        let level3Refs: ReferralHistory[] = [];
-        if (level2Refs.length > 0) {
-          const { data: level3 } = await supabase
-            .from("user_profiles")
-            .select("uid, email, full_name, created_at, referral_code, referral_code_used")
-            .in("referral_code_used", level2Refs.map((r) => r.referral_code));
-
-          level3Refs =
-            level3?.map((r: any) => ({
-              id: r.uid,
-              referred_uid: r.uid,
-              referred_email: r.email,
-              username: r.full_name || "Unknown",
-              referral_code: r.referral_code,
-              joinDate: r.created_at,
-              status: "Active",
-              totalDeposits: 0,
-              yourCommission: 0,
-              level: 3,
-            })) ?? [];
-        }
+        const level1Refs = level1 ? await getReferrals([profileData.referral_code], 1) : [];
+        const level2Refs =
+          level1 && level1.length > 0
+            ? await getReferrals(level1.map((r) => r.referral_code), 2)
+            : [];
+        const level3Refs =
+          level2Refs.length > 0
+            ? await getReferrals(level2Refs.map((r) => r.referral_code), 3)
+            : [];
 
         const allRefs = [...level1Refs, ...level2Refs, ...level3Refs];
         setHistory(allRefs);
 
-        // عمولات الإيداع
+        // 💰 حساب الأرباح من الجداول الثلاثة
         const { data: depositCommissions } = await supabase
           .from("referral_commissions")
           .select("amount")
           .eq("recipient_uid", userId);
 
-        const depositTotal = (depositCommissions || []).reduce(
-          (s: number, c: any) => s + Number(c.amount || 0),
-          0
-        );
+        const { data: tradeCommissions } = await supabase
+          .from("trade_referral_commissions")
+          .select("amount")
+          .eq("user_id", userId);
 
-        // أرباح التداول
-const { data: tradeCommissions } = await supabase
-  .from("trade_referral_commissions")
-  .select("amount")
-  .eq("user_id", userId); // ✅ العمود الصحيح هو user_id
-
-const tradeTotal = (tradeCommissions || []).reduce(
-  (s: number, c: any) => s + Number(c.amount || 0),
-  0
-);
-
-
-        // أرباح الباقات
         const { data: packageCommissions } = await supabase
           .from("package_referral_commissions")
           .select("amount")
-          .eq("recipient_uid", userId);
+          .eq("user_id", userId);
 
+        const depositTotal = (depositCommissions || []).reduce(
+          (s, c) => s + Number(c.amount || 0),
+          0
+        );
+        const tradeTotal = (tradeCommissions || []).reduce(
+          (s, c) => s + Number(c.amount || 0),
+          0
+        );
         const packageTotal = (packageCommissions || []).reduce(
-          (s: number, c: any) => s + Number(c.amount || 0),
+          (s, c) => s + Number(c.amount || 0),
           0
         );
 
-        const totalCommission = depositTotal + tradeTotal + packageTotal;
+        const totalEarnings = depositTotal + tradeTotal + packageTotal;
 
-        setCommissions(depositCommissions || []);
         setStats({
           referralsCount: allRefs.length,
           activeReferrals: allRefs.length,
-          totalEarnings: totalCommission,
-          commissionsTotal: totalCommission,
           depositEarnings: depositTotal,
           tradeEarnings: tradeTotal,
           packageEarnings: packageTotal,
+          totalEarnings,
         });
-
-        setLoading(false);
       } catch (err) {
-        console.error("Error loading referrals page:", err);
+        console.error("Referral page error:", err);
+      } finally {
         setLoading(false);
       }
     };
-
     loadData();
   }, []);
 
-  const referralCode = profile?.referral_code ?? "";
-  const referralLink = `https://xspy-trader.com/auth/register?ref=${encodeURIComponent(referralCode)}`;
+  const referralLink = profile?.referral_code
+    ? `https://xspy-trader.com/auth/register?ref=${encodeURIComponent(profile.referral_code)}`
+    : "";
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text || "");
-      toast.success("Copied to clipboard!");
-    } catch {
-      toast.error("Failed to copy");
-    }
+  const copyLink = async () => {
+    if (!referralLink) return toast.error("Referral link not ready");
+    await navigator.clipboard.writeText(referralLink);
+    toast.success("Copied to clipboard!");
   };
 
-  const shareReferralLink = async () => {
-    if (!referralLink) {
-      toast.error("Referral link not ready");
-      return;
-    }
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Join Xspy-trader",
-          text: "Earn lifetime commissions by inviting traders.",
-          url: referralLink,
-        });
-      } catch {
-        copyToClipboard(referralLink);
-      }
-    } else {
-      copyToClipboard(referralLink);
-    }
-  };
+  if (loading) return <ReferralsLoading />;
 
-  if (loading) {
-    return <ReferralsLoading />;
-  }
-
-  if (!profile) {
-    return (
-      <div className="p-6" translate="no" data-react-protected>
-        <p className="text-white">Please login to view referrals.</p>
-      </div>
-    );
-  }
-
+  // 🎨 واجهة الصفحة
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20"
-      translate="no"
-      data-react-protected
-    >
-      <div className="p-6 space-y-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between" translate="no">
-            <div>
-              <h1 className="text-3xl font-bold text-white">
-                Professional Referral Program
-              </h1>
-              <p className="text-gray-400 mt-1">
-                Earn lifetime commissions by inviting traders to Xspy-trader
-              </p>
-            </div>
-            <Badge
-              variant="outline"
-              className="text-green-400 border-green-400 bg-green-400/10 px-4 py-2"
-            >
-              <Trophy className="w-4 h-4 mr-2" />
-              3 Levels Commission
-            </Badge>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4" translate="no">
-            {/* Total Referrals */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-lg bg-blue-500/20">
-                    <Users className="h-6 w-6 text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Total Referrals</p>
-                    <p className="text-2xl font-bold text-white">
-                      {stats.referralsCount}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Active Traders */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-lg bg-green-500/20">
-                    <Target className="h-6 w-6 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Active Traders</p>
-                    <p className="text-2xl font-bold text-white">
-                      {stats.activeReferrals ?? 0}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Deposit Earnings */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-lg bg-yellow-500/20">
-                    <DollarSign className="h-6 w-6 text-yellow-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Deposit Earnings</p>
-                    <p className="text-2xl font-bold text-white">
-                      ${(stats.depositEarnings ?? 0).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Trade Earnings */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-lg bg-purple-500/20">
-                    <TrendingUp className="h-6 w-6 text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Trading Earnings</p>
-                    <p className="text-2xl font-bold text-white">
-                      ${(stats.tradeEarnings ?? 0).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Package Earnings */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 rounded-lg bg-teal-500/20">
-                    <Package className="h-6 w-6 text-teal-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Package Earnings</p>
-                    <p className="text-2xl font-bold text-white">
-                      ${(stats.packageEarnings ?? 0).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Referral Link */}
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm" translate="no">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center space-x-2">
-                <Share className="h-5 w-5" />
-                <span>Your Referral Link</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex space-x-2">
-                <Input
-                  value={referralLink}
-                  readOnly
-                  className="flex-1 bg-slate-700/50 border-slate-600 text-white font-mono text-sm"
-                />
-                <Button
-                  onClick={() => copyToClipboard(referralLink)}
-                  size="icon"
-                  className="bg-blue-600 hover:bg-blue-700"
-                  title="Copy Link"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={shareReferralLink}
-                  size="icon"
-                  className="bg-green-600 hover:bg-green-700"
-                  title="Share Link"
-                >
-                  <Share className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* History */}
-          <Card className="bg-slate-800/50 border-slate-700" translate="no">
-            <CardHeader>
-              <CardTitle className="text-white">Referral History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {[1, 2, 3].map((level) => (
-                <div key={level} className="mb-6">
-                  <h3 className="text-lg font-semibold text-blue-400 mb-2">
-                    Level {level}
-                  </h3>
-                  {history.filter((r) => r.level === level).length === 0 ? (
-                    <p className="text-gray-400 text-sm">
-                      No referrals at this level.
-                    </p>
-                  ) : (
-                    history
-                      .filter((r) => r.level === level)
-                      .map((ref) => (
-                        <div
-                          key={ref.id}
-                          className="flex items-center justify-between p-4 rounded-lg bg-slate-700/30 border border-slate-600 mb-2"
-                        >
-                          <div>
-                            <p className="text-white font-semibold">
-                              {ref.username}
-                            </p>
-                            <p className="text-gray-400 text-sm">
-                              {ref.referred_email}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Joined:{" "}
-                              {ref.joinDate
-                                ? new Date(ref.joinDate).toLocaleString()
-                                : "—"}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <Badge className="bg-green-600">{ref.status}</Badge>
-                          </div>
-                        </div>
-                      ))
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-white">Referral Program</h1>
+          <Badge
+            variant="outline"
+            className="text-green-400 border-green-400 bg-green-400/10 px-4 py-2"
+          >
+            <Trophy className="w-4 h-4 mr-2" /> 3 Levels Commission
+          </Badge>
         </div>
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatCard title="Total Referrals" value={stats.referralsCount} icon={<Users />} color="blue" />
+          <StatCard title="Deposit Earnings" value={stats.depositEarnings} icon={<DollarSign />} color="yellow" />
+          <StatCard title="Trading Earnings" value={stats.tradeEarnings} icon={<TrendingUp />} color="purple" />
+          <StatCard title="Package Earnings" value={stats.packageEarnings} icon={<Package />} color="teal" />
+          <StatCard title="Total Earnings" value={stats.totalEarnings} icon={<BarChart3 />} color="green" />
+        </div>
+
+        {/* Referral Link */}
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center space-x-2">
+              <Share className="h-5 w-5" />
+              <span>Your Referral Link</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex space-x-2">
+            <Input
+              value={referralLink}
+              readOnly
+              className="flex-1 bg-slate-700/50 border-slate-600 text-white font-mono text-sm"
+            />
+            <Button onClick={copyLink} className="bg-blue-600 hover:bg-blue-700">
+              <Copy className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Referral History */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Referral History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {[1, 2, 3].map((level) => (
+              <div key={level} className="mb-6">
+                <h3 className="text-lg font-semibold text-blue-400 mb-3">Level {level}</h3>
+                {history.filter((r) => r.level === level).length === 0 ? (
+                  <p className="text-gray-400 text-sm">No referrals at this level.</p>
+                ) : (
+                  history
+                    .filter((r) => r.level === level)
+                    .map((ref) => (
+                      <div
+                        key={ref.id}
+                        className="flex justify-between items-center p-4 rounded-lg bg-slate-700/30 border border-slate-600 mb-2 hover:bg-slate-700/50 transition"
+                      >
+                        <div>
+                          <p className="text-white font-semibold">{maskName(ref.username)}</p>
+                          <p className="text-gray-400 text-sm">{maskEmail(ref.referred_email)}</p>
+                          <p className="text-xs text-gray-500">
+                            Joined:{" "}
+                            {ref.joinDate
+                              ? new Date(ref.joinDate).toLocaleString()
+                              : "—"}
+                          </p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Wallet className="h-4 w-4 text-yellow-400" />
+                            <span className="text-sm text-yellow-400 font-medium">
+                              ${ref.balance?.toFixed(2) ?? "0.00"}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400">
+                            Referrals: {ref.totalReferrals ?? 0}
+                          </p>
+                          <Badge className="bg-green-600">{ref.status}</Badge>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     </div>
+  );
+}
+
+// 🧩 بطاقة إحصاء صغيرة
+function StatCard({
+  title,
+  value,
+  icon,
+  color,
+}: {
+  title: string;
+  value: number | undefined;
+  icon: JSX.Element;
+  color: string;
+}) {
+  return (
+    <Card className="bg-slate-800/50 border-slate-700">
+      <CardContent className="p-4 flex items-center space-x-3">
+        <div className={`p-3 rounded-lg bg-${color}-500/20`}>{icon}</div>
+        <div>
+          <p className="text-sm text-gray-400">{title}</p>
+          <p className="text-2xl font-bold text-white">${(value ?? 0).toFixed(2)}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
