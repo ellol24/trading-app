@@ -70,7 +70,7 @@ export function SiteHeader() {
                 asChild
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500"
               >
-                <Link href="/auth/register">Get Started</Link>
+                <Link href="/auth/register">Create Account</Link>
               </Button>
             </>
           )}
