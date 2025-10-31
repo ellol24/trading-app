@@ -5,13 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// 🧩 بيانات العملات
+// 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
   { code: "USDTTRC20", name: "USDT (TRC20)" },
   { code: "USDTBEP20", name: "USDT (BEP20)" },
@@ -24,18 +30,20 @@ export default function DepositClient({ user, profile }: any) {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // 🧠 تحميل السجل من قاعدة البيانات
+  // 🧠 تحميل سجل الإيداعات من Supabase
   async function loadDeposits() {
     if (!user?.id) return;
     setLoadingHistory(true);
+
     const { data, error } = await supabase
       .from("deposits")
       .select("id, amount, status, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error) toast.error("Failed to load deposits");
+    if (error) toast.error("❌ Failed to load deposits");
     else setDeposits(data || []);
+
     setLoadingHistory(false);
   }
 
@@ -43,39 +51,33 @@ export default function DepositClient({ user, profile }: any) {
     loadDeposits();
   }, [user?.id]);
 
-  // 🚀 إنشاء دفعة جديدة عبر NOWPayments
+  // 🚀 إنشاء دفعة جديدة (الاتصال بالسيرفر الخاص بك)
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
-      toast.warning("Enter a valid amount");
+      toast.warning("⚠️ Enter a valid amount");
       return;
     }
 
     try {
       setIsProcessing(true);
 
-      const response = await fetch("https://api.nowpayments.io/v1/payment", {
+      const res = await fetch("/api/contact/payment-create", {
         method: "POST",
-        headers: {
-          "x-api-key": process.env.NOWPAYMENTS_API_KEY!,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          price_amount: Number(amount),
-          price_currency: "usd",
-          pay_currency: coin,
-          order_id: `${user.id}-${Date.now()}`,
-          order_description: "Deposit to XSPY Account",
-          ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/deposit`, // نفس الصفحة
+          amount: Number(amount),
+          currency: coin,
+          user_id: user.id,
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (data.invoice_url) {
+      if (data.payment_url) {
         toast.success("Redirecting to payment page...");
-        window.location.href = data.invoice_url;
+        window.location.href = data.payment_url;
       } else {
-        toast.error("Failed to create payment");
+        toast.error(data.error || "Failed to create payment");
       }
     } catch (err) {
       console.error(err);
@@ -85,39 +87,26 @@ export default function DepositClient({ user, profile }: any) {
     }
   };
 
-  // 🧩 استقبال إشعارات الدفع IPN مباشرة (من NOWPayments)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get("payment_status");
-    const orderId = urlParams.get("order_id");
-    const amountReceived = urlParams.get("actually_paid");
-
-    if (status === "finished" && orderId && amountReceived) {
-      toast.success("✅ Payment confirmed, updating your balance...");
-      // تحديث قاعدة البيانات
-      const [userId] = orderId.split("-");
-      supabase.from("deposits").insert({
-        user_id: userId,
-        amount: Number(amountReceived),
-        status: "approved",
-      });
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
       <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
-            <p className="text-blue-200 mt-1">Make instant deposits using crypto</p>
+            <p className="text-blue-200 mt-1">
+              Make instant deposits using crypto
+            </p>
           </div>
-          <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
+          <Badge
+            variant="outline"
+            className="text-green-400 border-green-400 bg-green-400/10"
+          >
             <CheckCircle2 className="w-4 h-4 mr-2" /> Auto
           </Badge>
         </div>
 
-        {/* نموذج الإيداع */}
+        {/* Deposit Form */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit Information</CardTitle>
@@ -156,12 +145,19 @@ export default function DepositClient({ user, profile }: any) {
               className="w-full h-12 font-semibold text-lg bg-green-600 hover:bg-green-700"
               disabled={isProcessing}
             >
-              {isProcessing ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Deposit Now"}
+              {isProcessing ? (
+                <>
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  Processing...
+                </>
+              ) : (
+                "Deposit Now"
+              )}
             </Button>
           </CardContent>
         </Card>
 
-        {/* سجل الإيداعات */}
+        {/* Deposit History */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit History</CardTitle>
@@ -178,7 +174,9 @@ export default function DepositClient({ user, profile }: any) {
                   className="flex justify-between p-3 border border-slate-700 rounded-lg bg-slate-700/30"
                 >
                   <div>
-                    <p className="text-white font-semibold">${dep.amount}</p>
+                    <p className="text-white font-semibold">
+                      ${dep.amount.toFixed(2)}
+                    </p>
                     <p className="text-sm text-gray-400">
                       {new Date(dep.created_at).toLocaleString()}
                     </p>
