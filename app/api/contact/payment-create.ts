@@ -1,69 +1,47 @@
-// app/api/contact/payment-create.ts
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/server"; // إذا لديك نسخة server-side من supabase
-// أو استبدل بنسخة client إذا تستخدمها بطريقة مختلفة
-
-const NOW_API = "https://api.nowpayments.io/v1";
-const NOW_KEY = process.env.NOWPAYMENTS_API_KEY!;
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://xspy-trader.com";
-const IPN_CALLBACK = `${SITE}/api/contact/payment-webhook`;
+import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { userId, amount, currency = "usd", metadata } = body;
+    const { amount, currency, userId, email } = await req.json()
 
-    if (!userId || !amount || Number(amount) <= 0) {
-      return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+    if (!amount || !currency || !userId || !email) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // (اختياري) أنشئ سجل مؤقت في جدول deposits مع status = 'pending'
-    const tmp = await (async () => {
-      try {
-        const insert = await supabase.from("deposits").insert({
-          user_id: userId,
-          amount: Number(amount),
-          status: "pending",
-          metadata: metadata || null,
-          // تضع هنا حقل order_id أو external_id إذا أردت ربط الفاتورة لاحقًا
-        }).select().single();
-        return insert.data;
-      } catch {
-        return null;
-      }
-    })();
+    const apiKey = process.env.NOWPAYMENTS_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: "NOWPayments API key not configured" }, { status: 500 })
+    }
 
-    // إنشاء invoice في NowPayments
-    const payload = {
-      price_amount: Number(amount),
-      price_currency: currency,
-      pay_currency: "usdttrc20", // أو اتركها null لترك اختيار العملة للمستخدم
-      order_id: tmp?.id ?? userId, // احفظ order id ليعود لاحقًا في webhook
-      order_description: `Deposit for user ${userId}`,
-      ipn_callback_url: IPN_CALLBACK,
-      success_url: `${SITE}/dashboard/deposit-success`,
-      cancel_url: `${SITE}/dashboard/deposit-failed`
-    };
-
-    const res = await fetch(`${NOW_API}/invoice`, {
+    // إنشاء الطلب في NOWPayments
+    const res = await fetch("https://api.nowpayments.io/v1/payment", {
       method: "POST",
       headers: {
-        "x-api-key": NOW_KEY,
+        "x-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
-    });
+      body: JSON.stringify({
+        price_amount: Number(amount),
+        price_currency: "usd",
+        pay_currency: currency, // مثل USDTTRC20 أو USDTBEP20
+        order_id: `${userId}-${Date.now()}`,
+        order_description: `Deposit for user ${email}`,
+        ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/contact/payment-webhook`,
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/deposit?status=success`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/deposit?status=cancel`,
+      }),
+    })
 
-    const data = await res.json();
     if (!res.ok) {
-      console.error("NowPayments create invoice error:", data);
-      return NextResponse.json({ error: "nowpayments_error", detail: data }, { status: 500 });
+      const errorText = await res.text()
+      console.error("NOWPayments error:", errorText)
+      return NextResponse.json({ error: "Failed to create payment" }, { status: res.status })
     }
 
-    // ارجع رابط الدفع للعميل (frontend سيقوم بتحويل المستخدم)
-    return NextResponse.json({ invoice_url: data.invoice_url, invoice: data });
-  } catch (err: any) {
-    console.error("payment-create error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const data = await res.json()
+    return NextResponse.json(data)
+  } catch (err) {
+    console.error("Payment create error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
