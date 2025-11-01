@@ -1,0 +1,1455 @@
+// hooks/use-toast.ts
+"use client"
+
+// Inspired by react-hot-toast library
+import * as React from "react"
+
+import type {
+ToastActionElement,
+ToastProps,
+} from "@/components/ui/toast"
+
+// Show up to 3 concurrent toasts, auto-dismiss after 5s
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 5000
+
+type ToasterToast = ToastProps & {
+id: string
+title?: React.ReactNode
+description?: React.ReactNode
+action?: ToastActionElement
+}
+
+const actionTypes = {
+ADD_TOAST: "ADD_TOAST",
+UPDATE_TOAST: "UPDATE_TOAST",
+DISMISS_TOAST: "DISMISS_TOAST",
+REMOVE_TOAST: "REMOVE_TOAST",
+} as const
+
+let count = 0
+
+function genId() {
+count = (count + 1) % Number.MAX_SAFE_INTEGER
+return count.toString()
+}
+
+type ActionType = typeof actionTypes
+
+type Action =
+| {
+    type: ActionType["ADD_TOAST"]
+    toast: ToasterToast
+  }
+| {
+    type: ActionType["UPDATE_TOAST"]
+    toast: Partial<ToasterToast>
+  }
+| {
+    type: ActionType["DISMISS_TOAST"]
+    toastId?: ToasterToast["id"]
+  }
+| {
+    type: ActionType["REMOVE_TOAST"]
+    toastId?: ToasterToast["id"]
+  }
+
+interface State {
+toasts: ToasterToast[]
+}
+
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+
+const addToRemoveQueue = (toastId: string) => {
+if (toastTimeouts.has(toastId)) {
+  return
+}
+
+const timeout = setTimeout(() => {
+  toastTimeouts.delete(toastId)
+  dispatch({
+    type: "REMOVE_TOAST",
+    toastId: toastId,
+  })
+}, TOAST_REMOVE_DELAY)
+
+toastTimeouts.set(toastId, timeout)
+}
+
+export const reducer = (state: State, action: Action): State => {
+switch (action.type) {
+  case "ADD_TOAST":
+    return {
+      ...state,
+      toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+    }
+
+  case "UPDATE_TOAST":
+    return {
+      ...state,
+      toasts: state.toasts.map((t) =>
+        t.id === action.toast.id ? { ...t, ...action.toast } : t
+      ),
+    }
+
+  case "DISMISS_TOAST": {
+    const { toastId } = action
+
+    if (toastId) {
+      addToRemoveQueue(toastId)
+    } else {
+      state.toasts.forEach((toast) => {
+        addToRemoveQueue(toast.id)
+      })
+    }
+
+    return {
+      ...state,
+      toasts: state.toasts.map((t) =>
+        t.id === toastId || toastId === undefined
+          ? {
+              ...t,
+              open: false,
+            }
+          : t
+      ),
+    }
+  }
+  case "REMOVE_TOAST":
+    if (action.toastId === undefined) {
+      return {
+        ...state,
+        toasts: [],
+      }
+    }
+    return {
+      ...state,
+      toasts: state.toasts.filter((t) => t.id !== action.toastId),
+    }
+}
+}
+
+const listeners: Array<(state: State) => void> = []
+
+let memoryState: State = { toasts: [] }
+
+function dispatch(action: Action) {
+memoryState = reducer(memoryState, action)
+listeners.forEach((listener) => {
+  listener(memoryState)
+})
+}
+
+type Toast = Omit<ToasterToast, "id">
+
+function toast({ ...props }: Toast) {
+const id = genId()
+
+const update = (props: ToasterToast) =>
+  dispatch({
+    type: "UPDATE_TOAST",
+    toast: { ...props, id },
+  })
+const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+
+dispatch({
+  type: "ADD_TOAST",
+  toast: {
+    ...props,
+    id,
+    open: true,
+    onOpenChange: (open) => {
+      if (!open) dismiss()
+    },
+  },
+})
+
+return {
+  id: id,
+  dismiss,
+  update,
+}
+}
+
+function useToast() {
+const [state, setState] = React.useState<State>(memoryState)
+
+React.useEffect(() => {
+  listeners.push(setState)
+  return () => {
+    const index = listeners.indexOf(setState)
+    if (index > -1) {
+      listeners.splice(index, 1)
+    }
+  }
+}, [state])
+
+return {
+  ...state,
+  toast,
+  dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+}
+}
+
+export { useToast, toast }
+
+// app/layout.tsx
+import "./globals.css"
+import type { Metadata } from "next"
+import { Toaster } from "@/components/ui/toaster"
+import { ThemeProvider } from "@/components/theme-provider"
+import { cn } from "@/lib/utils"
+
+export const metadata: Metadata = {
+title: "TradePro",
+description: "Professional Binary Options Trading Platform",
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+return (
+  <html lang="en" suppressHydrationWarning>
+    <body className={cn("min-h-screen bg-background antialiased")}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+        {children}
+        <Toaster />
+      </ThemeProvider>
+    </body>
+  </html>
+)
+}
+
+// components/ui/toaster.tsx
+"use client"
+
+import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@/components/ui/toast"
+import { useToast } from "@/hooks/use-toast"
+
+export function Toaster() {
+const { toasts } = useToast()
+
+return (
+  <ToastProvider>
+    {toasts.map(function ({ id, title, description, action, ...props }) {
+      return (
+        <Toast key={id} {...props}>
+          <div className="grid gap-1">
+            {title && <ToastTitle>{title}</ToastTitle>}
+            {description && <ToastDescription>{description}</ToastDescription>}
+          </div>
+          {action}
+          <ToastClose />
+        </Toast>
+      )
+    })}
+    <ToastViewport />
+  </ToastProvider>
+)
+}
+
+// app/dashboard/deposit/page.tsx
+"use client"
+
+import { useMemo, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, CheckCircle2, ImagePlus } from 'lucide-react'
+import { NETWORKS, useDepositsStore, type NetworkId } from "@/lib/deposits-store"
+import { useToast } from "@/hooks/use-toast"
+
+function fileToDataUrl(file: File): Promise<string> {
+return new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(String(reader.result))
+  reader.onerror = () => reject(new Error("Failed to read file"))
+  reader.readAsDataURL(file)
+})
+}
+
+export default function DepositUSDTPage() {
+const [networkId, setNetworkId] = useState<NetworkId>("USDT_TRC20")
+const [amount, setAmount] = useState<string>("")
+const [screenshot, setScreenshot] = useState<File | null>(null)
+const [isSubmitting, setIsSubmitting] = useState(false)
+const { toast } = useToast()
+
+const addDeposit = useDepositsStore((s) => s.addDeposit)
+
+const network = useMemo(() => NETWORKS.find((n) => n.id === networkId)!, [networkId])
+
+const onUpload = (file: File | null) => {
+  setScreenshot(file)
+}
+
+const onCompletedPayment = async () => {
+  const value = Number(amount)
+  if (!value || value <= 0) {
+    toast({
+      title: "Invalid amount",
+      description: "Please enter a valid deposit amount in USDT.",
+      variant: "destructive",
+    })
+    return
+  }
+  if (!screenshot) {
+    toast({
+      title: "Screenshot required",
+      description: "Upload a clear screenshot of your payment before submitting.",
+      variant: "destructive",
+    })
+    return
+  }
+  setIsSubmitting(true)
+  try {
+    const proofDataUrl = await fileToDataUrl(screenshot)
+    const id = `DEP-${Date.now()}`
+    addDeposit({
+      id,
+      username: "Demo User",
+      email: "demo@example.com",
+      networkId,
+      networkLabel: network.label,
+      address: network.address,
+      amount: value,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      proofDataUrl,
+    })
+    setAmount("")
+    setScreenshot(null)
+    toast({
+      title: "Deposit submitted",
+      description: `Your $${value} USDT deposit on ${network.label} is pending review.`,
+    })
+  } catch {
+    toast({
+      title: "Submission failed",
+      description: "We couldn't process your deposit. Please try again.",
+      variant: "destructive",
+    })
+  } finally {
+    setIsSubmitting(false)
+  }
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Deposit USDT</h1>
+          <p className="text-blue-200 mt-1">Choose your network, send USDT, then upload your payment screenshot</p>
+        </div>
+        <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
+          <CheckCircle2 className="w-4 h-4 mr-2" />
+          Secure
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white">Network & Amount</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label className="text-white">Select Network</Label>
+                <Select value={networkId} onValueChange={(v) => setNetworkId(v as NetworkId)}>
+                  <SelectTrigger className="h-12 bg-background/50 border-border/50 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NETWORKS.map((n) => (
+                      <SelectItem key={n.id} value={n.id}>
+                        {n.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-blue-200">{network.chain}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white">Platform Wallet ({network.label})</Label>
+                <Input readOnly value={network.address} className="h-12 bg-background/50 border-border/50 text-white" />
+                <p className="text-xs text-blue-200">Send only USDT on {network.label} to this address.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="amount" className="text-white">Deposit Amount (USDT)</Label>
+                <Input
+                  id="amount"
+                  inputMode="decimal"
+                  type="number"
+                  placeholder="Enter amount in USDT"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="h-12 bg-background/50 border-border/50 text-white placeholder:text-muted-foreground"
+                  min={1}
+                />
+                <div className="grid grid-cols-4 gap-2">
+                  {[50, 100, 250, 500].map((v) => (
+                    <Button key={v} variant="outline" className="h-10 bg-transparent" onClick={() => setAmount(String(v))}>
+                      {v} USDT
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white">Deposit Screenshot</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-white">Upload Image</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    className="h-12 bg-background/50 border-border/50 text-white file:text-white"
+                    onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)}
+                  />
+                  <div className="text-xs text-blue-200">PNG, JPG up to ~5MB</div>
+                </div>
+
+                {screenshot ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-blue-200 mb-2">Preview</p>
+                    <img
+                      src={URL.createObjectURL(screenshot) || "/placeholder.svg"}
+                      alt="Deposit screenshot preview"
+                      className="w-full max-w-md rounded border border-border/30"
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-2 p-6 border border-dashed border-border/30 rounded-lg text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <ImagePlus className="w-5 h-5" />
+                      <span>Drag & drop or click to upload your deposit screenshot</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-yellow-400 font-semibold">Important</p>
+                    <ul className="text-yellow-200 text-sm space-y-1">
+                      <li>• Network MUST match the one you selected.</li>
+                      <li>• After sending the funds, upload the screenshot and click “I completed payment”.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <Button className="w-full h-12 text-base font-semibold professional-gradient" onClick={onCompletedPayment} disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "I completed payment"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white text-lg">How It Works</CardTitle>
+            </CardHeader>
+            <CardContent className="text-blue-200 space-y-3 text-sm">
+              <p>1. Select USDT network (TRC20 or BEB20).</p>
+              <p>2. Send USDT to the platform wallet shown above.</p>
+              <p>3. Upload your deposit screenshot and submit.</p>
+              <p>4. Admin will review and confirm your deposit.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  </div>
+)
+}
+
+// app/dashboard/withdraw/page.tsx
+"use client"
+
+import { useMemo, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { DollarSign, Shield, Wallet, Lock, AlertCircle, CheckCircle2, Plus, Mail } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
+
+type WithdrawalWallet = {
+id: string
+asset: "BTC" | "ETH" | "USDT" | "USDC"
+address: string
+label?: string
+otpVerified: boolean
+addedAt: string
+}
+
+type WithdrawalRequest = {
+id: string
+amount: number
+fee: number
+netAmount: number
+asset: WithdrawalWallet["asset"]
+status: "pending" | "approved" | "processing" | "paid" | "rejected"
+createdAt: string
+}
+
+const initialWallets: WithdrawalWallet[] = [
+{ id: "w1", asset: "USDT", address: "TRx12345abcde...fGh", label: "Primary USDT (TRC20)", otpVerified: true, addedAt: "2024-01-10" },
+]
+
+const recentWithdrawals: WithdrawalRequest[] = [
+{ id: "wr-1001", amount: 300, fee: 30, netAmount: 270, asset: "USDT", status: "paid", createdAt: "2024-01-14 17:45" },
+{ id: "wr-1002", amount: 150, fee: 15, netAmount: 135, asset: "BTC", status: "rejected", createdAt: "2024-01-13 09:15" },
+{ id: "wr-1003", amount: 500, fee: 50, netAmount: 450, asset: "USDT", status: "processing", createdAt: "2024-01-12 12:20" },
+]
+
+export default function WithdrawPage() {
+const [wallets, setWallets] = useState<WithdrawalWallet[]>(initialWallets)
+const [selectedWalletId, setSelectedWalletId] = useState<string>(wallets[0]?.id ?? "")
+const [amount, setAmount] = useState<string>("")
+const [isSubmitting, setIsSubmitting] = useState(false)
+const [otpDialogOpen, setOtpDialogOpen] = useState(false)
+const [otpCode, setOtpCode] = useState("")
+const [addWalletOpen, setAddWalletOpen] = useState(false)
+const [newWallet, setNewWallet] = useState<{ asset: WithdrawalWallet["asset"] | ""; address: string; label: string; code: string }>({ asset: "", address: "", label: "", code: "" })
+const { toast } = useToast()
+
+const selectedWallet = useMemo(() => wallets.find((w) => w.id === selectedWalletId), [wallets, selectedWalletId])
+const fee = amount ? Math.max(0, Number.parseFloat(amount) * 0.1) : 0
+const net = amount ? Math.max(0, Number.parseFloat(amount) - fee) : 0
+
+const submitWithdrawal = async () => {
+  if (!selectedWallet) {
+    toast({ title: "No wallet selected", description: "Please add or select a verified withdrawal wallet.", variant: "destructive" })
+    return
+  }
+  if (!selectedWallet.otpVerified) {
+    toast({ title: "Wallet not verified", description: "Verify your wallet via email OTP before withdrawing.", variant: "destructive" })
+    return
+  }
+  if (!amount || Number.parseFloat(amount) < 10) {
+    toast({ title: "Invalid amount", description: "Minimum withdrawal amount is $10.", variant: "destructive" })
+    return
+  }
+  setOtpDialogOpen(true)
+}
+
+const confirmWithdrawal = async () => {
+  if (!otpCode || otpCode.length < 4) {
+    toast({ title: "Invalid code", description: "Enter the 4–6 digit OTP sent to your email.", variant: "destructive" })
+    return
+  }
+  setIsSubmitting(true)
+  setTimeout(() => {
+    setIsSubmitting(false)
+    setOtpDialogOpen(false)
+    setOtpCode("")
+    setAmount("")
+    toast({ title: "Withdrawal requested", description: "Your withdrawal is pending admin review." })
+  }, 1500)
+}
+
+const sendWalletOtp = () => {
+  toast({ title: "OTP sent", description: "We sent a verification code to your email address." })
+}
+
+const addWallet = () => {
+  if (!newWallet.asset || !newWallet.address || !newWallet.code) {
+    toast({ title: "Complete all fields", description: "Asset, address, and OTP code are required.", variant: "destructive" })
+    return
+  }
+  const id = `w${wallets.length + 1}`
+  setWallets((prev) => [
+    ...prev,
+    { id, asset: newWallet.asset as WithdrawalWallet["asset"], address: newWallet.address, label: newWallet.label || undefined, otpVerified: true, addedAt: new Date().toISOString().slice(0, 10) },
+  ])
+  setSelectedWalletId(id)
+  setNewWallet({ asset: "", address: "", label: "", code: "" })
+  setAddWalletOpen(false)
+  toast({ title: "Wallet added", description: "Your withdrawal wallet was verified and saved." })
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Withdraw Funds</h1>
+          <p className="text-blue-200 mt-1">Send funds to your verified crypto wallet</p>
+        </div>
+        <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
+          <Shield className="w-4 h-4 mr-2" />
+          SSL Secured
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Tabs defaultValue="withdraw" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 bg-background/20 border border-border/30">
+              <TabsTrigger value="withdraw" className="data-[state=active]:bg-primary">Withdraw</TabsTrigger>
+              <TabsTrigger value="wallets" className="data-[state=active]:bg-primary">Withdrawal Wallets</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="withdraw">
+              <Card className="trading-card">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center"><DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Alert className="bg-yellow-500/10 border-yellow-500/30">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle className="text-yellow-400">Important</AlertTitle>
+                    <AlertDescription className="text-yellow-200">A 10% withdrawal fee is deducted from the amount sent, not from your platform balance.</AlertDescription>
+                  </Alert>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-white">Select Wallet</Label>
+                      <Select value={selectedWalletId} onValueChange={setSelectedWalletId}>
+                        <SelectTrigger className="h-12 bg-background/50 border-border/50">
+                          <SelectValue placeholder="Choose wallet" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {wallets.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              {w.label || `${w.asset} Wallet`} — {w.address.slice(0, 8)}...{w.address.slice(-4)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!wallets.length && <p className="text-sm text-red-400">Add a withdrawal wallet first.</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-white">Amount (USD)</Label>
+                      <Input type="number" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-12 bg-background/50 border-border/50" min={10} />
+                      <p className="text-xs text-muted-foreground">Minimum withdrawal: $10</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-background/20 rounded-lg border border-border/30 space-y-2">
+                    <h3 className="text-white font-semibold">Summary</h3>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Requested Amount</span><span className="text-white">${amount || "0.00"}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Fee (10%)</span><span className="text-red-400">-${fee.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-sm border-t border-border/30 pt-2"><span className="text-muted-foreground">You Will Receive</span><span className="text-green-400 font-bold">${net.toFixed(2)}</span></div>
+                  </div>
+
+                  <Button className="w-full h-14 text-lg font-semibold professional-gradient" onClick={submitWithdrawal} disabled={!selectedWallet || !amount || Number.parseFloat(amount) < 10 || isSubmitting}>
+                    {isSubmitting ? "Submitting..." : "Submit Withdrawal Request"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="wallets">
+              <Card className="trading-card">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center"><Wallet className="w-5 h-5 mr-2" /> Manage Withdrawal Wallets</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-end">
+                    <Dialog open={addWalletOpen} onOpenChange={setAddWalletOpen}>
+                      <DialogTrigger asChild>
+                        <Button><Plus className="w-4 h-4 mr-2" /> Add New Wallet</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Withdrawal Wallet</DialogTitle>
+                          <DialogDescription>Verify via email OTP to secure your wallet.</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-3 py-3">
+                          <div className="space-y-2">
+                            <Label>Asset</Label>
+                            <Select value={newWallet.asset} onValueChange={(v) => setNewWallet((prev) => ({ ...prev, asset: v as any }))}>
+                              <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="BTC">BTC</SelectItem>
+                                <SelectItem value="ETH">ETH</SelectItem>
+                                <SelectItem value="USDT">USDT</SelectItem>
+                                <SelectItem value="USDC">USDC</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Label (optional)</Label>
+                            <Input placeholder="e.g. Primary USDT (TRC20)" value={newWallet.label} onChange={(e) => setNewWallet((prev) => ({ ...prev, label: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Address</Label>
+                            <Input placeholder="Paste withdrawal address" value={newWallet.address} onChange={(e) => setNewWallet((prev) => ({ ...prev, address: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Email OTP</Label>
+                            <div className="flex gap-2">
+                              <Input placeholder="Enter code" value={newWallet.code} onChange={(e) => setNewWallet((prev) => ({ ...prev, code: e.target.value }))} />
+                              <Button type="button" variant="outline" onClick={sendWalletOtp}><Mail className="w-4 h-4 mr-2" /> Send Code</Button>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={addWallet} disabled={!newWallet.asset || !newWallet.address || !newWallet.code}>Save Wallet</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  <div className="space-y-3">
+                    {wallets.map((w) => (
+                      <div key={w.id} className="p-4 rounded-lg bg-background/10 border border-border/30">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-white font-semibold">{w.label || `${w.asset} Wallet`}</p>
+                            <p className="text-muted-foreground text-sm break-all">{w.address}</p>
+                          </div>
+                          <Badge variant="outline" className={w.otpVerified ? "text-green-400 border-green-400" : "text-yellow-400 border-yellow-400"}>
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            {w.otpVerified ? "Verified" : "Pending Verification"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white text-lg">Recent Withdrawals</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recentWithdrawals.map((r) => (
+                <div key={r.id} className="p-3 bg-background/20 rounded-lg border border-border/30">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-white font-semibold">${r.amount}</span>
+                    <Badge variant="outline" className={r.status === "paid" ? "text-green-400 border-green-400 bg-green-400/10" : r.status === "rejected" ? "text-red-400 border-red-400 bg-red-400/10" : "text-yellow-400 border-yellow-400 bg-yellow-400/10"}>{r.status}</Badge>
+                  </div>
+                  <p className="text-muted-foreground text-xs">{r.asset} • {r.createdAt}</p>
+                  <p className="text-muted-foreground text-xs">Net: ${r.netAmount}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center"><Lock className="w-5 h-5 mr-2" /> Security Tips</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>• Only withdraw to wallets you control.</p>
+              <p>• Enable 2FA for additional protection.</p>
+              <p>• We will never DM you asking for your OTP.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+
+    <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirm Withdrawal</DialogTitle>
+          <DialogDescription>Enter the email OTP we sent to confirm this withdrawal.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label>OTP Code</Label>
+          <Input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="Enter code" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOtpDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmWithdrawal} disabled={!otpCode || isSubmitting}>{isSubmitting ? "Confirming..." : "Confirm"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
+)
+}
+
+// app/admin/users/page.tsx
+"use client"
+
+import {
+ColumnDef,
+flexRender,
+getCoreRowModel,
+getPaginationRowModel,
+useReactTable,
+} from "@tanstack/react-table"
+import {
+Table,
+TableBody,
+TableCaption,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import {
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuLabel,
+DropdownMenuSeparator,
+DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from 'lucide-react'
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+
+type User = {
+id: number
+username: string
+email: string
+role: "admin" | "user"
+status: "active" | "suspended" | "pending"
+createdAt: string
+}
+
+const users: User[] = [
+{ id: 1, username: "john_doe", email: "john.doe@example.com", role: "user", status: "active", createdAt: "2023-01-15" },
+{ id: 2, username: "jane_smith", email: "jane.smith@example.com", role: "admin", status: "active", createdAt: "2023-02-20" },
+{ id: 3, username: "peter_jones", email: "peter.jones@example.com", role: "user", status: "suspended", createdAt: "2023-03-10" },
+{ id: 4, username: "lisa_brown", email: "lisa.brown@example.com", role: "user", status: "pending", createdAt: "2023-04-05" },
+{ id: 5, username: "mark_wilson", email: "mark.wilson@example.com", role: "user", status: "active", createdAt: "2023-05-12" },
+{ id: 6, username: "sara_davis", email: "sara.davis@example.com", role: "user", status: "active", createdAt: "2023-06-18" },
+{ id: 7, username: "kevin_white", email: "kevin.white@example.com", role: "user", status: "suspended", createdAt: "2023-07-01" },
+{ id: 8, username: "laura_hall", email: "laura.hall@example.com", role: "user", status: "active", createdAt: "2023-08-25" },
+{ id: 9, username: "david_clark", email: "david.clark@example.com", role: "user", status: "pending", createdAt: "2023-09-30" },
+{ id: 10, username: "amy_adams", email: "amy.adams@example.com", role: "user", status: "active", createdAt: "2023-10-08" },
+]
+
+const columns: ColumnDef<User>[] = [
+{
+  accessorKey: "id",
+  header: "ID",
+},
+{
+  accessorKey: "username",
+  header: "Username",
+},
+{
+  accessorKey: "email",
+  header: "Email",
+},
+{
+  accessorKey: "role",
+  header: "Role",
+},
+{
+  accessorKey: "status",
+  header: "Status",
+  cell: ({ row }) => {
+    const status = row.getValue("status") as string
+    let badgeColor = "neutral"
+    if (status === "active") badgeColor = "green"
+    if (status === "suspended") badgeColor = "red"
+    if (status === "pending") badgeColor = "yellow"
+    return <Badge variant="outline" className={`text-${badgeColor}-500 border-${badgeColor}-500 bg-${badgeColor}-500/10`}>{status}</Badge>
+  },
+},
+{
+  accessorKey: "createdAt",
+  header: "Created At",
+},
+{
+  id: "actions",
+  cell: ({ row }) => {
+    const userId = row.original.id
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => handleUserAction(userId, "View")}>View</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleUserAction(userId, "Edit")}>Edit</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => handleUserAction(userId, "Suspend")}>Suspend</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleUserAction(userId, "Delete")}>Delete</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => handleUserAction(userId, "Block")}>Block</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  },
+},
+]
+
+export default function AdminUsersPage() {
+const [sorting, setSorting] = useState([])
+const [columnFilters, setColumnFilters] = useState([])
+const [globalFilter, setGlobalFilter] = useState("")
+
+const table = useReactTable({
+  data: users,
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  getPaginationRowModel: getPaginationRowModel(),
+  onSortingChange: setSorting,
+  onColumnFiltersChange: setColumnFilters,
+  onGlobalFilterChange: setGlobalFilter,
+  state: {
+    sorting,
+    columnFilters,
+    globalFilter,
+  },
+})
+
+const { toast } = useToast()
+
+const handleUserAction = (userId: number, action: string) => {
+  const user = users.find((u) => u.id === userId)
+  if (!user) return
+  const isDestructive = ["Suspend", "Delete", "Block"].includes(action)
+  toast({
+    title: `${action} ${user.username}`,
+    description: isDestructive ? "Action queued. Changes will reflect shortly." : "Opening requested view.",
+    variant: isDestructive ? "destructive" : undefined,
+  })
+}
+
+return (
+  <div className="container max-w-7xl mx-auto py-6">
+    <div className="flex flex-col space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Users</h1>
+      </div>
+      <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter users..."
+          value={globalFilter ?? ""}
+          onChange={(value) => setGlobalFilter(String(value.target.value))}
+          className="max-w-sm"
+        />
+      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableCaption>A list of your users.</TableCaption>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  </div>
+)
+}
+
+// app/auth/register/page.tsx
+"use client"
+
+import { Button } from "@/components/ui/button"
+import {
+Card,
+CardContent,
+CardDescription,
+CardFooter,
+CardHeader,
+CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+
+export default function RegisterPage() {
+const [agreeToTerms, setAgreeToTerms] = useState(false)
+const { toast } = useToast()
+
+const handleSubmit = async (event: React.FormEvent) => {
+  event.preventDefault()
+
+  if (!agreeToTerms) {
+    toast({
+      title: "Agreement required",
+      description: "Please accept the Terms of Service and Privacy Policy to continue.",
+      variant: "destructive",
+    })
+    return
+  }
+
+  // Simulate registration
+  toast({
+    title: "Registration initiated",
+    description: "Check your email to verify your account.",
+  })
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-6">
+    <div className="container max-w-lg mx-auto">
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl">Create an account</CardTitle>
+          <CardDescription>
+            Enter your email below to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="m@example.com" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="terms" onCheckedChange={setAgreeToTerms} />
+            <div className="grid gap-2">
+              <Label htmlFor="terms">
+                I agree to the <a href="#" className="underline underline-offset-2">Terms of Service</a> and <a href="#" className="underline underline-offset-2">Privacy Policy</a>
+              </Label>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onClick={handleSubmit}>Create Account</Button>
+        </CardFooter>
+      </Card>
+    </div>
+  </div>
+)
+}
+
+// app/dashboard/profile/page.tsx
+"use client"
+
+import { useState } from "react"
+import {
+Card,
+CardContent,
+CardDescription,
+CardHeader,
+CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
+
+export default function ProfilePage() {
+const [name, setName] = useState("John Doe")
+const [email, setEmail] = useState("john.doe@example.com")
+const [oldPassword, setOldPassword] = useState("")
+const [newPassword, setNewPassword] = useState("")
+const [confirmPassword, setConfirmPassword] = useState("")
+const { toast } = useToast()
+
+const handleSaveProfile = () => {
+  // Simulate saving profile
+  toast({ title: "Profile updated", description: "Your account details have been saved." })
+}
+
+const handleChangePassword = () => {
+  if (newPassword !== confirmPassword) {
+    toast({ title: "Passwords don't match", description: "Confirm your new password and try again.", variant: "destructive" })
+    return
+  }
+
+  // Simulate changing password
+  toast({ title: "Password changed", description: "Your password was updated successfully." })
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-6">
+    <div className="container max-w-2xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>Update your personal details</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </CardContent>
+        <div className="p-6">
+          <Button className="w-full" onClick={handleSaveProfile}>Save Profile</Button>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+          <CardDescription>Update your account password</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="oldPassword">Old Password</Label>
+            <Input id="oldPassword" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New Password</Label>
+            <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          </div>
+        </CardContent>
+        <div className="p-6">
+          <Button className="w-full" onClick={handleChangePassword}>Change Password</Button>
+        </div>
+      </Card>
+    </div>
+  </div>
+)
+}
+
+// app/admin/trading/page.tsx
+"use client"
+
+import { useState } from "react"
+import {
+Card,
+CardContent,
+CardDescription,
+CardHeader,
+CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+
+export default function AdminTradingPage() {
+const [overrideId, setOverrideId] = useState("")
+const [overrideResult, setOverrideResult] = useState<"win" | "loss" | "draw" | "">("")
+const { toast } = useToast()
+
+const applyOverride = () => {
+  if (!overrideId || !overrideResult) {
+    toast({ title: "Missing information", description: "Enter a Trade ID and select a result.", variant: "destructive" })
+    return
+  }
+  toast({ title: "Override applied", description: `Trade ${overrideId} set to ${overrideResult.toUpperCase()}.` })
+  setOverrideId(""); setOverrideResult("")
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-6">
+    <div className="container max-w-2xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Trade Override</CardTitle>
+          <CardDescription>Manually set the result of a trade</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tradeId">Trade ID</Label>
+            <Input id="tradeId" value={overrideId} onChange={(e) => setOverrideId(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Result</Label>
+            <Select value={overrideResult} onValueChange={(value) => setOverrideResult(value as "win" | "loss" | "draw" | "")}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Select result" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="win">Win</SelectItem>
+                <SelectItem value="loss">Loss</SelectItem>
+                <SelectItem value="draw">Draw</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+        <div className="p-6">
+          <Button className="w-full" onClick={applyOverride}>Apply Override</Button>
+        </div>
+      </Card>
+    </div>
+  </div>
+)
+}
+
+// app/dashboard/referrals/page.tsx
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { CheckCircle2, Copy, Share2 } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
+
+export default function ReferralsPage() {
+const referralLink = "https://tradepro.com/join/ref123"
+const totalReferrals = 15
+const totalEarnings = 450
+
+const { toast } = useToast()
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast({ title: "Copied", description: "Referral link copied to clipboard." })
+  } catch (err) {
+    toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" })
+  }
+}
+
+const shareReferralLink = async () => {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Join TradePro Trading Platform", text: "Start trading and mining crypto with this amazing platform!", url: referralLink })
+    } catch (err) {
+      await copyToClipboard(referralLink)
+    }
+  } else {
+    await copyToClipboard(referralLink)
+  }
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-6">
+    <div className="container max-w-3xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Referral Program</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <Avatar>
+              <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+              <AvatarFallback>CN</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-lg font-semibold">John Doe</p>
+              <p className="text-sm text-muted-foreground">john.doe@example.com</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-background/50">
+              <CardContent className="flex items-center justify-between space-y-0 p-6">
+                <div>
+                  <CardTitle className="text-2xl font-bold">{totalReferrals}</CardTitle>
+                  <CardDescription className="text-muted-foreground">Total Referrals</CardDescription>
+                </div>
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+              </CardContent>
+            </Card>
+
+            <Card className="bg-background/50">
+              <CardContent className="flex items-center justify-between space-y-0 p-6">
+                <div>
+                  <CardTitle className="text-2xl font-bold">${totalEarnings}</CardTitle>
+                  <CardDescription className="text-muted-foreground">Total Earnings</CardDescription>
+                </div>
+                <CheckCircle2 className="w-8 h-8 text-green-500" />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="referralLink">Referral Link</Label>
+            <div className="relative">
+              <Input id="referralLink" readOnly value={referralLink} />
+              <Button variant="ghost" size="sm" className="absolute right-2 top-2" onClick={() => copyToClipboard(referralLink)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={shareReferralLink}>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+)
+}
+
+// app/dashboard/packages/page.tsx
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { CheckCircle2 } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
+
+type Package = {
+id: number
+title: string
+description: string
+price: number
+features: string[]
+isActive: boolean
+}
+
+const packages: Package[] = [
+{
+  id: 1,
+  title: "Basic",
+  description: "For beginners",
+  price: 99,
+  features: ["Access to basic courses", "Limited support"],
+  isActive: true,
+},
+{
+  id: 2,
+  title: "Pro",
+  description: "For experienced traders",
+  price: 299,
+  features: ["Access to all courses", "Priority support", "Trading signals"],
+  isActive: true,
+},
+{
+  id: 3,
+  title: "VIP",
+  description: "For professional traders",
+  price: 499,
+  features: ["Access to all courses", "24/7 support", "Trading signals", "Personal mentor"],
+  isActive: false,
+},
+]
+
+export default function PackagesPage() {
+const { toast } = useToast()
+
+const handleSubscribe = (packageId: number) => {
+  const pkg = packages.find((p) => p.id === packageId)
+  if (pkg) {
+    if (!pkg.isActive) {
+      toast({ title: "Coming soon", description: `${pkg.title} will be available soon.` })
+      return
+    }
+    toast({ title: "Subscription initiated", description: `Proceeding with ${pkg.title}. This is a demo flow.` })
+  }
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-6">
+    <div className="container max-w-5xl mx-auto space-y-6">
+      <h1 className="text-3xl font-bold text-white">Packages</h1>
+      <p className="text-blue-200">Choose the package that suits your needs</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {packages.map((pkg) => (
+          <Card key={pkg.id} className="bg-background/50">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold">{pkg.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-blue-200">{pkg.description}</p>
+              <div className="space-y-2">
+                {pkg.features.map((feature, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <p className="text-sm text-blue-200">{feature}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xl font-semibold text-white">${pkg.price}</p>
+                <Button onClick={() => handleSubscribe(pkg.id)} disabled={!pkg.isActive}>
+                  {pkg.isActive ? "Subscribe" : "Coming Soon"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  </div>
+)
+}
+
+// Admin deposits (new store-driven page) already uses dialogs without alerts. No changes needed.
+
+// Admin withdrawals (enhanced page) does not use alerts. No changes needed.
