@@ -17,7 +17,7 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// 🧩 العملات المدعومة
+// ✅ العملات المسموحة فعلاً من NOWPayments (بدون أي رموز خاصة)
 const SUPPORTED_COINS = [
   { code: "USDTTRC20", name: "USDT (TRC20)" },
   { code: "USDTBEP20", name: "USDT (BEP20)" },
@@ -30,7 +30,7 @@ export default function DepositClient({ user, profile }: any) {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // 🧠 تحميل سجل الإيداعات من Supabase
+  // 🧠 تحميل سجل الإيداعات
   async function loadDeposits() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -51,7 +51,7 @@ export default function DepositClient({ user, profile }: any) {
     loadDeposits();
   }, [user?.id]);
 
-  // 🚀 إنشاء دفعة جديدة (الاتصال بالسيرفر الخاص بك)
+  // 🚀 إنشاء دفعة جديدة عبر NOWPayments
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
       toast.warning("⚠️ Enter a valid amount");
@@ -66,18 +66,18 @@ export default function DepositClient({ user, profile }: any) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
-          currency: coin,
+          currency: coin, // ✅ هنا نرسل الرمز الصحيح مثل USDTTRC20
           user_id: user.id,
         }),
       });
 
       const data = await res.json();
 
-      if (data.payment_url) {
+      if (res.ok && data.payment_url) {
         toast.success("Redirecting to payment page...");
         window.location.href = data.payment_url;
       } else {
-        toast.error(data.error || "Failed to create payment");
+        toast.error(data.error || "❌ Failed to create payment");
       }
     } catch (err) {
       console.error(err);
