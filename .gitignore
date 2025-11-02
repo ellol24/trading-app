@@ -33,12 +33,11 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
+
 =======
 
 # local env files
-.env*.local
-.env
+
 >>>>>>> 9923e932c67e551dc47dcba64af29cdb07981931
 
 # vercel
