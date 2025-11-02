@@ -17,7 +17,7 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// ✅ العملات المسموحة فعلاً من NOWPayments (بدون أي رموز خاصة)
+// 💰 العملات المدعومة
 const SUPPORTED_COINS = [
   { code: "USDTTRC20", name: "USDT (TRC20)" },
   { code: "USDTBEP20", name: "USDT (BEP20)" },
@@ -30,7 +30,7 @@ export default function DepositClient({ user, profile }: any) {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // 🧠 تحميل سجل الإيداعات
+  // 🧠 تحميل سجل الإيداعات من Supabase
   async function loadDeposits() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -51,7 +51,7 @@ export default function DepositClient({ user, profile }: any) {
     loadDeposits();
   }, [user?.id]);
 
-  // 🚀 إنشاء دفعة جديدة عبر NOWPayments
+  // 🚀 إنشاء دفعة جديدة عبر NOWPayments API
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
       toast.warning("⚠️ Enter a valid amount");
@@ -61,27 +61,34 @@ export default function DepositClient({ user, profile }: any) {
     try {
       setIsProcessing(true);
 
+      // تنظيف اسم العملة قبل الإرسال
+      const cleanCoin = coin.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+      const finalCurrency = cleanCoin === "USDTBEP20" ? "USDTBSC" : cleanCoin;
+
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
-          currency: coin, // ✅ هنا نرسل الرمز الصحيح مثل USDTTRC20
+          currency: finalCurrency,
           user_id: user.id,
         }),
       });
 
       const data = await res.json();
 
-      if (res.ok && data.payment_url) {
+      // ✅ طباعة البيانات للتأكد من الاستجابة
+      console.log("Payment create response:", data);
+
+      if (data.payment_url) {
         toast.success("Redirecting to payment page...");
         window.location.href = data.payment_url;
       } else {
-        toast.error(data.error || "❌ Failed to create payment");
+        toast.error(data.error || "Failed to create payment");
       }
     } catch (err) {
       console.error(err);
-      toast.error("Payment creation failed");
+      toast.error("❌ Payment creation failed");
     } finally {
       setIsProcessing(false);
     }
