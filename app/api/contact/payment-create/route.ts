@@ -26,7 +26,8 @@ export async function POST(req: Request) {
     const ipnUrl = `${baseUrl}/api/contact/payment-webhook`;
     console.log("🌐 Using IPN URL:", ipnUrl);
 
-    const response = await fetch("https://api.nowpayments.io/v1/payment", {
+    // ✅ استبدل /payment بـ /invoice
+    const response = await fetch("https://api.nowpayments.io/v1/invoice", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -35,37 +36,36 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         price_amount: Number(amount),
         price_currency: "usd",
-        pay_currency: currency.toLowerCase(), // ✅ تأكد أنها بالحروف الصغيرة
+        pay_currency: currency.toLowerCase(),
         order_id: `${user_id}-${Date.now()}`,
         order_description: "Deposit to XSPY Account",
         ipn_callback_url: ipnUrl,
+        success_url: `${baseUrl}/dashboard/deposit?success=true`,
+        cancel_url: `${baseUrl}/dashboard/deposit?cancel=true`,
       }),
     });
 
     console.log("📡 NOWPayments status:", response.status);
 
-    let data = {};
-    try {
-      data = await response.json();
-    } catch (e) {
-      console.error("⚠️ Failed to parse NOWPayments response JSON");
-    }
-
+    const data = await response.json();
     console.log("💬 NOWPayments response data:", data);
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: data["message"] || "NOWPayments request failed", details: data },
+        { error: data.message || "NOWPayments request failed", details: data },
         { status: response.status }
       );
     }
 
-    if (!data["invoice_url"]) {
+    if (!data.invoice_url) {
       console.error("❌ Missing invoice_url in response:", data);
-      return NextResponse.json({ error: "Invalid NOWPayments response", data }, { status: 400 });
+      return NextResponse.json(
+        { error: "No invoice URL returned from NowPayments", data },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ payment_url: data["invoice_url"] });
+    return NextResponse.json({ payment_url: data.invoice_url });
   } catch (error) {
     console.error("💥 payment-create error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
