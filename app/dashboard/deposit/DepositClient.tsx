@@ -17,14 +17,14 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// 💰 العملات المدعومة
+// 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
-  { code: "USDTTRC20", name: "USDT (TRC20)" },
-  { code: "USDTBEP20", name: "USDT (BEP20)" },
+  { code: "usdttrc20", name: "USDT (TRC20)" },
+  { code: "usdtbep20", name: "USDT (BEP20)" },
 ];
 
 export default function DepositClient({ user, profile }: any) {
-  const [coin, setCoin] = useState<string>("USDTTRC20");
+  const [coin, setCoin] = useState<string>("usdttrc20");
   const [amount, setAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
@@ -51,7 +51,7 @@ export default function DepositClient({ user, profile }: any) {
     loadDeposits();
   }, [user?.id]);
 
-  // 🚀 إنشاء دفعة جديدة عبر NOWPayments API
+  // 🚀 إنشاء دفعة جديدة
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
       toast.warning("⚠️ Enter a valid amount");
@@ -61,24 +61,24 @@ export default function DepositClient({ user, profile }: any) {
     try {
       setIsProcessing(true);
 
-      // تنظيف اسم العملة قبل الإرسال
-      const cleanCoin = coin.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-      const finalCurrency = cleanCoin === "USDTBEP20" ? "USDTBSC" : cleanCoin;
+      console.log("🧾 Sending payment data to API:", {
+        amount: Number(amount),
+        currency: coin,
+        user_id: user.id,
+      });
 
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
-          currency: finalCurrency,
+          currency: coin,
           user_id: user.id,
         }),
       });
 
       const data = await res.json();
-
-      // ✅ طباعة البيانات للتأكد من الاستجابة
-      console.log("Payment create response:", data);
+      console.log("💬 Payment create response:", data);
 
       if (data.payment_url) {
         toast.success("Redirecting to payment page...");
@@ -87,8 +87,8 @@ export default function DepositClient({ user, profile }: any) {
         toast.error(data.error || "Failed to create payment");
       }
     } catch (err) {
-      console.error(err);
-      toast.error("❌ Payment creation failed");
+      console.error("❌ Payment creation error:", err);
+      toast.error("Payment creation failed");
     } finally {
       setIsProcessing(false);
     }
