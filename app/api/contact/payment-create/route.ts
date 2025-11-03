@@ -1,36 +1,35 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("📥 Received body:", body);
-
     const { amount, currency, user_id } = body;
 
     if (!amount || !currency || !user_id) {
-      console.error("❌ Missing parameters:", { amount, currency, user_id });
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
     const apiKey = process.env.NOWPAYMENTS_API_KEY;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const supabase = createClient();
 
-    if (!apiKey || !baseUrl) {
-      console.error("❌ Missing NOWPayments API key or BASE URL", {
-        apiKey: !!apiKey,
-        baseUrl: !!baseUrl,
-      });
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    // 🟡 أضف الإيداع كـ "pending" مباشرة في قاعدة البيانات
+    const { error: insertError } = await supabase.from("deposits").insert({
+      user_id,
+      amount,
+      status: "pending",
+    });
+
+    if (insertError) {
+      console.error("❌ Error inserting pending deposit:", insertError);
     }
 
-    const ipnUrl = `${baseUrl}/api/contact/payment-webhook`;
-    console.log("🌐 Using IPN URL:", ipnUrl);
-
-    // ✅ استبدل /payment بـ /invoice
-    const response = await fetch("https://api.nowpayments.io/v1/invoice", {
+    // 🚀 إرسال الطلب إلى NOWPayments
+    const response = await fetch("https://api.nowpayments.io/v1/payment", {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
+        "x-api-key": apiKey!,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -39,35 +38,21 @@ export async function POST(req: Request) {
         pay_currency: currency.toLowerCase(),
         order_id: `${user_id}-${Date.now()}`,
         order_description: "Deposit to XSPY Account",
-        ipn_callback_url: ipnUrl,
-        success_url: `${baseUrl}/dashboard/deposit?success=true`,
-        cancel_url: `${baseUrl}/dashboard/deposit?cancel=true`,
+        ipn_callback_url: `${baseUrl}/api/contact/payment-webhook`,
       }),
     });
 
-    console.log("📡 NOWPayments status:", response.status);
-
     const data = await response.json();
-    console.log("💬 NOWPayments response data:", data);
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: data.message || "NOWPayments request failed", details: data },
-        { status: response.status }
-      );
+      console.error("NOWPayments error:", data);
+      return NextResponse.json({ error: data.message || "NOWPayments request failed" }, { status: 400 });
     }
 
-    if (!data.invoice_url) {
-      console.error("❌ Missing invoice_url in response:", data);
-      return NextResponse.json(
-        { error: "No invoice URL returned from NowPayments", data },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ payment_url: data.invoice_url });
+    // ✅ عرض رابط الدفع للمستخدم (الذي يحتوي على QR والبيانات)
+    return NextResponse.json({ payment_url: data.invoice_url || data.pay_address });
   } catch (error) {
-    console.error("💥 payment-create error:", error);
+    console.error("payment-create error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
