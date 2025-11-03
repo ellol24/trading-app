@@ -19,18 +19,18 @@ import { supabase } from "@/lib/supabase/client";
 
 // 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
-  { code: "usdttrc20", name: "USDT (TRC20)" },
-  { code: "usdtbep20", name: "USDT (BEP20)" },
+  { code: "USDTTRC20", name: "USDT (TRC20)" },
+  { code: "USDTBEP20", name: "USDT (BEP20)" },
 ];
 
-export default function DepositClient({ user, profile }: any) {
-  const [coin, setCoin] = useState<string>("usdttrc20");
+export default function DepositClient({ user }: any) {
+  const [coin, setCoin] = useState<string>("USDTTRC20");
   const [amount, setAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // 🧠 تحميل سجل الإيداعات من Supabase
+  // 🧠 تحميل سجل الإيداعات
   async function loadDeposits() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -51,6 +51,31 @@ export default function DepositClient({ user, profile }: any) {
     loadDeposits();
   }, [user?.id]);
 
+  // ⚡ متابعة التحديثات اللحظية من Supabase
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel("deposits-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deposits", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log("🔁 Live update:", payload);
+          loadDeposits();
+
+          if (payload.eventType === "UPDATE" && payload.new.status === "approved") {
+            toast.success(`💰 Deposit of $${payload.new.amount} approved!`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   // 🚀 إنشاء دفعة جديدة
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
@@ -61,20 +86,18 @@ export default function DepositClient({ user, profile }: any) {
     try {
       setIsProcessing(true);
 
-      console.log("🧾 Sending payment data to API:", {
+      const payload = {
         amount: Number(amount),
-        currency: coin,
+        currency: coin.toLowerCase(),
         user_id: user.id,
-      });
+      };
+
+      console.log("📤 Sending payment data:", payload);
 
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(amount),
-          currency: coin,
-          user_id: user.id,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -87,7 +110,7 @@ export default function DepositClient({ user, profile }: any) {
         toast.error(data.error || "Failed to create payment");
       }
     } catch (err) {
-      console.error("❌ Payment creation error:", err);
+      console.error(err);
       toast.error("Payment creation failed");
     } finally {
       setIsProcessing(false);
@@ -197,7 +220,11 @@ export default function DepositClient({ user, profile }: any) {
                         : "bg-red-500/20 text-red-400"
                     }
                   >
-                    {dep.status}
+                    {dep.status === "approved"
+                      ? "✅ Approved"
+                      : dep.status === "pending"
+                      ? "⏳ Pending"
+                      : "❌ Rejected"}
                   </Badge>
                 </div>
               ))}
