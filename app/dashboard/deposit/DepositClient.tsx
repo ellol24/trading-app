@@ -17,31 +17,18 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// 🎵 أصوات التنبيهات
-const sounds = {
-  newDeposit: "/sounds/new-deposit.mp3",
-  approved: "/sounds/approved.mp3",
-};
-
 // 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
-  { code: "usdttrc20", name: "USDT (TRC20)" },
-  { code: "usdtbep20", name: "USDT (BEP20)" },
+  { code: "USDTTRC20", name: "USDT (TRC20)" },
+  { code: "USDTBEP20", name: "USDT (BEP20)" },
 ];
 
 export default function DepositClient({ user }: any) {
-  const [coin, setCoin] = useState<string>("usdttrc20");
+  const [coin, setCoin] = useState<string>("USDTTRC20");
   const [amount, setAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // 🔊 دالة لتشغيل الصوت
-  const playSound = (type: keyof typeof sounds) => {
-    const audio = new Audio(sounds[type]);
-    audio.volume = 0.5;
-    audio.play().catch(() => {});
-  };
 
   // 🧠 تحميل سجل الإيداعات
   async function loadDeposits() {
@@ -60,33 +47,25 @@ export default function DepositClient({ user }: any) {
     setLoadingHistory(false);
   }
 
-  // 🧩 متابعة التحديثات اللحظية
+  useEffect(() => {
+    loadDeposits();
+  }, [user?.id]);
+
+  // ⚡ متابعة التحديثات اللحظية من Supabase
   useEffect(() => {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel("realtime-deposits")
+      .channel("deposits-changes")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "deposits",
-          filter: `user_id=eq.${user.id}`,
-        },
+        { event: "*", schema: "public", table: "deposits", filter: `user_id=eq.${user.id}` },
         (payload) => {
-          console.log("Realtime update:", payload);
+          console.log("🔁 Live update:", payload);
           loadDeposits();
 
-          if (payload.eventType === "INSERT") {
-            playSound("newDeposit");
-            toast.info(`💸 New deposit of $${payload.new.amount} pending approval.`);
-          } else if (
-            payload.eventType === "UPDATE" &&
-            payload.new.status === "approved"
-          ) {
-            playSound("approved");
-            toast.success(`✅ Deposit of $${payload.new.amount} approved!`);
+          if (payload.eventType === "UPDATE" && payload.new.status === "approved") {
+            toast.success(`💰 Deposit of $${payload.new.amount} approved!`);
           }
         }
       )
@@ -107,18 +86,22 @@ export default function DepositClient({ user }: any) {
     try {
       setIsProcessing(true);
 
+      const payload = {
+        amount: Number(amount),
+        currency: coin.toLowerCase(),
+        user_id: user.id,
+      };
+
+      console.log("📤 Sending payment data:", payload);
+
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(amount),
-          currency: coin,
-          user_id: user.id,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      console.log("Payment create response:", data);
+      console.log("💬 Payment create response:", data);
 
       if (data.payment_url) {
         toast.success("Redirecting to payment page...");
@@ -133,10 +116,6 @@ export default function DepositClient({ user }: any) {
       setIsProcessing(false);
     }
   };
-
-  useEffect(() => {
-    loadDeposits();
-  }, [user?.id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
@@ -241,7 +220,11 @@ export default function DepositClient({ user }: any) {
                         : "bg-red-500/20 text-red-400"
                     }
                   >
-                    {dep.status}
+                    {dep.status === "approved"
+                      ? "✅ Approved"
+                      : dep.status === "pending"
+                      ? "⏳ Pending"
+                      : "❌ Rejected"}
                   </Badge>
                 </div>
               ))}
