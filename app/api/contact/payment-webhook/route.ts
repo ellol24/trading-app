@@ -3,60 +3,86 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    console.log("📩 Webhook received:", body);
-
-    // ✅ التحقق من وجود مفتاح الـ IPN
+    const rawBody = await req.text();
+    const ipnKeyHeader = req.headers.get("x-nowpayments-sig");
     const ipnSecret = process.env.NOWPAYMENTS_IPN_KEY;
-    if (!ipnSecret) {
-      console.error("❌ Missing NOWPAYMENTS_IPN_KEY in environment");
-      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+
+    // 🔒 تحقق من توقيع الطلب (الأمان)
+    if (!ipnKeyHeader || ipnKeyHeader !== ipnSecret) {
+      console.error("❌ Invalid IPN signature");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ تحقق من أن الطلب يحتوي على المفاتيح الأساسية
-    if (!body || !body.payment_status || !body.order_id) {
-      console.error("❌ Invalid webhook body:", body);
-      return NextResponse.json({ error: "Invalid webhook body" }, { status: 400 });
+    const body = JSON.parse(rawBody);
+    console.log("📦 Webhook payload:", body);
+
+    // فقط عند اكتمال الدفع
+    if (body.payment_status !== "finished") {
+      console.log(`ℹ️ Payment not finished yet: ${body.payment_status}`);
+      return NextResponse.json({ message: "Payment not completed" }, { status: 200 });
     }
 
-    // ✅ قبول فقط الطلبات القادمة من NOWPayments
-    // (يمكنك لاحقًا استخدام تحقق HMAC رسمي لمزيد من الأمان)
-    const allowedStatuses = ["finished", "partially_paid"];
-    if (!allowedStatuses.includes(body.payment_status)) {
-      console.log(`⚠️ Ignored payment with status: ${body.payment_status}`);
-      return NextResponse.json({ message: "Ignored non-final status" }, { status: 200 });
-    }
-
-    // ✅ استخراج user_id من order_id
     const orderId = body.order_id;
+    const amount = body.price_amount;
     const [user_id] = orderId.split("-");
-    const amount = Number(body.price_amount) || 0;
 
-    if (!user_id || !amount) {
-      console.error("❌ Missing user_id or amount in webhook");
-      return NextResponse.json({ error: "Missing user info" }, { status: 400 });
-    }
-
-    // ✅ إدخال الإيداع في قاعدة البيانات
     const supabase = createClient();
-    const { error } = await supabase.from("deposits").insert({
-      user_id,
-      amount,
-      status: "approved",
-      created_at: new Date().toISOString(),
-    });
 
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
+    // 🔍 تحقق إذا كان هناك إيداع سابق لنفس المستخدم والمبلغ
+    const { data: existing, error: findError } = await supabase
+      .from("deposits")
+      .select("id, status")
+      .eq("user_id", user_id)
+      .eq("amount", amount)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (findError) {
+      console.error("❌ Database lookup error:", findError);
       return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
-    console.log(`✅ Deposit recorded for user ${user_id} (${amount}$)`);
+    if (existing) {
+      if (existing.status !== "approved") {
+        // ✅ تحديث الحالة إلى approved + وقت الموافقة
+        const { error: updateError } = await supabase
+          .from("deposits")
+          .update({
+            status: "approved",
+            approved_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
 
-    // ✅ الرد بنجاح إلى NOWPayments
+        if (updateError) {
+          console.error("❌ Error updating deposit:", updateError);
+          return NextResponse.json({ error: "Update error" }, { status: 500 });
+        }
+
+        console.log(`✅ Deposit updated to approved for user ${user_id}`);
+      } else {
+        console.log("⚠️ Deposit already approved, skipping update.");
+      }
+    } else {
+      // ✅ إنشاء سجل إيداع جديد إذا لم يكن موجودًا
+      const { error: insertError } = await supabase.from("deposits").insert({
+        user_id,
+        amount,
+        status: "approved",
+        approved_at: new Date().toISOString(),
+      });
+
+      if (insertError) {
+        console.error("❌ Insert error:", insertError);
+        return NextResponse.json({ error: "Insert error" }, { status: 500 });
+      }
+
+      console.log(`✅ New deposit inserted for user ${user_id} - ${amount}$`);
+    }
+
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("❌ payment-webhook error:", error);
+  } catch (err) {
+    console.error("❌ Webhook error:", err);
     return NextResponse.json({ error: "Webhook Error" }, { status: 500 });
   }
 }
