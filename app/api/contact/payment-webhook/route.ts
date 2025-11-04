@@ -4,35 +4,35 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("📬 Webhook received:", body);
+    console.log("📥 Webhook received:", body);
 
-    if (!body || !body.payment_status || !body.order_id) {
-      return NextResponse.json({ error: "Invalid webhook data" }, { status: 400 });
-    }
-
-    const signature = req.headers.get("x-nowpayments-sig");
-    if (!signature) {
-      console.error("❌ Invalid IPN signature");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    // ✅ التحقق من حالة الدفع
     if (body.payment_status !== "finished") {
-      console.log("⚠️ Payment not completed yet, skipping...");
-      return NextResponse.json({ status: "ignored" }, { status: 200 });
+      console.log("⏳ Payment not completed yet");
+      return NextResponse.json({ message: "Payment not completed" }, { status: 200 });
     }
 
-    const [user_id] = body.order_id.split("-");
+    // ✅ استخراج بيانات الطلب
+    const orderId = body.order_id;
     const amount = body.price_amount;
+    const [user_id] = orderId.split("-");
+
     const supabase = createClient();
 
-    await supabase.from("deposits").insert({
+    // ✅ إضافة الإيداع إلى قاعدة البيانات
+    const { error } = await supabase.from("deposits").insert({
       user_id,
       amount,
       status: "approved",
     });
 
-    console.log("✅ Deposit approved and saved for user:", user_id);
-    return NextResponse.json({ success: true }, { status: 200 });
+    if (error) {
+      console.error("❌ Supabase insert error:", error);
+      return NextResponse.json({ error: "Database insert failed" }, { status: 500 });
+    }
+
+    console.log("✅ Deposit recorded successfully");
+    return NextResponse.json({ success: true });
   } catch (err) {
     console.error("payment-webhook error:", err);
     return NextResponse.json({ error: "Webhook Error" }, { status: 500 });
