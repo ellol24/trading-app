@@ -10,17 +10,15 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.xspy-trader.co
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { amount, currency, user_id } = body;
+    const { amount, currency, user_id } = await req.json();
 
     if (!amount || !currency || !user_id) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    console.log("💰 Creating NOWPayments invoice:", body);
+    console.log("🟦 Creating NOWPayments invoice for:", { amount, currency, user_id });
 
-    // --- Step 1: Create invoice from NOWPayments ---
-    const invoiceRes = await fetch("https://api.nowpayments.io/v1/invoice", {
+    const response = await fetch("https://api.nowpayments.io/v1/invoice", {
       method: "POST",
       headers: {
         "x-api-key": NOWPAYMENTS_API_KEY,
@@ -29,7 +27,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         price_amount: Number(amount),
         price_currency: "usd",
-        pay_currency: currency.toLowerCase(), // e.g. usdttrc20 or usdtbsc
+        pay_currency: currency.toLowerCase(), // usdttrc20 or usdtbsc
         order_id: `${user_id}-${Date.now()}`,
         order_description: "Deposit to XSPY Account",
         ipn_callback_url: `${BASE_URL}/api/contact/payment-webhook`,
@@ -38,17 +36,29 @@ export async function POST(req: Request) {
       }),
     });
 
-    const invoiceData = await invoiceRes.json();
-    console.log("🧾 NOWPayments invoice response:", invoiceData);
+    const data = await response.json();
+    console.log("🟩 NOWPayments Response:", data);
 
-    if (!invoiceData.invoice_url) {
+    // Handle known errors
+    if (!response.ok) {
       return NextResponse.json(
-        { error: "Missing invoice URL from NOWPayments", details: invoiceData },
+        {
+          error: "Payment creation failed",
+          details: data,
+        },
+        { status: response.status }
+      );
+    }
+
+    // Missing invoice_url
+    if (!data.invoice_url) {
+      return NextResponse.json(
+        { error: "Missing invoice URL from NOWPayments", details: data },
         { status: 400 }
       );
     }
 
-    // --- Step 2: Save pending deposit in Supabase ---
+    // Save deposit in database
     const { error } = await supabase.from("deposits").insert({
       user_id,
       amount,
@@ -57,17 +67,13 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      console.error("❌ Error saving deposit:", error);
-      return NextResponse.json({ error: "Failed to save deposit" }, { status: 500 });
+      console.error("❌ Supabase insert error:", error);
+      return NextResponse.json({ error: "Database save failed" }, { status: 500 });
     }
 
-    // --- Step 3: Return invoice URL to client ---
-    return NextResponse.json({
-      success: true,
-      invoice_url: invoiceData.invoice_url,
-    });
+    return NextResponse.json({ success: true, invoice_url: data.invoice_url });
   } catch (err: any) {
-    console.error("🔥 Server Error:", err);
+    console.error("🔥 Internal error:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
