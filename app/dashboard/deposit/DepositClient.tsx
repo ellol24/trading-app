@@ -19,18 +19,19 @@ import { supabase } from "@/lib/supabase/client";
 
 // 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
-  { code: "USDTTRC20", name: "USDT (TRC20)" },
-  { code: "USDTBEP20", name: "USDT (BEP20)" },
+  { code: "usdttrc20", name: "USDT (TRC20)" },
+  { code: "usdtbep20", name: "USDT (BEP20)" },
 ];
 
 export default function DepositClient({ user }: any) {
-  const [coin, setCoin] = useState<string>("USDTTRC20");
+  const [coin, setCoin] = useState<string>("usdttrc20");
   const [amount, setAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [networkFee, setNetworkFee] = useState<number>(0);
 
-  // 🧠 تحميل سجل الإيداعات
+  // 🧠 تحميل سجل الإيداعات من Supabase
   async function loadDeposits() {
     if (!user?.id) return;
     setLoadingHistory(true);
@@ -51,31 +52,6 @@ export default function DepositClient({ user }: any) {
     loadDeposits();
   }, [user?.id]);
 
-  // ⚡ متابعة التحديثات اللحظية من Supabase
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel("deposits-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "deposits", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          console.log("🔁 Live update:", payload);
-          loadDeposits();
-
-          if (payload.eventType === "UPDATE" && payload.new.status === "approved") {
-            toast.success(`💰 Deposit of $${payload.new.amount} approved!`);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
   // 🚀 إنشاء دفعة جديدة
   const createPayment = async () => {
     if (!amount || Number(amount) <= 0) {
@@ -85,19 +61,16 @@ export default function DepositClient({ user }: any) {
 
     try {
       setIsProcessing(true);
-
-      const payload = {
-        amount: Number(amount),
-        currency: coin.toLowerCase(),
-        user_id: user.id,
-      };
-
-      console.log("📤 Sending payment data:", payload);
+      console.log("Sending payment data to API:", { amount, currency: coin, user_id: user.id });
 
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          amount: Number(amount),
+          currency: coin,
+          user_id: user.id,
+        }),
       });
 
       const data = await res.json();
@@ -117,10 +90,28 @@ export default function DepositClient({ user }: any) {
     }
   };
 
+  // 💰 حساب العمولة التقديرية (2%)
+  useEffect(() => {
+    if (amount) {
+      const fee = Number(amount) * 0.02;
+      setNetworkFee(fee);
+    }
+  }, [amount]);
+
+  // 🧾 إشعارات عند العودة من الدفع
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment_status");
+    if (status === "finished") {
+      toast.success("✅ Payment successful! Your balance will be updated shortly.");
+    } else if (status === "waiting") {
+      toast.info("⏳ Payment pending confirmation, please wait a few minutes.");
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
@@ -136,7 +127,6 @@ export default function DepositClient({ user }: any) {
           </Badge>
         </div>
 
-        {/* Deposit Form */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit Information</CardTitle>
@@ -168,6 +158,12 @@ export default function DepositClient({ user }: any) {
                 className="h-12 bg-slate-700 text-white border-slate-600"
                 min={1}
               />
+              {amount && (
+                <p className="text-blue-300 text-sm">
+                  Network Fee (2%): ${networkFee.toFixed(2)} — You’ll receive approximately $
+                  {(Number(amount) - networkFee).toFixed(2)}
+                </p>
+              )}
             </div>
 
             <Button
@@ -187,7 +183,7 @@ export default function DepositClient({ user }: any) {
           </CardContent>
         </Card>
 
-        {/* Deposit History */}
+        {/* History */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit History</CardTitle>
@@ -205,7 +201,7 @@ export default function DepositClient({ user }: any) {
                 >
                   <div>
                     <p className="text-white font-semibold">
-                      ${dep.amount.toFixed(2)}
+                      ${Number(dep.amount).toFixed(2)}
                     </p>
                     <p className="text-sm text-gray-400">
                       {new Date(dep.created_at).toLocaleString()}
@@ -220,11 +216,7 @@ export default function DepositClient({ user }: any) {
                         : "bg-red-500/20 text-red-400"
                     }
                   >
-                    {dep.status === "approved"
-                      ? "✅ Approved"
-                      : dep.status === "pending"
-                      ? "⏳ Pending"
-                      : "❌ Rejected"}
+                    {dep.status}
                   </Badge>
                 </div>
               ))}
