@@ -20,7 +20,7 @@ import { supabase } from "@/lib/supabase/client";
 // 🧩 العملات المدعومة
 const SUPPORTED_COINS = [
   { code: "usdttrc20", name: "USDT (TRC20)" },
-  { code: "usdtbep20", name: "USDT (BEP20)" },
+  { code: "usdtbsc", name: "USDT (BEP20)" },
 ];
 
 export default function DepositClient({ user }: any) {
