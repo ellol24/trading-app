@@ -79,6 +79,45 @@ export default function DepositClient({ user }: any) {
     }
   };
 
+  // داخل دالة handleDeposit
+const handleDeposit = async () => {
+  try {
+    setLoading(true);
+    const response = await fetch("/api/contact/payment-create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount,
+        currency: selectedCurrency,
+        user_id: user?.id,
+      }),
+    });
+
+    const data = await response.json();
+    console.log("💬 Payment create response:", data);
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Payment creation failed");
+    }
+
+    // ✅ نجاح العملية
+    if (data.invoice_url) {
+      // يمكنك فتح صفحة الفاتورة مباشرة:
+      window.location.href = data.invoice_url;
+
+      // أو بدلاً من ذلك عرض رسالة نجاح:
+      // toast.success("Payment created successfully!");
+      // ثم تحديث الواجهة بعد الدفع
+    }
+  } catch (error: any) {
+    console.error("❌ Payment creation error:", error);
+    toast.error(error.message || "Payment creation failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
       <div className="max-w-5xl mx-auto space-y-6">
