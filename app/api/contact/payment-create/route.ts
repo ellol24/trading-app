@@ -16,7 +16,8 @@ export async function POST(req: Request) {
 
     console.log("🌐 Using IPN URL:", ipnUrl);
 
-    const response = await fetch("https://api.nowpayments.io/v1/payment", {
+    // ✅ استخدم endpoint الفاتورة بدلاً من الدفع المباشر
+    const response = await fetch("https://api.nowpayments.io/v1/invoice", {
       method: "POST",
       headers: {
         "x-api-key": apiKey!,
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: data.message || "NOWPayments request failed" }, { status: 400 });
     }
 
+    // ✅ الآن الفاتورة تحتوي دائمًا على invoice_url
     if (!data.invoice_url) {
       console.error("❌ Missing invoice_url in response:", data);
       return NextResponse.json({ error: "Missing invoice URL from NOWPayments" }, { status: 400 });
