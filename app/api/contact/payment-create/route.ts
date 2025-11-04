@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         price_amount: Number(amount),
         price_currency: "usd",
-        pay_currency: currency,
+         pay_currency: currency.toLowerCase(), // 👈 تأكد من أنها بالحروف الصغيرة
         order_id: `${user_id}-${Date.now()}`,
         order_description: "Deposit to XSPY Account",
         ipn_callback_url: ipnUrl,
