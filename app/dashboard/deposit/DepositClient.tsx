@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@supabase/auth-helpers-react";
+import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 type Deposit = {
