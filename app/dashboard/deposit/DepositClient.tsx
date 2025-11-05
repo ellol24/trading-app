@@ -18,7 +18,7 @@ export default function DepositPage() {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ تحميل الإيداعات السابقة للمستخدم
+  // ✅ تحميل الإيداعات السابقة
   useEffect(() => {
     if (!user) return;
 
@@ -35,7 +35,7 @@ export default function DepositPage() {
     fetchDeposits();
   }, [user]);
 
-  // ✅ إنشاء دفعة جديدة عبر NOWPayments
+  // ✅ تنفيذ الإيداع
   const handleDeposit = async () => {
     if (!amount || amount <= 0) {
       toast.error("Please enter a valid deposit amount.");
@@ -57,13 +57,11 @@ export default function DepositPage() {
       const data = await res.json();
       console.log("💬 Payment create response:", data);
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Payment creation failed");
-      }
-
-      if (data.invoice_url) {
+      if (res.ok && data.invoice_url) {
         toast.success("Redirecting to payment page...");
-        window.location.href = data.invoice_url; // ✅ توجيه المستخدم إلى صفحة الدفع
+        window.location.href = data.invoice_url; // ✅ توجيه المستخدم مباشرة
+      } else {
+        toast.error(data.error || "Payment creation failed");
       }
     } catch (error: any) {
       console.error("❌ Payment creation error:", error);
@@ -77,7 +75,7 @@ export default function DepositPage() {
     <div className="p-6 text-white">
       <h2 className="text-2xl font-bold mb-4">Deposit</h2>
 
-      {/* قسم تعبئة بيانات الإيداع */}
+      {/* نموذج الإيداع */}
       <div className="bg-gradient-to-br from-blue-900/40 to-indigo-800/20 p-6 rounded-2xl shadow-lg border border-indigo-700/30">
         <h3 className="text-xl font-semibold mb-4">Deposit Information</h3>
 
@@ -104,7 +102,6 @@ export default function DepositPage() {
           />
         </div>
 
-        {/* الرسوم التقديرية */}
         {amount > 0 && (
           <p className="text-sm text-gray-300 mb-4">
             Network Fee (2%): ${(amount * 0.02).toFixed(2)} — You’ll receive approximately $
