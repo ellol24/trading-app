@@ -45,7 +45,7 @@ type Props = {
 type WithdrawalWallet = {
   id: string;
   user_id: string;
-  asset: "BTC" | "ETH" | "USDT" | "USDC";
+  asset: "USDT (TRC20)" | "USDT (BEP20)";
   address: string;
   label?: string;
   otp_verified: boolean;
@@ -440,10 +440,8 @@ export default function WithdrawClient({ user }: Props) {
                                   <SelectValue placeholder="Select asset" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="BTC">BTC</SelectItem>
-                                  <SelectItem value="ETH">ETH</SelectItem>
-                                  <SelectItem value="USDT">USDT</SelectItem>
-                                  <SelectItem value="USDC">USDC</SelectItem>
+                                  <SelectItem value="USDT (TRC20)">USDT (TRC20)</SelectItem>
+                                  <SelectItem value="USDC">USDT (BEP20)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -575,8 +573,7 @@ export default function WithdrawClient({ user }: Props) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>• Only withdraw to wallets you control.</p>
-                <p>• Enable 2FA for additional protection.</p>
+                <p>• Only withdraw to wallets you control.</p> 
                 <p>• We will never DM you asking for your OTP.</p>
               </CardContent>
             </Card>
