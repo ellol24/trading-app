@@ -440,7 +440,7 @@ export default function WithdrawClient({ user }: Props) {
                                   <SelectValue placeholder="Select asset" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="USDT (TRC20)">USDT (TRC20)</SelectItem>
+                                  <SelectItem value="USDT">USDT (TRC20)</SelectItem>
                                   <SelectItem value="USDC">USDT (BEP20)</SelectItem>
                                 </SelectContent>
                               </Select>
