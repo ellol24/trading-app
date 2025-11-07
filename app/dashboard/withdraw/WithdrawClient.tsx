@@ -72,6 +72,8 @@ export default function WithdrawClient({ user }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addWalletOpen, setAddWalletOpen] = useState(false);
   const [feePercentage, setFeePercentage] = useState<number>(10);
+  const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true); // ✅ تعديل جديد
+
   const [newWallet, setNewWallet] = useState<{
     asset: WithdrawalWallet["asset"] | "";
     address: string;
@@ -81,6 +83,24 @@ export default function WithdrawClient({ user }: Props) {
     address: "",
     label: "",
   });
+
+  // ✅ تحميل حالة السحب من الإعدادات
+  useEffect(() => {
+    const loadWithdrawSetting = async () => {
+      const { data, error } = await supabase
+        .from("withdrawal_settings")
+        .select("withdraw_enabled")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) {
+        setWithdrawEnabled(data.withdraw_enabled);
+      }
+    };
+
+    loadWithdrawSetting();
+  }, []);
 
   // ✅ تحميل المحافظ
   useEffect(() => {
@@ -139,8 +159,13 @@ export default function WithdrawClient({ user }: Props) {
     : 0;
   const net = amount ? Math.max(0, Number.parseFloat(amount) - fee) : 0;
 
-  // ✅ إرسال طلب سحب
+  // ✅ إرسال طلب سحب + منع السحب عند التعطيل
   const submitWithdrawal = async () => {
+    if (!withdrawEnabled) {
+      toast.error("🚫 Withdrawals are currently disabled by the administration.");
+      return;
+    }
+
     if (!selectedWallet || !amount || Number.parseFloat(amount) < 10) {
       toast.warning("⚠️ Please select wallet and enter valid amount (min $10).");
       return;
@@ -234,6 +259,17 @@ export default function WithdrawClient({ user }: Props) {
             SSL Secured
           </Badge>
         </div>
+
+        {/* ✅ رسالة السحب متوقف */}
+        {!withdrawEnabled && (
+          <Alert className="bg-red-600/20 border-red-600/40 text-red-300">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle>Withdrawals Disabled</AlertTitle>
+            <AlertDescription>
+              Withdrawals are temporarily disabled by the administration.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" translate="no">
           <div className="lg:col-span-2 space-y-6">
@@ -342,13 +378,16 @@ export default function WithdrawClient({ user }: Props) {
                       className="w-full h-14 text-lg font-semibold professional-gradient flex items-center justify-center"
                       onClick={submitWithdrawal}
                       disabled={
+                        !withdrawEnabled || // ✅ منع السحب أثناء الإيقاف
                         !selectedWallet ||
                         !amount ||
                         Number.parseFloat(amount) < 10 ||
                         isSubmitting
                       }
                     >
-                      {isSubmitting ? (
+                      {!withdrawEnabled ? (
+                        "Withdrawals Disabled"
+                      ) : isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           Submitting...
@@ -495,7 +534,7 @@ export default function WithdrawClient({ user }: Props) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {withdrawals.map((r: WithdrawalRequest) => (
+                {withdrawals.map((r) => (
                   <div
                     key={r.id}
                     className="p-3 bg-background/20 rounded-lg border border-border/30"
