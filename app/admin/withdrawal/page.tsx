@@ -58,8 +58,8 @@ export default function AdminWithdrawalsPage() {
         .from("withdrawals")
         .select(`
           *,
-          wallet:withdrawal_wallets(*),
-          user:user_profiles(id, full_name, email, username)
+          withdrawal_wallets(*),
+          user_profiles(id, full_name, email, username)
         `)
         .order("created_at", { ascending: false });
 
