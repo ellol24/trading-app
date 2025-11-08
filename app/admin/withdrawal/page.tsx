@@ -13,74 +13,23 @@ export default function AdminWithdrawalsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [withdrawEnabled, setWithdrawEnabled] = useState(true);
 
-  // ✅ تحميل السحوبات + بيانات المستخدم + المحفظة بشكل يدوي
-  useEffect(() => {
-    async function load() {
-      // 1️⃣ جلب السحوبات
-      const { data: wd, error } = await supabase
-        .from("withdrawals")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error loading withdrawals:", error);
-        return;
-      }
-
-      if (!wd?.length) {
-        setWithdrawals([]);
-        return;
-      }
-
-      const userIds = wd.map((w) => w.user_id);
-
-      // 2️⃣ جلب بيانات المستخدمين
-      const { data: users } = await supabase
-        .from("user_profiles")
-        .select("uid, full_name, email")
-        .in("uid", userIds);
-
-      // 3️⃣ جلب المحافظ الخاصة بكل مستخدم
-      const { data: wallets } = await supabase
-        .from("withdrawal_wallets")
-        .select("user_id, asset, address")
-        .in("user_id", userIds);
-
-      // 4️⃣ دمج البيانات يدويًا
-      const enriched = wd.map((w) => {
-        const user = users?.find((u) => u.uid === w.user_id);
-        const wallet = wallets?.find((wa) => wa.user_id === w.user_id);
-        return {
-          ...w,
-          user_name: user?.full_name || "Unknown",
-          user_email: user?.email || "—",
-          wallet_asset: wallet?.asset || "—",
-          wallet_address: wallet?.address || "—",
-        };
-      });
-
-      setWithdrawals(enriched);
-    }
-
-    load();
-  }, []);
-
   // ✅ تحميل إعدادات السحب
-  // ✅ تحميل إعدادات العمولة
   useEffect(() => {
-    async function loadSettings() {
-      const { data, error } = await supabase
+    async function loadSetting() {
+      const { data } = await supabase
         .from("withdrawal_settings")
-        .select("fee_percentage")
+        .select("fee_percentage, withdraw_enabled")
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (!error && data) {
-        setFeePercentage(Number(data.fee_percentage));
+      if (data) {
+        setWithdrawEnabled(data.withdraw_enabled);
+        setFeePercentage(data.fee_percentage);
       }
     }
-    loadSettings();
+
+    loadSetting();
   }, []);
 
   // ✅ تشغيل / تعطيل السحب
@@ -102,12 +51,16 @@ export default function AdminWithdrawalsPage() {
     setWithdrawEnabled(newState);
   };
 
-  // ✅ تحميل السحوبات + بيانات المحفظة
+  // ✅ تحميل السحوبات + بيانات المحفظة + بيانات المستخدم
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from("withdrawals")
-        .select("*")
+        .select(`
+          *,
+          wallet:withdrawal_wallets(*),
+          user:user_profiles(id, full_name, email, username)
+        `)
         .order("created_at", { ascending: false });
 
       if (data) setWithdrawals(data);
@@ -116,7 +69,7 @@ export default function AdminWithdrawalsPage() {
     load();
   }, []);
 
-  // ✅ تحديث حالة السحب (Approve / Reject)
+  // ✅ تحديث حالة طلب السحب
   const updateStatus = async (id, status) => {
     await supabase.from("withdrawals").update({ status }).eq("id", id);
 
@@ -125,7 +78,7 @@ export default function AdminWithdrawalsPage() {
     );
   };
 
-  // ✅ حفظ نسبة العمولة
+  // ✅ حفظ النسبة
   const saveFeePercentage = async () => {
     setIsSaving(true);
 
@@ -142,7 +95,7 @@ export default function AdminWithdrawalsPage() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* ✅ التحكم في السحب */}
+      {/* ✅ التحكم بالسحب */}
       <Card className="p-4">
         <CardHeader>
           <CardTitle>Withdraw Control</CardTitle>
@@ -161,11 +114,12 @@ export default function AdminWithdrawalsPage() {
         </CardContent>
       </Card>
 
-      {/* ✅ إعدادات العمولة */}
-       <Card>
+      {/* ✅ الإعدادات */}
+      <Card>
         <CardHeader>
           <CardTitle>Withdrawal Settings</CardTitle>
         </CardHeader>
+
         <CardContent className="flex items-center gap-4">
           <div>
             <label className="block text-sm font-medium">Fee Percentage (%)</label>
@@ -174,17 +128,16 @@ export default function AdminWithdrawalsPage() {
               value={feePercentage}
               onChange={(e) => setFeePercentage(Number(e.target.value))}
               className="w-32"
-              min={0}
-              max={100}
             />
           </div>
+
           <Button onClick={saveFeePercentage} disabled={isSaving}>
             {isSaving ? "Saving..." : "Save"}
           </Button>
         </CardContent>
       </Card>
 
-      {/* ✅ عرض السحوبات بشكل بطاقات احترافية */}
+      {/* ✅ طلبات السحب */}
       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Requests</CardTitle>
@@ -195,9 +148,9 @@ export default function AdminWithdrawalsPage() {
           {withdrawals.map((w) => (
             <div
               key={w.id}
-              className="p-4 border border-gray-700 rounded-lg bg-gray-900/40 space-y-2"
+              className="p-4 border border-gray-700 rounded-lg bg-gray-900/40 space-y-3"
             >
-              {/* ✅ الصف الأول: المبلغ والحالة */}
+              {/* ✅ المبلغ والحالة */}
               <div className="flex items-center justify-between">
                 <h2 className="text-white text-lg font-semibold">
                   ${w.amount}
@@ -217,20 +170,27 @@ export default function AdminWithdrawalsPage() {
                 </Badge>
               </div>
 
-              {/* ✅ الشبكة + عنوان المحفظة */}
-              <p className="text-gray-300 text-sm">
-                <span className="font-semibold">{w.wallet?.asset}</span> •{" "}
-                {w.wallet?.address}
-              </p>
+              {/* ✅ بيانات المستخدم */}
+              <div className="text-sm text-gray-300">
+                <p><strong>User:</strong> {w.user?.full_name || w.user?.username || "Unknown"}</p>
+                <p><strong>Email:</strong> {w.user?.email}</p>
+                <p><strong>User ID:</strong> {w.user?.id}</p>
+              </div>
 
-              {/* ✅ الخصم والصافي */}
+              {/* ✅ بيانات المحفظة */}
+              <div className="text-sm text-gray-300">
+                <p><strong>Network:</strong> {w.wallet?.asset}</p>
+                <p><strong>Address:</strong> {w.wallet?.address}</p>
+              </div>
+
+              {/* ✅ التفاصيل المالية */}
               <div className="text-sm text-gray-400 space-y-1">
                 <p>Fee: ${w.fee}</p>
                 <p>Net Amount: ${w.net_amount}</p>
                 <p>Date: {new Date(w.created_at).toLocaleString()}</p>
               </div>
 
-              {/* ✅ أزرار الإدارة */}
+              {/* ✅ أزرار التحكم */}
               <div className="flex gap-2 pt-2">
                 <Button
                   size="sm"
@@ -253,11 +213,12 @@ export default function AdminWithdrawalsPage() {
 
           {withdrawals.length === 0 && (
             <p className="text-gray-400 text-center py-4 text-sm">
-              No withdrawals found
+              No withdrawals yet
             </p>
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }
