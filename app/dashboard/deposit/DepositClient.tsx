@@ -94,7 +94,7 @@ export default function DepositClient({ user }: any) {
   // 💰 حساب العمولة التقديرية (2%)
   useEffect(() => {
     if (amount) {
-      const fee = Number(amount) * 0.02;
+      const fee = Number(amount) * 0.01;
       setNetworkFee(fee);
     }
   }, [amount]);
