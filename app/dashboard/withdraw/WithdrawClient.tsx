@@ -127,13 +127,11 @@ export default function WithdrawClient({ user }: Props) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (!error && data) setWithdrawals(data);
+    if (error) {
+      toast.error("❌ Failed to load withdrawals history.");
+    } else if (data) setWithdrawals(data);
   };
-
-  useEffect(() => {
-    loadWithdrawals();
-  }, [user.id]);
-
+  
   // ✅ تحميل نسبة العمولة
   useEffect(() => {
     async function loadFeeSetting() {
