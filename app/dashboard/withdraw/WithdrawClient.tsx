@@ -119,18 +119,17 @@ export default function WithdrawClient({ user }: Props) {
     loadWallets();
   }, [user.id]);
 
-  // ✅ تحميل عمليات السحب
-  const loadWithdrawals = async () => {
-    const { data, error } = await supabase
-      .from("withdrawals")
-      .select("*, wallet:withdrawal_wallets(*)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("❌ Failed to load withdrawals history.");
-    } else if (data) setWithdrawals(data);
-  };
+   useEffect(() => {
+    const fetchWithdrawals = async () => {
+      const { data, error } = await supabase
+        .from("withdrawals")
+        .select("*, wallet:withdrawal_wallets(*)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+      if (!error && data) setWithdrawals(data)
+    }
+    fetchWithdrawals()
+  }, [user.id])
   
   // ✅ تحميل نسبة العمولة
   useEffect(() => {
