@@ -474,42 +474,43 @@ export default function WithdrawClient({ user }: Props) {
             </Tabs>
           </div>
 
-          {/* ✅ History */}
+          {/* ✅ الشريط الجانبي */}
           <div className="space-y-6">
             <Card className="trading-card">
               <CardHeader>
-                <CardTitle className="text-white">Recent Withdrawals</CardTitle>
+                <CardTitle className="text-white text-lg">
+                  Recent Withdrawals
+                </CardTitle>
               </CardHeader>
-
               <CardContent className="space-y-3">
-                {withdrawals.map((w) => (
+                {withdrawals.map((r: WithdrawalRequest) => (
                   <div
-                    key={w.id}
-                    className="p-3 border border-slate-700 bg-slate-800 rounded"
+                    key={r.id}
+                    className="p-3 bg-background/20 rounded-lg border border-border/30"
                   >
-                    <div className="flex justify-between">
-                      <span className="text-white font-bold">${w.amount}</span>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white font-semibold">
+                        ${r.amount}
+                      </span>
                       <Badge
                         variant="outline"
                         className={
-                          w.status === "paid" || w.status === "approved"
-                            ? "text-green-400 border-green-400"
-                            : w.status === "rejected"
-                            ? "text-red-400 border-red-400"
-                            : "text-yellow-400 border-yellow-400"
+                          r.status === "paid" || r.status === "approved"
+                            ? "text-green-400 border-green-400 bg-green-400/10"
+                            : r.status === "rejected"
+                            ? "text-red-400 border-red-400 bg-red-400/10"
+                            : "text-yellow-400 border-yellow-400 bg-yellow-400/10"
                         }
                       >
-                        {w.status}
+                        {r.status}
                       </Badge>
                     </div>
-
-                    <p className="text-gray-300 text-xs">
-                      {w.wallet?.asset} •{" "}
-                      {new Date(w.created_at).toLocaleString()}
+                    <p className="text-muted-foreground text-xs">
+                      {r.wallet?.asset} •{" "}
+                      {new Date(r.created_at).toLocaleString()}
                     </p>
-
-                    <p className="text-gray-400 text-xs">
-                      Net: ${w.net_amount}
+                    <p className="text-muted-foreground text-xs">
+                      Net: ${r.net_amount}
                     </p>
                   </div>
                 ))}
