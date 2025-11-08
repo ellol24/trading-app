@@ -123,7 +123,7 @@ export default function WithdrawClient({ user }: Props) {
   const loadWithdrawals = async () => {
     const { data, error } = await supabase
       .from("withdrawals")
-      .select("*, wallet:withdrawal_wallets(*)")
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
