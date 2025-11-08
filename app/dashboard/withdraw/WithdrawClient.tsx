@@ -131,10 +131,6 @@ export default function WithdrawClient({ user }: Props) {
       toast.error("❌ Failed to load withdrawals history.");
     } else if (data) setWithdrawals(data);
   };
-
-  useEffect(() => {
-    loadWithdrawals();
-  }, [user.id]);
   
   // ✅ تحميل نسبة العمولة
   useEffect(() => {
