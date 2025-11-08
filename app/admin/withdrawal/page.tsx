@@ -108,20 +108,24 @@ export default function AdminWithdrawalsPage() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("withdrawals")
-        .select(`
-          id,
-          user_id,
-          wallet_id,
-          amount,
-          fee,
-          net_amount,
-          status,
-          created_at,
-          wallet:withdrawal_wallets(id, asset, address, label, otp_verified),
-          user:user_profiles(uid, full_name, email, balance)
-        `)
-        .order("created_at", { ascending: false });
+  .from("withdrawals")
+  .select(`
+    id,
+    user_id,
+    wallet_id,
+    amount,
+    fee,
+    net_amount,
+    status,
+    created_at,
+    wallet:withdrawal_wallets (
+      id, asset, address, label
+    ),
+    user:user_profiles (
+      uid, full_name, email, balance
+    )
+  `)
+  .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Failed to load withdrawals:", error);
