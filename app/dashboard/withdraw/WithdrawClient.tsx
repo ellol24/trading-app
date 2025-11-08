@@ -94,8 +94,8 @@ export default function WithdrawClient({ user }: Props) {
   useEffect(() => {
     const fetchSetting = async () => {
       const { data } = await supabase
-        .from("withdraw_control")
-        .select("enabled")
+        .from("withdrawal_control")
+        .select("is_enabled")
         .single();
 
       setWithdrawEnabled(data?.enabled ?? true);
