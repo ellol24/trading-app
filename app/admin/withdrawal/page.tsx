@@ -5,42 +5,40 @@ import { supabase } from "@/lib/supabase/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableHeader, TableRow, TableHead,
-  TableBody, TableCell
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 
 export default function AdminWithdrawalsPage() {
   const [withdrawals, setWithdrawals] = useState([]);
   const [feePercentage, setFeePercentage] = useState(10);
   const [isSaving, setIsSaving] = useState(false);
-
   const [withdrawEnabled, setWithdrawEnabled] = useState(true);
 
-  // ✅ تحميل إعداد السحب
+  // ✅ تحميل إعدادات السحب
   useEffect(() => {
     async function loadSetting() {
       const { data } = await supabase
         .from("withdrawal_settings")
-        .select("withdraw_enabled")
+        .select("fee_percentage, withdraw_enabled")
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (data) setWithdrawEnabled(data.withdraw_enabled);
+      if (data) {
+        setWithdrawEnabled(data.withdraw_enabled);
+        setFeePercentage(data.fee_percentage);
+      }
     }
 
     loadSetting();
   }, []);
 
-  // ✅ تبديل حالة السحب
+  // ✅ تشغيل / تعطيل السحب
   const toggleWithdraw = async () => {
     const newState = !withdrawEnabled;
 
     const { error } = await supabase.from("withdrawal_settings").insert([
       {
-        fee_percentage,
+        fee_percentage: feePercentage,
         withdraw_enabled: newState,
       },
     ]);
@@ -53,12 +51,12 @@ export default function AdminWithdrawalsPage() {
     setWithdrawEnabled(newState);
   };
 
-  // ✅ تحميل السحوبات
+  // ✅ تحميل السحوبات + بيانات المحفظة
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from("withdrawals")
-        .select("*")
+        .select("*, wallet:withdrawal_wallets(*)")
         .order("created_at", { ascending: false });
 
       if (data) setWithdrawals(data);
@@ -71,8 +69,8 @@ export default function AdminWithdrawalsPage() {
   const updateStatus = async (id, status) => {
     await supabase.from("withdrawals").update({ status }).eq("id", id);
 
-    setWithdrawals((ws) =>
-      ws.map((w) => (w.id === id ? { ...w, status } : w))
+    setWithdrawals((current) =>
+      current.map((w) => (w.id === id ? { ...w, status } : w))
     );
   };
 
@@ -82,8 +80,8 @@ export default function AdminWithdrawalsPage() {
 
     await supabase.from("withdrawal_settings").insert([
       {
-        fee_percentage,
-        withdraw_enabled,
+        fee_percentage: feePercentage,
+        withdraw_enabled: withdrawEnabled,
       },
     ]);
 
@@ -93,7 +91,7 @@ export default function AdminWithdrawalsPage() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* ✅ زر تشغيل/تعطيل السحب */}
+      {/* ✅ التحكم في السحب */}
       <Card className="p-4">
         <CardHeader>
           <CardTitle>Withdraw Control</CardTitle>
@@ -135,67 +133,78 @@ export default function AdminWithdrawalsPage() {
         </CardContent>
       </Card>
 
-      {/* ✅ جدول السحوبات */}
+      {/* ✅ عرض السحوبات بشكل بطاقات احترافية */}
       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Requests</CardTitle>
         </CardHeader>
 
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>User ID</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+        <CardContent className="space-y-4">
 
-            <TableBody>
-              {withdrawals.map((w) => (
-                <TableRow key={w.id}>
-                  <TableCell className="text-xs">{w.id}</TableCell>
-                  <TableCell>{w.user_id}</TableCell>
-                  <TableCell>${w.amount}</TableCell>
+          {withdrawals.map((w) => (
+            <div
+              key={w.id}
+              className="p-4 border border-gray-700 rounded-lg bg-gray-900/40 space-y-2"
+            >
+              {/* ✅ الصف الأول: المبلغ والحالة */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-white text-lg font-semibold">
+                  ${w.amount}
+                </h2>
 
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        w.status === "approved"
-                          ? "text-green-600 border-green-600"
-                          : w.status === "rejected"
-                          ? "text-red-600 border-red-600"
-                          : "text-yellow-600 border-yellow-600"
-                      }
-                    >
-                      {w.status}
-                    </Badge>
-                  </TableCell>
+                <Badge
+                  variant="outline"
+                  className={
+                    w.status === "approved"
+                      ? "text-green-400 border-green-400"
+                      : w.status === "rejected"
+                      ? "text-red-400 border-red-400"
+                      : "text-yellow-400 border-yellow-400"
+                  }
+                >
+                  {w.status}
+                </Badge>
+              </div>
 
-                  <TableCell className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => updateStatus(w.id, "approved")}
-                    >
-                      Approve
-                    </Button>
+              {/* ✅ الشبكة + عنوان المحفظة */}
+              <p className="text-gray-300 text-sm">
+                <span className="font-semibold">{w.wallet?.asset}</span> •{" "}
+                {w.wallet?.address}
+              </p>
 
-                    <Button
-                      size="sm"
-                      className="text-red-600"
-                      onClick={() => updateStatus(w.id, "rejected")}
-                    >
-                      Reject
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+              {/* ✅ الخصم والصافي */}
+              <div className="text-sm text-gray-400 space-y-1">
+                <p>Fee: ${w.fee}</p>
+                <p>Net Amount: ${w.net_amount}</p>
+                <p>Date: {new Date(w.created_at).toLocaleString()}</p>
+              </div>
 
-          </Table>
+              {/* ✅ أزرار الإدارة */}
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  className="bg-green-600"
+                  onClick={() => updateStatus(w.id, "approved")}
+                >
+                  Approve
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="bg-red-600"
+                  onClick={() => updateStatus(w.id, "rejected")}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          {withdrawals.length === 0 && (
+            <p className="text-gray-400 text-center py-4 text-sm">
+              No withdrawals found
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
