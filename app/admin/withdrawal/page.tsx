@@ -13,23 +13,74 @@ export default function AdminWithdrawalsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [withdrawEnabled, setWithdrawEnabled] = useState(true);
 
-  // ✅ تحميل إعدادات السحب
+  // ✅ تحميل السحوبات + بيانات المستخدم + المحفظة بشكل يدوي
   useEffect(() => {
-    async function loadSetting() {
-      const { data } = await supabase
+    async function load() {
+      // 1️⃣ جلب السحوبات
+      const { data: wd, error } = await supabase
+        .from("withdrawals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading withdrawals:", error);
+        return;
+      }
+
+      if (!wd?.length) {
+        setWithdrawals([]);
+        return;
+      }
+
+      const userIds = wd.map((w) => w.user_id);
+
+      // 2️⃣ جلب بيانات المستخدمين
+      const { data: users } = await supabase
+        .from("user_profiles")
+        .select("uid, full_name, email")
+        .in("uid", userIds);
+
+      // 3️⃣ جلب المحافظ الخاصة بكل مستخدم
+      const { data: wallets } = await supabase
+        .from("withdrawal_wallets")
+        .select("user_id, asset, address")
+        .in("user_id", userIds);
+
+      // 4️⃣ دمج البيانات يدويًا
+      const enriched = wd.map((w) => {
+        const user = users?.find((u) => u.uid === w.user_id);
+        const wallet = wallets?.find((wa) => wa.user_id === w.user_id);
+        return {
+          ...w,
+          user_name: user?.full_name || "Unknown",
+          user_email: user?.email || "—",
+          wallet_asset: wallet?.asset || "—",
+          wallet_address: wallet?.address || "—",
+        };
+      });
+
+      setWithdrawals(enriched);
+    }
+
+    load();
+  }, []);
+
+  // ✅ تحميل إعدادات السحب
+  // ✅ تحميل إعدادات العمولة
+  useEffect(() => {
+    async function loadSettings() {
+      const { data, error } = await supabase
         .from("withdrawal_settings")
-        .select("fee_percentage, withdraw_enabled")
+        .select("fee_percentage")
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (data) {
-        setWithdrawEnabled(data.withdraw_enabled);
-        setFeePercentage(data.fee_percentage);
+      if (!error && data) {
+        setFeePercentage(Number(data.fee_percentage));
       }
     }
-
-    loadSetting();
+    loadSettings();
   }, []);
 
   // ✅ تشغيل / تعطيل السحب
@@ -111,11 +162,10 @@ export default function AdminWithdrawalsPage() {
       </Card>
 
       {/* ✅ إعدادات العمولة */}
-      <Card>
+       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Settings</CardTitle>
         </CardHeader>
-
         <CardContent className="flex items-center gap-4">
           <div>
             <label className="block text-sm font-medium">Fee Percentage (%)</label>
@@ -124,9 +174,10 @@ export default function AdminWithdrawalsPage() {
               value={feePercentage}
               onChange={(e) => setFeePercentage(Number(e.target.value))}
               className="w-32"
+              min={0}
+              max={100}
             />
           </div>
-
           <Button onClick={saveFeePercentage} disabled={isSaving}>
             {isSaving ? "Saving..." : "Save"}
           </Button>
