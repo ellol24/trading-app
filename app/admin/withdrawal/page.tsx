@@ -56,7 +56,7 @@ export default function AdminWithdrawalsPage() {
     async function load() {
       const { data } = await supabase
         .from("withdrawals")
-        .select("*, wallet:withdrawal_wallets(*)")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (data) setWithdrawals(data);
