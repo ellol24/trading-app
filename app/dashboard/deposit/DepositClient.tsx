@@ -164,7 +164,7 @@ export default function DepositClient({ user }: any) {
               />
               {amount && (
                 <p className="text-blue-300 text-sm">
-                  Network Fee (2%): ${networkFee.toFixed(2)} — You’ll receive approximately $
+                  Network Fee (0.5%): ${networkFee.toFixed(2)} — You’ll receive approximately $
                   {(Number(amount) - networkFee).toFixed(2)}
                 </p>
               )}
