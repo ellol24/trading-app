@@ -21,24 +21,29 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, CheckCircle2, XCircle, Search } from "lucide-react";
+import { Loader2, Search, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 /**
  * Admin Withdrawals Page
+ * - Manual merging of withdrawals + user_profiles + withdrawal_wallets
+ * - Toggle withdraw enabled / fee percentage saved as new rows in withdrawal_settings
+ * - Approve => deduct balance, set withdrawal approved
+ * - Reject => refund balance, set withdrawal rejected
+ * - Search / filter / sort
  *
- * - جلب: withdrawals + withdrawal_wallets + user_profiles (uid, full_name, email, balance)
- * - تحكم: تفعيل/تعطيل السحب، حفظ نسبة العمولة
- * - actions: Approve / Reject (مع منطق تعديل الرصيد)
- * - بحث / فلترة / فرز
+ * Notes:
+ * - This code assumes tables: withdrawals, withdrawal_wallets, user_profiles, withdrawal_settings
+ * - It performs read+write operations directly using supabase JS client.
  */
 
-// types (مبسطة)
+// Types
 type Wallet = {
   id: string;
-  asset: string | null;
-  address: string | null;
-  label: string | null;
+  user_id: string;
+  asset?: string | null;
+  address?: string | null;
+  label?: string | null;
 };
 
 type UserProfile = {
@@ -48,7 +53,7 @@ type UserProfile = {
   balance?: number | null;
 };
 
-type Withdrawal = {
+type WithdrawalRow = {
   id: string;
   user_id: string;
   wallet_id: string;
@@ -57,31 +62,32 @@ type Withdrawal = {
   net_amount: number;
   status: string;
   created_at: string;
-  wallet?: Wallet | null;
+  updated_at?: string;
+};
+
+type EnrichedWithdrawal = WithdrawalRow & {
   user?: UserProfile | null;
+  wallet?: Wallet | null;
 };
 
 export default function AdminWithdrawalsPage() {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [withdrawals, setWithdrawals] = useState<EnrichedWithdrawal[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
   const [feePercentage, setFeePercentage] = useState<number>(10);
   const [isSaving, setIsSaving] = useState(false);
 
-  // search / filter / sort
+  // search/filter/sort
   const [query, setQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // all | pending | approved | rejected | processing | paid
   const [sortBy, setSortBy] = useState<string>("created_desc"); // created_desc | created_asc | amount_desc | amount_asc
 
   // modal
   const [openId, setOpenId] = useState<string | null>(null);
-  const activeWithdrawal = useMemo(
-    () => withdrawals.find((w) => w.id === openId) || null,
-    [withdrawals, openId]
-  );
+  const active = useMemo(() => withdrawals.find((w) => w.id === openId) || null, [withdrawals, openId]);
 
-  // load settings
+  // --- Load settings (fee + withdraw_enabled)
   useEffect(() => {
     async function loadSettings() {
       try {
@@ -93,49 +99,83 @@ export default function AdminWithdrawalsPage() {
           .single();
 
         if (!error && data) {
-          if (data.fee_percentage !== undefined) setFeePercentage(Number(data.fee_percentage));
-          if (data.withdraw_enabled !== undefined) setWithdrawEnabled(Boolean(data.withdraw_enabled));
+          if (data.fee_percentage !== undefined && data.fee_percentage !== null) {
+            setFeePercentage(Number(data.fee_percentage));
+          }
+          if (data.withdraw_enabled !== undefined && data.withdraw_enabled !== null) {
+            setWithdrawEnabled(Boolean(data.withdraw_enabled));
+          }
         }
       } catch (err) {
         console.error("loadSettings error", err);
       }
     }
+
     loadSettings();
   }, []);
 
-  // fetch withdrawals with relations
+  // --- Load withdrawals, then users + wallets and merge manually
   const loadWithdrawals = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-  .from("withdrawals")
-  .select(`
-    id,
-    user_id,
-    wallet_id,
-    amount,
-    fee,
-    net_amount,
-    status,
-    created_at,
-    wallet:withdrawal_wallets (
-      id, asset, address, label
-    ),
-    user:user_profiles (
-      uid, full_name, email, balance
-    )
-  `)
-  .order("created_at", { ascending: false });
+      // 1. get withdrawals rows (most recent first)
+      const { data: wdRows, error: wdErr } = await supabase
+        .from<WithdrawalRow>("withdrawals")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Failed to load withdrawals:", error);
+      if (wdErr) {
+        console.error("Failed to fetch withdrawals", wdErr);
         toast.error("فشل تحميل طلبات السحب.");
-      } else {
-        setWithdrawals((data || []) as Withdrawal[]);
+        setWithdrawals([]);
+        setLoading(false);
+        return;
       }
+
+      const wd = wdRows || [];
+
+      if (wd.length === 0) {
+        setWithdrawals([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. collect user_ids and wallet_ids
+      const userIds = Array.from(new Set(wd.map((r) => r.user_id).filter(Boolean)));
+      const walletIds = Array.from(new Set(wd.map((r) => r.wallet_id).filter(Boolean)));
+
+      // 3. fetch users
+      const { data: users, error: usersErr } = await supabase
+        .from<UserProfile>("user_profiles")
+        .select("uid, full_name, email, balance")
+        .in("uid", userIds);
+
+      if (usersErr) {
+        console.error("Failed to fetch users", usersErr);
+      }
+
+      // 4. fetch wallets
+      const { data: wallets, error: walletsErr } = await supabase
+        .from<Wallet>("withdrawal_wallets")
+        .select("id, user_id, asset, address, label")
+        .in("id", walletIds);
+
+      if (walletsErr) {
+        console.error("Failed to fetch wallets", walletsErr);
+      }
+
+      // 5. merge manually
+      const enriched: EnrichedWithdrawal[] = wd.map((r) => {
+        const user = users?.find((u) => u.uid === r.user_id) ?? null;
+        const wallet = wallets?.find((w) => w.id === r.wallet_id) ?? null;
+        return { ...r, user, wallet };
+      });
+
+      setWithdrawals(enriched);
     } catch (err) {
-      console.error(err);
-      toast.error("Unexpected error while loading withdrawals.");
+      console.error("loadWithdrawals unexpected", err);
+      toast.error("خطأ غير متوقع أثناء تحميل السحوبات.");
+      setWithdrawals([]);
     } finally {
       setLoading(false);
     }
@@ -145,7 +185,7 @@ export default function AdminWithdrawalsPage() {
     loadWithdrawals();
   }, []);
 
-  // toggle withdrawals enabled (we insert a new settings row — pattern used سابقًا)
+  // --- Toggle withdraw enabled
   const toggleWithdraw = async () => {
     const newState = !withdrawEnabled;
     setIsSaving(true);
@@ -155,16 +195,16 @@ export default function AdminWithdrawalsPage() {
       ]);
       if (error) throw error;
       setWithdrawEnabled(newState);
-      toast.success(`Withdrawals ${newState ? "enabled" : "disabled"}.`);
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Error updating withdraw setting.");
+      toast.success(newState ? "Withdrawals enabled" : "Withdrawals disabled");
+    } catch (err) {
+      console.error("toggleWithdraw error", err);
+      toast.error("خطأ أثناء تحديث حالة السحب");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // save fee percentage (inserts new settings entry)
+  // --- Save fee percentage only
   const saveFeePercentage = async () => {
     setIsSaving(true);
     try {
@@ -172,54 +212,40 @@ export default function AdminWithdrawalsPage() {
         { fee_percentage: feePercentage, withdraw_enabled: withdrawEnabled },
       ]);
       if (error) throw error;
-      toast.success("Fee percentage saved.");
+      toast.success("تم حفظ نسبة العمولة");
     } catch (err) {
-      console.error(err);
-      toast.error("Error saving fee percentage.");
+      console.error("saveFeePercentage error", err);
+      toast.error("خطأ أثناء حفظ نسبة العمولة");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Approve withdrawal
-  // logic:
-  // - only act if current status is "pending"
-  // - fetch current user balance, ensure sufficient balance (if you require)
-  // - deduct amount from user_profiles.balance (client does read+update)
-  // - set withdrawal.status = 'approved'
+  // --- Approve withdrawal: deduct balance and mark approved
   const approveWithdrawal = async (id: string) => {
     const w = withdrawals.find((x) => x.id === id);
     if (!w) return toast.error("Withdrawal not found.");
+    if (w.status !== "pending") return toast.error("Only pending withdrawals can be approved.");
 
-    if (w.status !== "pending") {
-      return toast.error("Only pending withdrawals can be approved.");
-    }
-
-    const loadingToast = toast.loading("Approving withdrawal...");
+    const t = toast.loading("Approving withdrawal...");
     try {
-      // fetch fresh user profile
-      const { data: userRows, error: userErr } = await supabase
-        .from("user_profiles")
+      // Fetch fresh user profile
+      const { data: userRow, error: userErr } = await supabase
+        .from<UserProfile>("user_profiles")
         .select("uid, balance")
         .eq("uid", w.user_id)
         .limit(1)
         .single();
 
-      if (userErr || !userRows) {
+      if (userErr || !userRow) {
         throw userErr || new Error("User not found");
       }
 
-      const currentBalance = Number(userRows.balance || 0);
-      // Option: require balance >= amount. If your flow already deducted at creation then this check can be bypassed.
-      if (currentBalance < Number(w.amount)) {
-        // still allow approval but warn. You might prefer to reject instead.
-        toast.warning("User balance less than withdrawal amount. Proceeding to mark approved and setting negative balance.");
-      }
-
-      // compute new balance
+      const currentBalance = Number(userRow.balance || 0);
+      // Deduct requested amount from balance
       const newBalance = currentBalance - Number(w.amount);
 
-      // update user balance
+      // Update user balance
       const { error: updUserErr } = await supabase
         .from("user_profiles")
         .update({ balance: newBalance })
@@ -227,7 +253,7 @@ export default function AdminWithdrawalsPage() {
 
       if (updUserErr) throw updUserErr;
 
-      // update withdrawal status
+      // Update withdrawal status
       const { error: updWErr } = await supabase
         .from("withdrawals")
         .update({ status: "approved", updated_at: new Date().toISOString() })
@@ -235,46 +261,38 @@ export default function AdminWithdrawalsPage() {
 
       if (updWErr) throw updWErr;
 
-      // refresh local list
       await loadWithdrawals();
-      toast.success("Withdrawal approved and user balance updated.");
+      toast.success("Withdrawal approved and balance updated.");
     } catch (err) {
-      console.error(err);
+      console.error("approveWithdrawal error", err);
       toast.error("Error approving withdrawal.");
     } finally {
-      toast.dismiss(loadingToast);
+      toast.dismiss(t);
     }
   };
 
-  // Reject withdrawal
-  // logic:
-  // - if withdrawal is pending => mark rejected and refund only if previously deducted
-  // - Because we cannot be 100% sure if amount was deducted on creation, we do conservative handling:
-  //   * If user's current balance is less than previous balance minus amount we can't know; here we will try to refund:
+  // --- Reject withdrawal: refund and mark rejected
   const rejectWithdrawal = async (id: string) => {
     const w = withdrawals.find((x) => x.id === id);
     if (!w) return toast.error("Withdrawal not found.");
+    if (w.status !== "pending") return toast.error("Only pending withdrawals can be rejected.");
 
-    if (w.status !== "pending") {
-      return toast.error("Only pending withdrawals can be rejected.");
-    }
-
-    const loadingToast = toast.loading("Rejecting withdrawal...");
+    const t = toast.loading("Rejecting withdrawal...");
     try {
       // fetch user
-      const { data: userRows, error: userErr } = await supabase
-        .from("user_profiles")
+      const { data: userRow, error: userErr } = await supabase
+        .from<UserProfile>("user_profiles")
         .select("uid, balance")
         .eq("uid", w.user_id)
         .limit(1)
         .single();
 
-      if (userErr || !userRows) {
+      if (userErr || !userRow) {
         throw userErr || new Error("User not found");
       }
 
-      // refund: add amount back
-      const newBalance = Number(userRows.balance || 0) + Number(w.amount);
+      // Refund amount back
+      const newBalance = Number(userRow.balance || 0) + Number(w.amount);
 
       const { error: updUserErr } = await supabase
         .from("user_profiles")
@@ -292,20 +310,20 @@ export default function AdminWithdrawalsPage() {
       if (updWErr) throw updWErr;
 
       await loadWithdrawals();
-      toast.success("Withdrawal rejected and amount refunded to user.");
+      toast.success("Withdrawal rejected and amount refunded.");
     } catch (err) {
-      console.error(err);
+      console.error("rejectWithdrawal error", err);
       toast.error("Error rejecting withdrawal.");
     } finally {
-      toast.dismiss(loadingToast);
+      toast.dismiss(t);
     }
   };
 
-  // Search + filter + sort computed list
+  // --- Filter / search / sort local list
   const filtered = useMemo(() => {
     let list = [...withdrawals];
 
-    // search: by user name, email, wallet address, id
+    // search by name, email, wallet address, id
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((w) => {
@@ -349,7 +367,11 @@ export default function AdminWithdrawalsPage() {
               {isSaving ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Saving...</> : (withdrawEnabled ? "Disable Withdrawals" : "Enable Withdrawals")}
             </Button>
 
-            <div className="text-sm text-muted-foreground">Status: {withdrawEnabled ? <span className="text-green-400">Enabled</span> : <span className="text-red-400">Disabled</span>}</div>
+            <div className="text-sm text-muted-foreground">
+              Status:
+              {" "}
+              {withdrawEnabled ? <span className="text-green-400">Enabled</span> : <span className="text-red-400">Disabled</span>}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -401,7 +423,7 @@ export default function AdminWithdrawalsPage() {
             <div className="ml-auto text-sm text-muted-foreground">{filtered.length} results</div>
           </div>
 
-          {/* Table / cards */}
+          {/* Cards list */}
           {loading ? (
             <div className="py-8 text-center"><Loader2 className="animate-spin h-6 w-6 mx-auto" /></div>
           ) : (
@@ -427,8 +449,8 @@ export default function AdminWithdrawalsPage() {
                   <div className="flex flex-col items-end gap-3">
                     <Badge className={
                       w.status === "approved" ? "bg-green-600 text-white" :
-                      w.status === "rejected" ? "bg-red-600 text-white" :
-                      "bg-yellow-500 text-black"
+                        w.status === "rejected" ? "bg-red-600 text-white" :
+                          "bg-yellow-500 text-black"
                     }>
                       {w.status}
                     </Badge>
@@ -460,28 +482,28 @@ export default function AdminWithdrawalsPage() {
             <DialogDescription>تفاصيل الطلب والمستخدم والمحفظة</DialogDescription>
           </DialogHeader>
 
-          {activeWithdrawal ? (
+          {active ? (
             <div className="space-y-4 pt-4">
               <Card>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <h4 className="text-sm text-muted-foreground">Amount</h4>
-                      <div className="font-semibold text-lg">${Number(activeWithdrawal.amount).toFixed(2)}</div>
+                      <div className="font-semibold text-lg">${Number(active.amount).toFixed(2)}</div>
                     </div>
                     <div>
                       <h4 className="text-sm text-muted-foreground">Fee</h4>
-                      <div className="text-lg"> ${Number(activeWithdrawal.fee).toFixed(2)}</div>
+                      <div className="text-lg"> ${Number(active.fee).toFixed(2)}</div>
                     </div>
 
                     <div>
                       <h4 className="text-sm text-muted-foreground">Net Amount</h4>
-                      <div className="text-lg text-green-400">${Number(activeWithdrawal.net_amount).toFixed(2)}</div>
+                      <div className="text-lg text-green-400">${Number(active.net_amount).toFixed(2)}</div>
                     </div>
 
                     <div>
                       <h4 className="text-sm text-muted-foreground">Status</h4>
-                      <div className="text-lg">{activeWithdrawal.status}</div>
+                      <div className="text-lg">{active.status}</div>
                     </div>
                   </div>
 
@@ -490,9 +512,9 @@ export default function AdminWithdrawalsPage() {
                   <h5 className="text-sm text-muted-foreground">User</h5>
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold">{activeWithdrawal.user?.full_name || "-"}</div>
-                      <div className="text-sm text-muted-foreground">{activeWithdrawal.user?.email || "-"}</div>
-                      <div className="text-xs text-muted-foreground">Balance: ${Number(activeWithdrawal.user?.balance || 0).toFixed(2)}</div>
+                      <div className="font-semibold">{active.user?.full_name || "-"}</div>
+                      <div className="text-sm text-muted-foreground">{active.user?.email || "-"}</div>
+                      <div className="text-xs text-muted-foreground">Balance: ${Number(active.user?.balance || 0).toFixed(2)}</div>
                     </div>
                   </div>
 
@@ -500,17 +522,17 @@ export default function AdminWithdrawalsPage() {
 
                   <h5 className="text-sm text-muted-foreground">Wallet</h5>
                   <div>
-                    <div>{activeWithdrawal.wallet?.label || activeWithdrawal.wallet?.asset || "-"}</div>
-                    <div className="text-xs break-all">{activeWithdrawal.wallet?.address || "-"}</div>
+                    <div>{active.wallet?.label || active.wallet?.asset || "-"}</div>
+                    <div className="text-xs break-all">{active.wallet?.address || "-"}</div>
                   </div>
                 </CardContent>
               </Card>
 
               <div className="flex justify-end gap-2">
-                {activeWithdrawal.status === "pending" && (
+                {active.status === "pending" && (
                   <>
-                    <Button className="bg-green-600" onClick={() => { approveWithdrawal(activeWithdrawal.id); setOpenId(null); }}>Approve</Button>
-                    <Button className="bg-red-600" onClick={() => { rejectWithdrawal(activeWithdrawal.id); setOpenId(null); }}>Reject</Button>
+                    <Button className="bg-green-600" onClick={() => { approveWithdrawal(active.id); setOpenId(null); }}>Approve</Button>
+                    <Button className="bg-red-600" onClick={() => { rejectWithdrawal(active.id); setOpenId(null); }}>Reject</Button>
                   </>
                 )}
                 <Button onClick={() => setOpenId(null)}>Close</Button>
