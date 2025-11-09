@@ -2,34 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
 } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
-type Wallet = {
-  id: string;
-  asset: string | null;
-  address: string | null;
-  label: string | null;
-};
-
-type UserProfile = {
-  uid: string;
-  full_name?: string | null;
-  email?: string | null;
-  balance?: number | null;
-};
-
+// types
 type Withdrawal = {
   id: string;
   user_id: string;
@@ -39,94 +29,140 @@ type Withdrawal = {
   net_amount: number;
   status: string;
   created_at: string;
-  wallet?: Wallet | null;
-  user?: UserProfile | null;
+
+  user?: {
+    uid: string;
+    full_name: string | null;
+    email: string | null;
+    balance: number | null;
+  };
+
+  wallet?: {
+    user_id: string;
+    asset: string | null;
+    address: string | null;
+    label: string | null;
+  };
 };
 
 export default function AdminWithdrawalsPage() {
+
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ من جدول withdrawal_control
-  const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
-
-  // ✅ من جدول withdrawal_settings
-  const [feePercentage, setFeePercentage] = useState<number>(10);
+  const [withdrawEnabled, setWithdrawEnabled] = useState(true);
+  const [feePercentage, setFeePercentage] = useState(10);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [query, setQuery] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("created_desc");
+  // Filters
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_desc");
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const activeWithdrawal = useMemo(
-    () => withdrawals.find((w) => w.id === openId) || null,
-    [withdrawals, openId]
-  );
 
-  // ✅ تحميل حالة السحب من جدول withdrawal_control
+  // ✅ Load Withdrawal Settings (fee_percentage)
   useEffect(() => {
-    async function loadControl() {
-      const { data, error } = await supabase
-        .from("withdrawal_control")
-        .select("is_enabled")
-        .eq("id", 1)
-        .single();
-
-      if (!error && data) {
-        setWithdrawEnabled(data.is_enabled);
-      }
-    }
-    loadControl();
-  }, []);
-
-  // ✅ تحميل نسبة الخصم من جدول withdrawal_settings
-  useEffect(() => {
-    async function loadFee() {
-      const { data, error } = await supabase
+    async function load() {
+      const { data } = await supabase
         .from("withdrawal_settings")
         .select("fee_percentage")
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (!error && data) {
+      if (data?.fee_percentage !== undefined) {
         setFeePercentage(Number(data.fee_percentage));
       }
     }
-    loadFee();
+    load();
   }, []);
 
-  // ✅ تحميل السحوبات مع علاقات المستخدم والمحفظة
+  // ✅ Load Withdraw Control (withdraw_enabled)
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from("withdrawal_control")
+        .select("is_enabled")
+        .eq("id", 1)
+        .single();
+
+      if (data) {
+        setWithdrawEnabled(Boolean(data.is_enabled));
+      }
+    }
+    load();
+  }, []);
+
+  // ✅ Toggle withdrawal control
+  const toggleWithdraw = async () => {
+    const newState = !withdrawEnabled;
+
+    const { error } = await supabase
+      .from("withdrawal_control")
+      .update({ is_enabled: newState, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+
+    if (error) return toast.error("Error updating withdraw state");
+
+    setWithdrawEnabled(newState);
+    toast.success(newState ? "Withdrawals enabled" : "Withdrawals disabled");
+  };
+
+  // ✅ Save fee percentage
+  const saveFeePercentage = async () => {
+    const { error } = await supabase
+      .from("withdrawal_settings")
+      .insert([{ fee_percentage: feePercentage }]);
+
+    if (error) return toast.error("Error saving fee percentage");
+
+    toast.success("Fee percentage updated");
+  };
+
+  // ✅ Load withdrawals WITHOUT any joins
   const loadWithdrawals = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1️⃣ Fetch withdrawals
+      const { data: wd, error } = await supabase
         .from("withdrawals")
-        .select(`
-          id,
-          user_id,
-          wallet_id,
-          amount,
-          fee,
-          net_amount,
-          status,
-          created_at,
-          wallet:withdrawal_wallets (
-            id, asset, address, label
-          ),
-          user:user_profiles (
-            uid, full_name, email, balance
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
         console.error(error);
-        toast.error("Error loading withdrawals.");
-      } else {
-        setWithdrawals(data || []);
+        return;
       }
+
+      if (!wd?.length) {
+        setWithdrawals([]);
+        return;
+      }
+
+      const userIds = wd.map(w => w.user_id);
+      const walletIds = wd.map(w => w.user_id);
+
+      // 2️⃣ Fetch users
+      const { data: users } = await supabase
+        .from("user_profiles")
+        .select("uid, full_name, email, balance")
+        .in("uid", userIds);
+
+      // 3️⃣ Fetch wallets
+      const { data: wallets } = await supabase
+        .from("withdrawal_wallets")
+        .select("user_id, asset, address, label")
+        .in("user_id", walletIds);
+
+      // 4️⃣ Merge
+      const enriched = wd.map(w => ({
+        ...w,
+        user: users?.find(u => u.uid === w.user_id) || null,
+        wallet: wallets?.find(wa => wa.user_id === w.user_id) || null,
+      }));
+
+      setWithdrawals(enriched as Withdrawal[]);
     } finally {
       setLoading(false);
     }
@@ -136,153 +172,83 @@ export default function AdminWithdrawalsPage() {
     loadWithdrawals();
   }, []);
 
-  // ✅ تبديل حالة السحب باستخدام جدول withdrawal_control
-  const toggleWithdraw = async () => {
-    const newState = !withdrawEnabled;
-    setIsSaving(true);
-    try {
-      const { error } = await supabase
-        .from("withdrawal_control")
-        .update({
-          is_enabled: newState,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
+  // ✅ Approve withdrawal
+  const approve = async (id: string) => {
+    const w = withdrawals.find(x => x.id === id);
+    if (!w) return;
 
-      if (error) throw error;
+    const { data: usr } = await supabase
+      .from("user_profiles")
+      .select("balance")
+      .eq("uid", w.user_id)
+      .single();
 
-      setWithdrawEnabled(newState);
-      toast.success(newState ? "Withdraw enabled" : "Withdraw disabled");
-    } catch {
-      toast.error("Error updating withdraw control");
-    } finally {
-      setIsSaving(false);
-    }
+    const newBalance = Number(usr.balance) - Number(w.amount);
+
+    await supabase.from("user_profiles")
+      .update({ balance: newBalance })
+      .eq("uid", w.user_id);
+
+    await supabase.from("withdrawals")
+      .update({ status: "approved" })
+      .eq("id", id);
+
+    loadWithdrawals();
   };
 
-  // ✅ حفظ نسبة الخصم داخل withdrawal_settings فقط
-  const saveFeePercentage = async () => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from("withdrawal_settings").insert([
-        { fee_percentage: feePercentage },
-      ]);
+  // ✅ Reject withdrawal
+  const reject = async (id: string) => {
+    const w = withdrawals.find(x => x.id === id);
+    if (!w) return;
 
-      if (error) throw error;
-      toast.success("Fee updated.");
-    } catch {
-      toast.error("Error saving fee.");
-    } finally {
-      setIsSaving(false);
-    }
+    const { data: usr } = await supabase
+      .from("user_profiles")
+      .select("balance")
+      .eq("uid", w.user_id)
+      .single();
+
+    const newBalance = Number(usr.balance) + Number(w.amount);
+
+    await supabase.from("user_profiles")
+      .update({ balance: newBalance })
+      .eq("uid", w.user_id);
+
+    await supabase.from("withdrawals")
+      .update({ status: "rejected" })
+      .eq("id", id);
+
+    loadWithdrawals();
   };
 
-  // ✅ الموافقة على السحب
-  const approveWithdrawal = async (id: string) => {
-    const w = withdrawals.find((x) => x.id === id);
-    if (!w) return toast.error("Withdrawal not found.");
-
-    if (w.status !== "pending") return toast.error("Only pending allowed.");
-
-    const loadingToast = toast.loading("Approving...");
-    try {
-      const { data: userRows, error: userErr } = await supabase
-        .from("user_profiles")
-        .select("uid, balance")
-        .eq("uid", w.user_id)
-        .single();
-
-      if (userErr || !userRows) throw userErr;
-
-      const newBalance = Number(userRows.balance || 0) - Number(w.amount);
-
-      const { error: updUserErr } = await supabase
-        .from("user_profiles")
-        .update({ balance: newBalance })
-        .eq("uid", w.user_id);
-
-      if (updUserErr) throw updUserErr;
-
-      const { error: updWErr } = await supabase
-        .from("withdrawals")
-        .update({ status: "approved" })
-        .eq("id", id);
-
-      if (updWErr) throw updWErr;
-
-      await loadWithdrawals();
-      toast.success("Approved.");
-    } catch {
-      toast.error("Error.");
-    } finally {
-      toast.dismiss(loadingToast);
-    }
-  };
-
-  // ✅ رفض السحب
-  const rejectWithdrawal = async (id: string) => {
-    const w = withdrawals.find((x) => x.id === id);
-    if (!w) return toast.error("Withdrawal not found.");
-
-    if (w.status !== "pending") return toast.error("Only pending allowed.");
-
-    const loadingToast = toast.loading("Rejecting...");
-    try {
-      const { data: userRows } = await supabase
-        .from("user_profiles")
-        .select("uid, balance")
-        .eq("uid", w.user_id)
-        .single();
-
-      const newBalance = Number(userRows.balance || 0) + Number(w.amount);
-
-      await supabase
-        .from("user_profiles")
-        .update({ balance: newBalance })
-        .eq("uid", w.user_id);
-
-      await supabase
-        .from("withdrawals")
-        .update({ status: "rejected" })
-        .eq("id", id);
-
-      await loadWithdrawals();
-      toast.success("Rejected.");
-    } catch {
-      toast.error("Error.");
-    } finally {
-      toast.dismiss(loadingToast);
-    }
-  };
-
+  // ✅ Filters + Search
   const filtered = useMemo(() => {
     let list = [...withdrawals];
 
     if (query.trim()) {
       const q = query.toLowerCase();
-      list = list.filter((w) => {
-        return (
-          (w.user?.full_name || "").toLowerCase().includes(q) ||
-          (w.user?.email || "").toLowerCase().includes(q) ||
-          (w.wallet?.address || "").toLowerCase().includes(q) ||
-          w.id.toLowerCase().includes(q)
-        );
-      });
+      list = list.filter(w =>
+        (w.user?.full_name || "").toLowerCase().includes(q) ||
+        (w.user?.email || "").toLowerCase().includes(q) ||
+        (w.wallet?.address || "").toLowerCase().includes(q) ||
+        (w.id || "").toLowerCase().includes(q)
+      );
     }
 
     if (statusFilter !== "all") {
-      list = list.filter((w) => w.status === statusFilter);
+      list = list.filter(w => w.status === statusFilter);
     }
 
-    if (sortBy === "created_desc") {
+    if (sortBy === "created_desc")
       list.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-    } else if (sortBy === "created_asc") {
+
+    if (sortBy === "created_asc")
       list.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
-    } else if (sortBy === "amount_desc") {
+
+    if (sortBy === "amount_desc")
       list.sort((a, b) => Number(b.amount) - Number(a.amount));
-    } else if (sortBy === "amount_asc") {
+
+    if (sortBy === "amount_asc")
       list.sort((a, b) => Number(a.amount) - Number(b.amount));
-    }
 
     return list;
   }, [withdrawals, query, statusFilter, sortBy]);
@@ -290,62 +256,48 @@ export default function AdminWithdrawalsPage() {
   return (
     <div className="p-6 space-y-6">
 
+      {/* ✅ Withdraw Control */}
       <Card>
-        <CardHeader>
-          <CardTitle>Withdraw Control</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={toggleWithdraw}
-              className={withdrawEnabled ? "bg-red-600" : "bg-green-600"}
-            >
-              {isSaving ? "Saving..." : withdrawEnabled ? "Disable Withdrawals" : "Enable Withdrawals"}
-            </Button>
-            <div className="text-sm">
-              Status:
-              {withdrawEnabled ? (
-                <span className="text-green-400 ml-2">Enabled</span>
-              ) : (
-                <span className="text-red-400 ml-2">Disabled</span>
-              )}
-            </div>
-          </div>
+        <CardHeader><CardTitle>Withdraw Control</CardTitle></CardHeader>
+        <CardContent className="flex gap-4">
+          <Button onClick={toggleWithdraw} className={withdrawEnabled ? "bg-red-600" : "bg-green-600"}>
+            {withdrawEnabled ? "Disable Withdrawals" : "Enable Withdrawals"}
+          </Button>
 
-          <div className="flex items-center gap-3">
-            <label className="text-sm">Fee Percentage (%)</label>
+          <div>Status: {withdrawEnabled ? "✅ Enabled" : "⛔ Disabled"}</div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <span>Fee %</span>
             <Input
               type="number"
-              className="w-28"
+              className="w-20"
               value={feePercentage}
-              onChange={(e) => setFeePercentage(Number(e.target.value || 0))}
+              onChange={(e) => setFeePercentage(Number(e.target.value))}
             />
-            <Button onClick={saveFeePercentage} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
+            <Button onClick={saveFeePercentage}>Save</Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* ✅ Search + Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Withdrawal Requests</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Withdrawals</CardTitle></CardHeader>
+
         <CardContent className="space-y-4">
 
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <Search />
-              <Input
-                placeholder="Search..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
+          {/* Search */}
+          <div className="flex gap-3 items-center">
+            <Search />
+            <Input
+              placeholder="Search by user, email, wallet, id..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
 
+            {/* Status Filter */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 w-44">
-                <SelectValue />
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -355,94 +307,66 @@ export default function AdminWithdrawalsPage() {
               </SelectContent>
             </Select>
 
+            {/* Sort */}
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-10 w-40">
-                <SelectValue />
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="created_desc">Newest</SelectItem>
                 <SelectItem value="created_asc">Oldest</SelectItem>
-                <SelectItem value="amount_desc">Amount ↓</SelectItem>
-                <SelectItem value="amount_asc">Amount ↑</SelectItem>
+                <SelectItem value="amount_desc">Amount high</SelectItem>
+                <SelectItem value="amount_asc">Amount low</SelectItem>
               </SelectContent>
             </Select>
 
-            <div className="ml-auto text-sm">{filtered.length} results</div>
+            <div className="ml-auto text-sm opacity-60">{filtered.length} results</div>
           </div>
 
+          {/* ✅ Withdrawal Cards */}
           {loading ? (
-            <div className="py-8 text-center">
-              <Loader2 className="animate-spin h-6 w-6 mx-auto" />
-            </div>
+            <div className="text-center py-10"><Loader2 className="animate-spin" /></div>
           ) : (
             <div className="space-y-3">
-              {filtered.map((w) => (
-                <div
-                  key={w.id}
-                  className="p-4 rounded-lg border bg-background/5 flex justify-between items-start gap-4"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="text-xl font-semibold">
-                        ${Number(w.amount).toFixed(2)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {w.user?.full_name || w.user?.email || "Unknown"}
-                        <div className="text-xs">{w.user?.email}</div>
-                      </div>
+              {filtered.map(w => (
+                <div key={w.id} className="p-4 border rounded-lg bg-gray-900/30 flex justify-between">
+
+                  {/* Left section */}
+                  <div>
+                    <div className="text-xl">${Number(w.amount).toFixed(2)}</div>
+                    <div className="text-sm opacity-70">
+                      {w.user?.full_name || "Unknown"} — {w.user?.email}
                     </div>
 
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Fee: ${Number(w.fee).toFixed(2)} • Net: $
-                      {Number(w.net_amount).toFixed(2)}
-                      <div className="text-xs mt-1">
-                        Date: {new Date(w.created_at).toLocaleString()}
-                      </div>
+                    <div className="text-xs opacity-70 mt-1">
+                      Wallet: {w.wallet?.asset} — {w.wallet?.address}
+                    </div>
+
+                    <div className="text-xs opacity-60 mt-1">
+                      Fee: ${w.fee} — Net: ${w.net_amount}
+                    </div>
+
+                    <div className="text-xs opacity-60">
+                      {new Date(w.created_at).toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-3">
-                    <Badge
-                      className={
-                        w.status === "approved"
-                          ? "bg-green-600 text-white"
-                          : w.status === "rejected"
-                          ? "bg-red-600 text-white"
-                          : "bg-yellow-500 text-black"
-                      }
-                    >
+                  {/* Right section */}
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge>
                       {w.status}
                     </Badge>
 
-                    <div className="flex gap-2">
-                      {w.status === "pending" && (
-                        <>
-                          <Button
-                            size="sm"
-                            className="bg-green-600"
-                            onClick={() => approveWithdrawal(w.id)}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-red-600"
-                            onClick={() => rejectWithdrawal(w.id)}
-                          >
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                    {w.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button size="sm" className="bg-green-600" onClick={() => approve(w.id)}>Approve</Button>
+                        <Button size="sm" className="bg-red-600" onClick={() => reject(w.id)}>Reject</Button>
+                      </div>
+                    )}
                   </div>
+
                 </div>
               ))}
-
-              {filtered.length === 0 && (
-                <div className="p-6 text-center text-muted-foreground">
-                  No results
-                </div>
-              )}
             </div>
           )}
         </CardContent>
