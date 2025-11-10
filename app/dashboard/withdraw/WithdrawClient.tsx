@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-
-// UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,28 +19,31 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Icons
 import {
   DollarSign,
   Shield,
   Wallet,
   Lock,
   AlertCircle,
-  CheckCircle2,
   Plus,
   Loader2,
 } from "lucide-react";
 
 import { toast } from "sonner";
 
-type Props = { user: any; profile: any };
+// -----------------------------------------------------------
+// TYPES
+// -----------------------------------------------------------
+
+type Props = {
+  user: any;
+};
 
 type WithdrawalWallet = {
   id: string;
@@ -54,25 +55,35 @@ type WithdrawalWallet = {
   created_at: string;
 };
 
-type WithdrawalRequest = {
+type WithdrawalRow = {
   id: string;
   user_id: string;
-  wallet_id: string;
+  wallet_id: string | null;
   amount: number;
   fee: number;
   net_amount: number;
-  status: "pending" | "approved" | "processing" | "paid" | "rejected";
+  status: string;
   created_at: string;
-  wallet?: WithdrawalWallet;
 };
+
+// بعد الدمج اليدوي
+type WithdrawalMerged = WithdrawalRow & {
+  wallet?: WithdrawalWallet | null;
+};
+
+// -----------------------------------------------------------
+// COMPONENT
+// -----------------------------------------------------------
 
 export default function WithdrawClient({ user }: Props) {
   const [wallets, setWallets] = useState<WithdrawalWallet[]>([]);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalMerged[]>([]);
+
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
-  const [feePercentage, setFeePercentage] = useState<number>(10);
+
   const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
+  const [feePercentage, setFeePercentage] = useState<number>(10);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addWalletOpen, setAddWalletOpen] = useState(false);
@@ -83,35 +94,49 @@ export default function WithdrawClient({ user }: Props) {
     label: "",
   });
 
-  // ✅ Load withdraw enabled
+  // -----------------------------------------------------------
+  // ✅ تحميل حالة السحب من جدول withdrawal_control
+  // -----------------------------------------------------------
+
   useEffect(() => {
     async function loadControl() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("withdrawal_control")
         .select("is_enabled")
+        .limit(1)
         .single();
 
-      setWithdrawEnabled(data?.is_enabled ?? true);
+      if (!error && data) {
+        setWithdrawEnabled(Boolean(data.is_enabled));
+      }
     }
     loadControl();
   }, []);
 
-  // ✅ Load fee %
+  // -----------------------------------------------------------
+  // ✅ تحميل نسبة العمولة من withdrawal_settings
+  // -----------------------------------------------------------
+
   useEffect(() => {
     async function loadFee() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("withdrawal_settings")
         .select("fee_percentage")
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (data) setFeePercentage(Number(data.fee_percentage));
+      if (!error && data) {
+        setFeePercentage(Number(data.fee_percentage));
+      }
     }
     loadFee();
   }, []);
 
-  // ✅ Load wallets
+  // -----------------------------------------------------------
+  // ✅ تحميل محافظ المستخدم
+  // -----------------------------------------------------------
+
   useEffect(() => {
     async function loadWallets() {
       const { data, error } = await supabase
@@ -125,127 +150,116 @@ export default function WithdrawClient({ user }: Props) {
     loadWallets();
   }, [user.id]);
 
-  // ✅ Load withdrawals
+  // -----------------------------------------------------------
+  // ✅ تحميل عمليات السحب + دمج يدوي للمحافظ عبر user_id
+  // -----------------------------------------------------------
+
   const loadWithdrawals = async () => {
-    const { data, error } = await supabase
-      .from("withdrawals")
-      .select("*, wallet:withdrawal_wallets(*)")
+    const { data: wdRows, error } = await supabase
+      .from<WithdrawalRow>("withdrawals")
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (!error && data) setWithdrawals(data);
+    if (error) {
+      toast.error("Error loading withdrawals");
+      return;
+    }
+
+    const merged: WithdrawalMerged[] = (wdRows || []).map((w) => {
+      const wallet = wallets.find((wt) => wt.id === w.wallet_id) || null;
+      return { ...w, wallet };
+    });
+
+    setWithdrawals(merged);
   };
 
   useEffect(() => {
     loadWithdrawals();
-  }, [user.id]);
+  }, [wallets]);
 
-  const selectedWallet = useMemo(
-    () => wallets.find((w) => w.id === selectedWalletId),
-    [selectedWalletId, wallets]
-  );
+  // -----------------------------------------------------------
+  // ✅ حساب fee و net amount
+  // -----------------------------------------------------------
 
   const fee = amount ? Number(amount) * (feePercentage / 100) : 0;
   const net = amount ? Number(amount) - fee : 0;
 
-  // ✅ CHECK: User daily withdrawal limit (1 per day)
-  const checkDailyLimit = async () => {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+  // -----------------------------------------------------------
+  // ✅ إرسال طلب سحب عبر RPC
+  // -----------------------------------------------------------
 
-    const { data } = await supabase
-      .from("withdrawals")
-      .select("id")
-      .eq("user_id", user.id)
-      .gte("created_at", todayStart.toISOString());
-
-    return data && data.length > 0;
-  };
-
-  // ✅ Submit withdrawal
   const submitWithdrawal = async () => {
     if (!withdrawEnabled) {
       toast.error("Withdrawals are disabled.");
       return;
     }
 
-    if (!selectedWallet) {
-      toast.error("Please select a wallet.");
-      return;
-    }
-
-    const amt = Number(amount);
-
-    if (!amt || amt < 21) {
-      toast.error("Minimum withdrawal is $21.");
-      return;
-    }
-
-    // ✅ Daily limit check
-    const alreadyWithdrawnToday = await checkDailyLimit();
-    if (alreadyWithdrawnToday) {
-      toast.error("You can withdraw only once per day.");
+    if (!selectedWalletId || !amount || Number(amount) < 10) {
+      toast.warning("Invalid amount or wallet.");
       return;
     }
 
     setIsSubmitting(true);
-    const t = toast.loading("Submitting withdrawal...");
+    const load = toast.loading("Submitting...");
 
-    const { error } = await supabase.from("withdrawals").insert([
-      {
-        user_id: user.id,
-        wallet_id: selectedWalletId,
-        amount: amt,
-        fee,
-        net_amount: net,
-        status: "pending",
-      },
-    ]);
+    const { data, error } = await supabase.rpc("withdraw_funds", {
+      p_user_id: user.id,
+      p_wallet_id: selectedWalletId,
+      p_amount: Number(amount),
+      p_fee: fee,
+      p_net_amount: net,
+    });
 
-    toast.dismiss(t);
-
-    if (error) {
-      toast.error(error.message);
+    if (error || data?.success === false) {
+      toast.error(data?.error || error?.message);
     } else {
-      toast.success("Withdrawal submitted.");
+      toast.success("Withdrawal submitted");
       setAmount("");
       loadWithdrawals();
     }
 
+    toast.dismiss(load);
     setIsSubmitting(false);
   };
 
-  // ✅ Add wallet
+  // -----------------------------------------------------------
+  // ✅ إضافة محفظة جديدة
+  // -----------------------------------------------------------
+
   const addWallet = async () => {
     if (!newWallet.asset || !newWallet.address) {
-      toast.error("Fill all wallet fields.");
+      toast.warning("Fill all fields");
       return;
     }
-
-    const t = toast.loading("Adding wallet...");
 
     const { error } = await supabase.from("withdrawal_wallets").insert([
       {
         user_id: user.id,
         asset: newWallet.asset,
         address: newWallet.address,
-        label: newWallet.label || null,
+        label: newWallet.label,
         otp_verified: true,
       },
     ]);
 
-    toast.dismiss(t);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Wallet added");
+      const { data } = await supabase
+        .from("withdrawal_wallets")
+        .select("*")
+        .eq("user_id", user.id);
 
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Wallet added.");
+      setWallets(data || []);
       setAddWalletOpen(false);
       setNewWallet({ asset: "", address: "", label: "" });
-      loadWithdrawals();
     }
   };
 
+  // -----------------------------------------------------------
+  // ✅ UI
+  // -----------------------------------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
       <div className="max-w-6xl mx-auto space-y-6">
