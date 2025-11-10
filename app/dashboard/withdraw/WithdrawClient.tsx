@@ -262,8 +262,7 @@ export default function WithdrawClient({ user }: Props) {
   // -----------------------------------------------------------
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
 
         {/* Header */}
         <div className="flex items-center justify-between">
