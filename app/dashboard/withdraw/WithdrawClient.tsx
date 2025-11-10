@@ -536,6 +536,6 @@ export default function WithdrawClient({ user }: Props) {
 
         </div>
       </div>
-    </div>
+    
   );
 }
