@@ -532,8 +532,8 @@ export default function WithdrawClient({ user }: Props) {
               </CardContent>
             </Card>
           </div>
-
-      
-    
+          </div>
+                </div>
+              </div>
   );
 }
