@@ -105,9 +105,10 @@ export default function WithdrawClient({ user }: Props) {
   useEffect(() => {
     async function fetchFee() {
       const { data } = await supabase
-        .from("withdrawal_settings")
-        .select("fee_percentage")
-        .single();
+  .from("withdrawal_settings")
+  .select("fee_percentage")
+  .maybeSingle();
+
 
       if (data) setFeePercentage(Number(data.fee_percentage));
     }
