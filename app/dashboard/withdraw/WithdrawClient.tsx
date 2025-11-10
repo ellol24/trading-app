@@ -301,7 +301,7 @@ export default function WithdrawClient({ user }: Props) {
 
               {/* ------------------ Withdraw Tab ------------------ */}
               <TabsContent value="withdraw">
-                <Card className="bg-gray-900 border-gray-700">
+                <Card className="bg-slate-800/50 border-slate-700>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <DollarSign className="w-5 h-5" /> Withdraw funds
