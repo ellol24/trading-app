@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,10 +27,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -44,6 +48,7 @@ import { toast } from "sonner";
 
 type Props = {
   user: any;
+  profile: any;
 };
 
 type WithdrawalWallet = {
@@ -53,7 +58,6 @@ type WithdrawalWallet = {
   address: string;
   label?: string;
   otp_verified: boolean;
-  created_at: string;
 };
 
 type WithdrawalRequest = {
@@ -72,14 +76,12 @@ export default function WithdrawClient({ user }: Props) {
   const [wallets, setWallets] = useState<WithdrawalWallet[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [amount, setAmount] = useState("");
   const [feePercentage, setFeePercentage] = useState(10);
   const [withdrawEnabled, setWithdrawEnabled] = useState(true);
 
-  const MIN_WITHDRAW = 21; // ✅ بناءً على طلبك
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [addWalletOpen, setAddWalletOpen] = useState(false);
 
   const [newWallet, setNewWallet] = useState({
@@ -88,73 +90,76 @@ export default function WithdrawClient({ user }: Props) {
     label: "",
   });
 
-  // ✅ تحميل حالة السحب من جدول withdrawal_settings
+  // ✅ Load withdraw control
   useEffect(() => {
-    async function fetchControl() {
+    async function loadControl() {
       const { data } = await supabase
         .from("withdrawal_control")
         .select("is_enabled")
+        .eq("id", 1)
         .single();
 
-      if (data) setWithdrawEnabled(data.is_enabled);
+      setWithdrawEnabled(data?.is_enabled ?? true);
     }
-    fetchControl();
+    loadControl();
   }, []);
 
-  // ✅ تحميل نسبة العمولة من جدول withdrawal_settings
+  // ✅ Load Fee percentage
   useEffect(() => {
-    async function fetchFee() {
+    async function loadFee() {
       const { data } = await supabase
-  .from("withdrawal_settings")
-  .select("fee_percentage")
-  .maybeSingle();
-
+        .from("withdrawal_settings")
+        .select("fee_percentage")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
 
       if (data) setFeePercentage(Number(data.fee_percentage));
     }
-    fetchFee();
+
+    loadFee();
   }, []);
 
-  // ✅ تحميل المحافظ
+  // ✅ Load wallets manually
   useEffect(() => {
     async function loadWallets() {
       const { data, error } = await supabase
         .from("withdrawal_wallets")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      if (error) toast.error("Failed to load wallets");
-      else setWallets(data);
+      if (!error && data) setWallets(data);
     }
+
     loadWallets();
   }, [user.id]);
 
-  // ✅ تحميل عمليات السحب + جلب المحافظ دفعة واحدة باستخدام in()
+  // ✅ Load withdrawals (manual merge)
   const loadWithdrawals = async () => {
-    const { data: withdrawalsData, error } = await supabase
+    const { data: wData, error } = await supabase
       .from("withdrawals")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      toast.error("Error loading withdrawals");
+    if (error) return;
+
+    if (!wData.length) {
+      setWithdrawals([]);
       return;
     }
 
-    // ✅ الحصول على wallet_ids
-    const walletIds = withdrawalsData.map((w) => w.wallet_id);
+    const walletIds = Array.from(new Set(wData.map((r) => r.wallet_id)));
 
-    // ✅ جلب المحافظ كلها مرة واحدة فقط
-    const { data: walletList } = await supabase
+    const { data: walletRows } = await supabase
       .from("withdrawal_wallets")
       .select("*")
       .in("id", walletIds);
 
-    // ✅ دمج السجلات
-    const merged = withdrawalsData.map((w) => ({
-      ...w,
-      wallet: walletList.find((wl) => wl.id === w.wallet_id),
+    const merged = wData.map((r) => ({
+      ...r,
+      wallet: walletRows?.find((w) => w.id === r.wallet_id) || null,
     }));
 
     setWithdrawals(merged);
@@ -164,19 +169,40 @@ export default function WithdrawClient({ user }: Props) {
     loadWithdrawals();
   }, [user.id]);
 
-  // ✅ الحساب
+  // ✅ one-withdrawal-per-day check
+  const checkDailyLimit = async () => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { data } = await supabase
+      .from("withdrawals")
+      .select("id")
+      .eq("user_id", user.id)
+      .gte("created_at", todayStart.toISOString())
+      .limit(1);
+
+    return data && data.length > 0;
+  };
+
+  // ✅ Compute fee & net
   const fee = amount ? Number(amount) * (feePercentage / 100) : 0;
   const net = amount ? Number(amount) - fee : 0;
 
-  // ✅ طلب السحب
+  // ✅ Submit withdrawal
   const submitWithdrawal = async () => {
     if (!withdrawEnabled) {
-      toast.error("Withdrawals are disabled");
+      toast.error("Withdrawals disabled.");
       return;
     }
 
-    if (!selectedWalletId || Number(amount) < MIN_WITHDRAW) {
-      toast.error(`Minimum withdrawal is $${MIN_WITHDRAW}`);
+    if (!(selectedWalletId && amount && Number(amount) >= 21)) {
+      toast.error("Min withdrawal is $21.");
+      return;
+    }
+
+    const usedToday = await checkDailyLimit();
+    if (usedToday) {
+      toast.error("You can withdraw once per day.");
       return;
     }
 
@@ -193,9 +219,10 @@ export default function WithdrawClient({ user }: Props) {
       },
     ]);
 
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Withdrawal submitted");
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Withdrawal submitted.");
       setAmount("");
       loadWithdrawals();
     }
@@ -203,12 +230,11 @@ export default function WithdrawClient({ user }: Props) {
     setIsSubmitting(false);
   };
 
-  // ✅ إضافة محفظة
+  // ✅ Add wallet
   const addWallet = async () => {
-    if (!newWallet.asset || !newWallet.address)
-      return toast.error("Invalid wallet");
+    if (!newWallet.asset || !newWallet.address) return;
 
-    const { error } = await supabase.from("withdrawal_wallets").insert([
+    await supabase.from("withdrawal_wallets").insert([
       {
         user_id: user.id,
         asset: newWallet.asset,
@@ -218,88 +244,78 @@ export default function WithdrawClient({ user }: Props) {
       },
     ]);
 
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Wallet added");
+    const { data } = await supabase
+      .from("withdrawal_wallets")
+      .select("*")
+      .eq("user_id", user.id);
 
-      const { data } = await supabase
-        .from("withdrawal_wallets")
-        .select("*")
-        .eq("user_id", user.id);
+    if (data) setWallets(data);
 
-      setWallets(data);
-      setAddWalletOpen(false);
-      setNewWallet({ asset: "", address: "", label: "" });
-    }
+    setNewWallet({ asset: "", address: "", label: "" });
+    setAddWalletOpen(false);
   };
 
   return (
-    <div className="min-h-screen p-6 pb-24 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Withdraw Funds</h1>
-            <p className="text-blue-200 mt-1">
-              Send funds to your verified wallet
-            </p>
+            <p className="text-blue-200 mt-1">Send funds to your wallet</p>
           </div>
           <Badge className="text-green-400 border-green-400 bg-green-400/10">
             <Shield className="w-4 h-4 mr-2" /> Secure
           </Badge>
         </div>
 
-        {/* Alert */}
         {!withdrawEnabled && (
           <Alert className="bg-red-500/20 border-red-500/40">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="text-red-400">Withdrawals Disabled</AlertTitle>
-            <AlertDescription className="text-red-200">
-              Administration temporarily disabled withdrawals.
-            </AlertDescription>
+            <AlertCircle className="w-4 h-4" />
+            <AlertTitle className="text-red-300">
+              Withdrawals Disabled
+            </AlertTitle>
           </Alert>
         )}
 
-        {/* Grid layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left side */}
+
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="withdraw">
-              <TabsList className="grid grid-cols-2 bg-background/20 border border-border/30">
+              <TabsList className="grid w-full grid-cols-2 bg-background/20">
                 <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
                 <TabsTrigger value="wallets">Wallets</TabsTrigger>
               </TabsList>
 
-              {/* ✅ Withdraw tab */}
+              {/* Withdraw Page */}
               <TabsContent value="withdraw">
-                <Card className="trading-card">
+                <Card>
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal
+                      <DollarSign className="mr-2" /> Request Withdrawal
                     </CardTitle>
                   </CardHeader>
-
                   <CardContent className="space-y-6">
+
                     <Alert className="bg-yellow-500/10 border-yellow-500/30">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle className="text-yellow-400">Fee Notice</AlertTitle>
+                      <AlertCircle className="w-4 h-4" />
                       <AlertDescription className="text-yellow-200">
-                        {feePercentage}% fee is deducted from the sent amount.
+                        Fee {feePercentage}% is deducted from amount.
                       </AlertDescription>
                     </Alert>
 
-                    {/* Form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Wallet */}
+
                       <div>
                         <Label className="text-white">Wallet</Label>
                         <Select
                           value={selectedWalletId}
                           onValueChange={setSelectedWalletId}
                         >
-                          <SelectTrigger className="h-12 bg-slate-800">
+                          <SelectTrigger className="h-12">
                             <SelectValue placeholder="Select wallet" />
                           </SelectTrigger>
+
                           <SelectContent>
                             {wallets.map((w) => (
                               <SelectItem value={w.id} key={w.id}>
@@ -310,7 +326,6 @@ export default function WithdrawClient({ user }: Props) {
                         </Select>
                       </div>
 
-                      {/* Amount */}
                       <div>
                         <Label className="text-white">Amount</Label>
                         <Input
@@ -318,157 +333,127 @@ export default function WithdrawClient({ user }: Props) {
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           className="h-12 bg-slate-800 text-white"
-                          min={MIN_WITHDRAW}
+                          placeholder="Min 21"
                         />
-                        <p className="text-xs text-gray-400">
-                          Minimum withdrawal: ${MIN_WITHDRAW}
-                        </p>
                       </div>
                     </div>
 
-                    {/* Summary */}
                     <div className="p-4 bg-slate-800 border border-slate-700 rounded">
-                      <h3 className="text-white font-semibold">Summary</h3>
-
-                      <div className="flex justify-between text-sm mt-2">
-                        <span className="text-gray-300">Amount</span>
-                        <span className="text-white">${amount || "0"}</span>
+                      <div className="flex justify-between text-sm">
+                        <span>Amount</span>
+                        <span>${amount || "0"}</span>
                       </div>
 
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-300">Fee</span>
-                        <span className="text-red-400">-${fee.toFixed(2)}</span>
+                        <span>Fee</span>
+                        <span>${fee.toFixed(2)}</span>
                       </div>
 
-                      <div className="flex justify-between text-sm border-t border-slate-700 pt-2 mt-2">
-                        <span className="text-gray-300">You Receive</span>
-                        <span className="text-green-400 font-semibold">
-                          ${net.toFixed(2)}
-                        </span>
+                      <div className="flex justify-between text-sm mt-2 border-t pt-2">
+                        <span>You receive</span>
+                        <span className="text-green-400">${net.toFixed(2)}</span>
                       </div>
                     </div>
 
                     <Button
-                      className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                      className="w-full h-14 bg-green-600"
+                      disabled={isSubmitting}
                       onClick={submitWithdrawal}
-                      disabled={
-                        !withdrawEnabled ||
-                        !amount ||
-                        Number(amount) < MIN_WITHDRAW ||
-                        !selectedWalletId ||
-                        isSubmitting
-                      }
                     >
                       {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                          Processing...
-                        </>
+                        <Loader2 className="animate-spin" />
                       ) : (
-                        "Submit Withdrawal Request"
+                        "Submit Withdrawal"
                       )}
                     </Button>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              {/* ✅ Wallets tab */}
+              {/* Wallets Page */}
               <TabsContent value="wallets">
-                <Card className="trading-card">
+                <Card>
                   <CardHeader>
-                    <CardTitle className="text-white">Manage Wallets</CardTitle>
+                    <CardTitle className="text-white flex items-center">
+                      <Wallet className="mr-2" /> Manage Wallets
+                    </CardTitle>
                   </CardHeader>
 
                   <CardContent className="space-y-4">
-                    {/* Add wallet */}
-                    <div className="flex justify-end">
-                      <Dialog
-                        open={addWalletOpen}
-                        onOpenChange={setAddWalletOpen}
-                      >
-                        <DialogTrigger asChild>
-                          <Button>
-                            <Plus className="w-4 h-4 mr-2" /> Add Wallet
-                          </Button>
-                        </DialogTrigger>
 
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add Wallet</DialogTitle>
-                            <DialogDescription>
-                              Wallet will be added instantly.
-                            </DialogDescription>
-                          </DialogHeader>
+                    <Dialog open={addWalletOpen} onOpenChange={setAddWalletOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="mr-2 w-4 h-4" /> Add Wallet
+                        </Button>
+                      </DialogTrigger>
 
-                          <div className="space-y-3 py-3">
-                            <div>
-                              <Label>Asset</Label>
-                              <Select
-                                value={newWallet.asset}
-                                onValueChange={(v) =>
-                                  setNewWallet({ ...newWallet, asset: v })
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select asset" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="USDT (TRC20)">
-                                    USDT (TRC20)
-                                  </SelectItem>
-                                  <SelectItem value="USDT (BEP20)">
-                                    USDT (BEP20)
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Wallet</DialogTitle>
+                        </DialogHeader>
 
-                            <div>
-                              <Label>Label</Label>
-                              <Input
-                                value={newWallet.label}
-                                onChange={(e) =>
-                                  setNewWallet({
-                                    ...newWallet,
-                                    label: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
+                        <div className="space-y-3">
+                          <Label>Asset</Label>
+                          <Select
+                            value={newWallet.asset}
+                            onValueChange={(v) =>
+                              setNewWallet({ ...newWallet, asset: v })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose asset" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USDT (TRC20)">
+                                USDT (TRC20)
+                              </SelectItem>
+                              <SelectItem value="USDT (BEP20)">
+                                USDT (BEP20)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
 
-                            <div>
-                              <Label>Address</Label>
-                              <Input
-                                value={newWallet.address}
-                                onChange={(e) =>
-                                  setNewWallet({
-                                    ...newWallet,
-                                    address: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
+                          <Label>Label</Label>
+                          <Input
+                            value={newWallet.label}
+                            onChange={(e) =>
+                              setNewWallet({
+                                ...newWallet,
+                                label: e.target.value,
+                              })
+                            }
+                          />
 
-                          <DialogFooter>
-                            <Button onClick={addWallet}>Save</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
+                          <Label>Address</Label>
+                          <Input
+                            value={newWallet.address}
+                            onChange={(e) =>
+                              setNewWallet({
+                                ...newWallet,
+                                address: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
 
-                    {/* Wallet list */}
+                        <DialogFooter>
+                          <Button onClick={addWallet}>Save</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
                     {wallets.map((w) => (
                       <div
                         key={w.id}
                         className="p-4 border border-slate-700 rounded bg-slate-800"
                       >
-                        <p className="text-white font-semibold">
+                        <div className="text-white font-semibold">
                           {w.label || w.asset}
-                        </p>
-                        <p className="text-gray-300 text-sm break-all">
+                        </div>
+                        <div className="text-xs text-gray-300 break-all">
                           {w.address}
-                        </p>
+                        </div>
                       </div>
                     ))}
                   </CardContent>
@@ -477,64 +462,44 @@ export default function WithdrawClient({ user }: Props) {
             </Tabs>
           </div>
 
-          {/* Right side */}
+          {/* Recent Withdrawals */}
           <div className="space-y-6">
-            <Card className="trading-card">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-white text-lg">
-                  Recent Withdrawals
-                </CardTitle>
+                <CardTitle className="text-white">Recent Withdrawals</CardTitle>
               </CardHeader>
 
               <CardContent className="space-y-3">
                 {withdrawals.map((r) => (
-                  <div
-                    key={r.id}
-                    className="p-3 bg-background/20 rounded border border-border/30"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-white font-bold">
-                        ${r.amount}
-                      </span>
-
-                      <Badge
-                        variant="outline"
-                        className={
-                          r.status === "approved" || r.status === "paid"
-                            ? "text-green-400 border-green-400"
-                            : r.status === "rejected"
-                            ? "text-red-400 border-red-400"
-                            : "text-yellow-400 border-yellow-400"
-                        }
-                      >
-                        {r.status}
-                      </Badge>
+                  <div key={r.id} className="p-3 bg-slate-800 rounded">
+                    <div className="flex justify-between">
+                      <span className="text-white">${r.amount}</span>
+                      <Badge>{r.status}</Badge>
                     </div>
 
-                    <p className="text-gray-400 text-xs">
+                    <div className="text-xs text-gray-300">
                       {r.wallet?.asset} •{" "}
                       {new Date(r.created_at).toLocaleString()}
-                    </p>
-
-                    <p className="text-gray-400 text-xs">
+                    </div>
+                    <div className="text-xs text-gray-300">
                       Net: ${r.net_amount}
-                    </p>
+                    </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            <Card className="trading-card">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
-                  <Lock className="w-5 h-5 mr-2" /> Safety Tips
+                  <Lock className="w-4 h-4 mr-2" /> Security Tips
                 </CardTitle>
               </CardHeader>
 
-              <CardContent className="text-gray-300 text-sm space-y-2">
+              <CardContent className="text-sm text-gray-300">
                 <p>• Withdraw only to your own wallets.</p>
-                <p>• Never share private keys.</p>
-                <p>• Enable 2FA for security.</p>
+                <p>• Never share your private key.</p>
+                <p>• Admins never DM you for codes.</p>
               </CardContent>
             </Card>
           </div>
