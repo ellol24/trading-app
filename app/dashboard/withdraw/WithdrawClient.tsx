@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
 import {
   DollarSign,
   Shield,
@@ -46,9 +45,9 @@ type Props = {
 type WithdrawalWallet = {
   id: string;
   user_id: string;
-  asset: string;
+  asset: "USDT (TRC20)" | "USDT (BEP20)" | string;
   address: string;
-  label?: string | null;
+  label?: string;
   otp_verified: boolean;
   created_at: string;
 };
@@ -62,10 +61,10 @@ type WithdrawalRequest = {
   net_amount: number;
   status: "pending" | "approved" | "processing" | "paid" | "rejected";
   created_at: string;
-  wallet?: WithdrawalWallet | null;
+  wallet?: WithdrawalWallet;
 };
 
-export default function WithdrawClient({ user }: Props) {
+export default function WithdrawClient({ user, profile }: Props) {
   const [wallets, setWallets] = useState<WithdrawalWallet[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
@@ -74,9 +73,10 @@ export default function WithdrawClient({ user }: Props) {
   const [addWalletOpen, setAddWalletOpen] = useState(false);
   const [feePercentage, setFeePercentage] = useState<number>(10);
   const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
+  const [minWithdrawAmount, setMinWithdrawAmount] = useState<number>(21);
 
   const [newWallet, setNewWallet] = useState<{
-    asset: string | "";
+    asset: WithdrawalWallet["asset"] | "";
     address: string;
     label: string;
   }>({
@@ -85,189 +85,203 @@ export default function WithdrawClient({ user }: Props) {
     label: "",
   });
 
-  const MIN_WITHDRAWAL = 21; // الحد الأدنى كما طلبت
-
-  // --- load withdraw control (uses withdrawal_control table)
+  // load withdrawal_control.is_enabled
   useEffect(() => {
-    async function loadControl() {
+    const loadControl = async () => {
       try {
-        // withdrawal_control has a single row (id = 1). we read is_enabled.
         const { data, error } = await supabase
           .from("withdrawal_control")
           .select("is_enabled")
           .limit(1)
           .single();
-
         if (!error && data) setWithdrawEnabled(Boolean(data.is_enabled));
       } catch (err) {
+        // keep default true on error
         console.error("loadControl error", err);
       }
-    }
+    };
     loadControl();
   }, []);
 
-  // --- load fee from withdrawal_settings (latest row)
+  // load settings: fee_percentage and min_withdraw_amount from withdrawal_settings
   useEffect(() => {
-    async function loadFee() {
+    const loadSettings = async () => {
       try {
         const { data, error } = await supabase
           .from("withdrawal_settings")
-          .select("fee_percentage")
+          .select("fee_percentage, min_withdraw_amount")
           .order("updated_at", { ascending: false })
           .limit(1)
           .single();
 
-        if (!error && data && data.fee_percentage !== undefined && data.fee_percentage !== null) {
-          setFeePercentage(Number(data.fee_percentage));
+        if (!error && data) {
+          if (data.fee_percentage !== undefined && data.fee_percentage !== null)
+            setFeePercentage(Number(data.fee_percentage));
+          if (
+            data.min_withdraw_amount !== undefined &&
+            data.min_withdraw_amount !== null
+          )
+            setMinWithdrawAmount(Number(data.min_withdraw_amount));
         }
       } catch (err) {
-        console.error("loadFee error", err);
+        console.error("loadSettings error", err);
       }
-    }
-    loadFee();
+    };
+    loadSettings();
   }, []);
 
-  // --- load user's wallets (manual)
+  // load wallets (manual)
   useEffect(() => {
-    async function loadWallets() {
+    const fetchWallets = async () => {
       const { data, error } = await supabase
-        .from<WithdrawalWallet>("withdrawal_wallets")
+        .from("withdrawal_wallets")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
         toast.error("❌ Failed to load wallets.");
-      } else if (data) {
-        setWallets(data);
-      }
-    }
-    loadWallets();
+      } else if (data) setWallets(data);
+    };
+    fetchWallets();
   }, [user.id]);
 
-  // --- load user's withdrawals (manual)
+  // load withdrawals (manual)
   const loadWithdrawals = async () => {
     const { data, error } = await supabase
-      .from<WithdrawalRequest>("withdrawals")
+      .from("withdrawals")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) {
       toast.error("❌ Failed to load withdrawals history.");
-    } else if (data) {
-      // We'll not rely on relational select here; attach wallet objects by fetching wallets map
-      // But we already load wallets per user above; match by wallet_id
-      const enriched = data.map((r) => {
-        const wallet = wallets.find((w) => w.id === r.wallet_id) ?? null;
-        return { ...r, wallet };
-      });
-      setWithdrawals(enriched);
-    }
+    } else if (data) setWithdrawals(data);
   };
 
   useEffect(() => {
     loadWithdrawals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id, wallets.length]); // reload when wallets change so mapping works
+  }, [user.id]);
 
   const selectedWallet = useMemo(
-    () => wallets.find((w) => w.id === selectedWalletId) ?? null,
+    () => wallets.find((w) => w.id === selectedWalletId),
     [wallets, selectedWalletId]
   );
 
-  const fee = amount ? Math.max(0, Number.parseFloat(amount) * (feePercentage / 100)) : 0;
-  const net = amount ? Math.max(0, Number.parseFloat(amount) - fee) : 0;
+  const fee = amount ? Math.max(0, Number(amount) * (feePercentage / 100)) : 0;
+  const net = amount ? Math.max(0, Number(amount) - fee) : 0;
 
-  // --- check one withdraw per day
-  const hasWithdrawToday = async (): Promise<boolean> => {
-    try {
-      // compute today's 00:00:00 UTC (or use local if you want). We'll use server timestamps compare using ISO at 00:00 local.
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const iso = today.toISOString();
-
-      const { data, error } = await supabase
-        .from("withdrawals")
-        .select("id")
-        .eq("user_id", user.id)
-        .gte("created_at", iso)
-        .limit(1);
-
-      if (error) {
-        console.error("hasWithdrawToday error", error);
-        return false;
-      }
-
-      return (data && data.length > 0);
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
+  // helper: start of today in ISO for server compare
+  const startOfTodayISO = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
   };
 
-  // --- submit withdrawal
+  // submit withdrawal: immediate deduction, single-per-day enforcement
   const submitWithdrawal = async () => {
-    // validations
+    const amt = Number(amount);
     if (!withdrawEnabled) {
       toast.error("🚫 Withdrawals are currently disabled by the administration.");
       return;
     }
 
-    if (!selectedWallet || !amount || Number.parseFloat(amount) < MIN_WITHDRAWAL) {
-      toast.warning(`⚠️ Please select wallet and enter valid amount (min $${MIN_WITHDRAWAL}).`);
+    if (!selectedWallet || !amount || Number.isNaN(amt) || amt < minWithdrawAmount) {
+      toast.warning(
+        `⚠️ Select a wallet and enter amount ≥ ${minWithdrawAmount} USD.`
+      );
       return;
     }
 
     setIsSubmitting(true);
-    const loading = toast.loading("⏳ Submitting your withdrawal request...");
+    const loadingToast = toast.loading("⏳ Submitting your withdrawal request...");
 
     try {
-      // check one-per-day rule
-      const already = await hasWithdrawToday();
-      if (already) {
-        toast.error("❌ You can only make one withdrawal per day.");
-        setIsSubmitting(false);
-        toast.dismiss(loading);
+      // 1) check daily limit: ensure no withdrawal created today by this user
+      const { data: todayRows, error: todayErr } = await supabase
+        .from("withdrawals")
+        .select("id")
+        .eq("user_id", user.id)
+        .gte("created_at", startOfTodayISO());
+
+      if (todayErr) {
+        throw todayErr;
+      }
+      if (todayRows && todayRows.length > 0) {
+        toast.error("🚫 You can only request one withdrawal per day.");
         return;
       }
 
-      // insert withdrawal (we do NOT deduct balance here; admin approves and deducts)
-      const { error } = await supabase.from("withdrawals").insert([
+      // 2) fetch fresh user balance
+      const { data: profileRow, error: profileErr } = await supabase
+        .from("user_profiles")
+        .select("uid, balance")
+        .eq("uid", user.id)
+        .limit(1)
+        .single();
+
+      if (profileErr || !profileRow) {
+        throw profileErr || new Error("Profile not found");
+      }
+
+      const currentBalance = Number(profileRow.balance || 0);
+      if (currentBalance < amt) {
+        toast.error("⚠️ Insufficient balance for this withdrawal.");
+        return;
+      }
+
+      // 3) deduct balance first
+      const newBalance = currentBalance - amt;
+      const { error: updErr } = await supabase
+        .from("user_profiles")
+        .update({ balance: newBalance })
+        .eq("uid", user.id);
+
+      if (updErr) {
+        throw updErr;
+      }
+
+      // 4) insert withdrawal row
+      const { error: insertErr } = await supabase.from("withdrawals").insert([
         {
           user_id: user.id,
           wallet_id: selectedWalletId,
-          amount: Number(amount),
+          amount: amt,
           fee: fee,
           net_amount: net,
           status: "pending",
         },
       ]);
 
-      if (error) {
-        toast.error("❌ Error submitting withdrawal: " + error.message);
-      } else {
-        setAmount("");
-        toast.success("✅ Withdrawal request submitted successfully!");
-        await loadWithdrawals();
+      if (insertErr) {
+        // rollback balance update
+        await supabase
+          .from("user_profiles")
+          .update({ balance: currentBalance })
+          .eq("uid", user.id);
+        throw insertErr;
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("❌ Unexpected error. Please try again later.");
+
+      // success
+      setAmount("");
+      toast.success("✅ Withdrawal request submitted successfully!");
+      await loadWithdrawals();
+    } catch (err: any) {
+      console.error("submitWithdrawal error", err);
+      toast.error("❌ Failed to submit withdrawal. " + (err?.message || ""));
     } finally {
+      toast.dismiss(loadingToast);
       setIsSubmitting(false);
-      toast.dismiss(loading);
     }
   };
 
-  // --- add wallet (keeps UI shape exactly same)
+  // add wallet (keeps original UI choices)
   const addWallet = async () => {
     if (!newWallet.asset || !newWallet.address) {
       toast.warning("⚠️ Please fill wallet asset and address.");
       return;
     }
-
-    const loading = toast.loading("🔗 Adding new wallet...");
+    const loadingToast = toast.loading("🔗 Adding new wallet...");
     const { error } = await supabase.from("withdrawal_wallets").insert([
       {
         user_id: user.id,
@@ -277,18 +291,14 @@ export default function WithdrawClient({ user }: Props) {
         otp_verified: true,
       },
     ]);
-
-    toast.dismiss(loading);
-
+    toast.dismiss(loadingToast);
     if (error) {
       toast.error("❌ Error adding wallet: " + error.message);
     } else {
       const { data } = await supabase
         .from("withdrawal_wallets")
         .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
+        .eq("user_id", user.id);
       if (data) setWallets(data);
       toast.success("✅ Wallet added successfully!");
       setNewWallet({ asset: "", address: "", label: "" });
@@ -309,11 +319,11 @@ export default function WithdrawClient({ user }: Props) {
             <p className="text-blue-200 mt-1">Send funds to your verified crypto wallet</p>
           </div>
           <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
-            <Shield className="w-4 h-4 mr-2" /> SSL Secured
+            <Shield className="w-4 h-4 mr-2" />
+            SSL Secured
           </Badge>
         </div>
 
-        {/* show red alert when disabled */}
         {!withdrawEnabled && (
           <Alert className="bg-red-600/20 border-red-600/40 text-red-300">
             <AlertCircle className="h-5 w-5" />
@@ -333,28 +343,31 @@ export default function WithdrawClient({ user }: Props) {
               <TabsContent value="withdraw">
                 <Card className="trading-card" translate="no">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal</CardTitle>
+                    <CardTitle className="text-white flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <Alert className="bg-yellow-500/10 border-yellow-500/30">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle className="text-yellow-400">Important</AlertTitle>
                       <AlertDescription className="text-yellow-200">
-                        A {feePercentage}% withdrawal fee is deducted from the amount sent. Minimum withdrawal is ${MIN_WITHDRAWAL}. Only one withdrawal per day allowed.
+                        A {feePercentage}% withdrawal fee is deducted from the amount sent.
+                        Min withdraw: ${minWithdrawAmount}
                       </AlertDescription>
                     </Alert>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-white">Select Wallet</Label>
-                        <Select value={selectedWalletId} onValueChange={setSelectedWalletId} disabled={!withdrawEnabled}>
+                        <Select value={selectedWalletId} onValueChange={setSelectedWalletId}>
                           <SelectTrigger className="h-12 bg-background/50 border-border/50">
                             <SelectValue placeholder="Choose wallet" />
                           </SelectTrigger>
                           <SelectContent>
                             {wallets.map((w) => (
                               <SelectItem key={w.id} value={w.id}>
-                                {w.label || `${w.asset} Wallet`} — {w.address?.slice(0, 8)}...{w.address?.slice(-4)}
+                                {w.label || `${w.asset} Wallet`} — {w.address.slice(0, 8)}...{w.address.slice(-4)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -370,10 +383,9 @@ export default function WithdrawClient({ user }: Props) {
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           className="h-12 bg-background/50 border-border/50 text-white"
-                          min={MIN_WITHDRAWAL}
-                          disabled={!withdrawEnabled}
+                          min={minWithdrawAmount}
                         />
-                        <p className="text-xs text-muted-foreground">Minimum withdrawal: ${MIN_WITHDRAWAL}</p>
+                        <p className="text-xs text-muted-foreground">Minimum withdrawal: ${minWithdrawAmount}</p>
                       </div>
                     </div>
 
@@ -396,9 +408,17 @@ export default function WithdrawClient({ user }: Props) {
                     <Button
                       className="w-full h-14 text-lg font-semibold professional-gradient flex items-center justify-center"
                       onClick={submitWithdrawal}
-                      disabled={!withdrawEnabled || !selectedWallet || !amount || Number.parseFloat(amount) < MIN_WITHDRAWAL || isSubmitting}
+                      disabled={
+                        !withdrawEnabled ||
+                        !selectedWallet ||
+                        !amount ||
+                        Number.parseFloat(amount) < minWithdrawAmount ||
+                        isSubmitting
+                      }
                     >
-                      {isSubmitting ? (
+                      {!withdrawEnabled ? (
+                        "Withdrawals Disabled"
+                      ) : isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           Submitting...
@@ -414,13 +434,17 @@ export default function WithdrawClient({ user }: Props) {
               <TabsContent value="wallets">
                 <Card className="trading-card">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Wallet className="w-5 h-5 mr-2" /> Manage Withdrawal Wallets</CardTitle>
+                    <CardTitle className="text-white flex items-center">
+                      <Wallet className="w-5 h-5 mr-2" /> Manage Withdrawal Wallets
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-end">
                       <Dialog open={addWalletOpen} onOpenChange={setAddWalletOpen}>
                         <DialogTrigger asChild>
-                          <Button><Plus className="w-4 h-4 mr-2" /> Add New Wallet</Button>
+                          <Button>
+                            <Plus className="w-4 h-4 mr-2" /> Add New Wallet
+                          </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
@@ -430,25 +454,44 @@ export default function WithdrawClient({ user }: Props) {
                           <div className="grid gap-3 py-3">
                             <div className="space-y-2">
                               <Label>Asset</Label>
-                              <Select value={newWallet.asset} onValueChange={(v) => setNewWallet((p) => ({ ...p, asset: v }))}>
-                                <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                              <Select
+                                value={newWallet.asset}
+                                onValueChange={(v) =>
+                                  setNewWallet((prev) => ({ ...prev, asset: v as any }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select asset" />
+                                </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="USDT (TRC20)">USDT (TRC20)</SelectItem>
                                   <SelectItem value="USDT (BEP20)">USDT (BEP20)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
+
                             <div className="space-y-2">
                               <Label>Label (optional)</Label>
-                              <Input placeholder="e.g. Primary USDT (TRC20)" value={newWallet.label} onChange={(e) => setNewWallet((p) => ({ ...p, label: e.target.value }))} />
+                              <Input
+                                placeholder="e.g. Primary USDT (TRC20)"
+                                value={newWallet.label}
+                                onChange={(e) => setNewWallet((prev) => ({ ...prev, label: e.target.value }))}
+                              />
                             </div>
+
                             <div className="space-y-2">
                               <Label>Address</Label>
-                              <Input placeholder="Paste withdrawal address" value={newWallet.address} onChange={(e) => setNewWallet((p) => ({ ...p, address: e.target.value }))} />
+                              <Input
+                                placeholder="Paste withdrawal address"
+                                value={newWallet.address}
+                                onChange={(e) => setNewWallet((prev) => ({ ...prev, address: e.target.value }))}
+                              />
                             </div>
                           </div>
                           <DialogFooter>
-                            <Button onClick={addWallet} disabled={!newWallet.asset || !newWallet.address}>Save Wallet</Button>
+                            <Button onClick={addWallet} disabled={!newWallet.asset || !newWallet.address}>
+                              Save Wallet
+                            </Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -462,7 +505,10 @@ export default function WithdrawClient({ user }: Props) {
                               <p className="text-white font-semibold">{w.label || `${w.asset} Wallet`}</p>
                               <p className="text-muted-foreground text-sm break-all">{w.address}</p>
                             </div>
-                            <Badge variant="outline" className={w.otp_verified ? "text-green-400 border-green-400" : "text-yellow-400 border-yellow-400"}>
+                            <Badge
+                              variant="outline"
+                              className={w.otp_verified ? "text-green-400 border-green-400" : "text-yellow-400 border-yellow-400"}
+                            >
                               <CheckCircle2 className="w-3 h-3 mr-1" />
                               {w.otp_verified ? "Verified" : "Pending Verification"}
                             </Badge>
@@ -510,7 +556,9 @@ export default function WithdrawClient({ user }: Props) {
 
             <Card className="trading-card">
               <CardHeader>
-                <CardTitle className="text-white text-lg flex items-center"><Lock className="w-5 h-5 mr-2" /> Security Tips</CardTitle>
+                <CardTitle className="text-white text-lg flex items-center">
+                  <Lock className="w-5 h-5 mr-2" /> Security Tips
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>• Only withdraw to wallets you control.</p>
