@@ -13,56 +13,71 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
-// 🪙 العملات المدعومة
 const SUPPORTED_COINS = [
   { code: "usdttrc20", name: "USDT (TRC20)" },
   { code: "usdtbsc", name: "USDT (BEP20)" },
 ];
 
 export default function DepositClient({ user }: any) {
-  const [coin, setCoin] = useState<string>("usdttrc20");
-  const [amount, setAmount] = useState<string>("");
+  const [coin, setCoin] = useState("usdttrc20");
+  const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [networkFee, setNetworkFee] = useState<number>(0);
+  const [isEnabled, setIsEnabled] = useState(true);
+  const [minDeposit, setMinDeposit] = useState(10);
 
-  // 📥 تحميل سجل الإيداعات من Supabase
-  async function loadDeposits() {
+  // تحميل الإعدادات من لوحة الإدمن
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase
+        .from("deposit_settings")
+        .select("is_enabled, min_deposit_amount")
+        .limit(1)
+        .single();
+      if (data) {
+        setIsEnabled(data.is_enabled);
+        setMinDeposit(Number(data.min_deposit_amount));
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // تحميل سجل الإيداعات
+  const loadDeposits = async () => {
     if (!user?.id) return;
     setLoadingHistory(true);
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("deposits")
       .select("id, amount, status, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-
-    if (error) toast.error("❌ Failed to load deposits");
-    else setDeposits(data || []);
-
+    setDeposits(data || []);
     setLoadingHistory(false);
-  }
+  };
 
   useEffect(() => {
     loadDeposits();
   }, [user?.id]);
 
-  // 🚀 إنشاء دفعة جديدة (الاتصال بـ API)
+  // إنشاء عملية إيداع
   const createPayment = async () => {
-    if (!amount || Number(amount) <= 0) {
-      toast.warning("⚠️ Enter a valid amount");
+    if (!isEnabled) {
+      toast.error("🚫 Deposits are currently disabled by the admin.");
+      return;
+    }
+    if (!amount || Number(amount) < minDeposit) {
+      toast.warning(`⚠️ Minimum deposit is $${minDeposit}`);
       return;
     }
 
     setIsProcessing(true);
     try {
-      console.log("📤 Sending payment data:", { amount, currency: coin, user_id: user.id });
-
       const res = await fetch("/api/contact/payment-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,46 +87,21 @@ export default function DepositClient({ user }: any) {
           user_id: user.id,
         }),
       });
-
       const data = await res.json();
-      console.log("💬 Payment create response:", data);
-
       if (res.ok && data.success && data.invoice_url) {
         toast.success("Redirecting to payment page...");
         window.location.href = data.invoice_url;
-      } else {
-        console.error("❌ Payment creation failed:", data);
-        toast.error(data.error || "Failed to create payment");
-      }
+      } else toast.error(data.error || "Failed to create payment");
     } catch (err) {
-      console.error("🚨 Payment creation error:", err);
       toast.error("Payment creation failed");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 💰 حساب العمولة التقديرية (2%)
   useEffect(() => {
-    if (amount) {
-      const fee = Number(amount) * 0.01;
-      setNetworkFee(fee);
-    }
+    if (amount) setNetworkFee(Number(amount) * 0.001);
   }, [amount]);
-
-  // 🔔 التحقق من حالة الدفع بعد العودة من صفحة NOWPayments
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("payment_status");
-    if (status === "finished") {
-      toast.success("✅ Payment completed successfully!");
-      loadDeposits();
-    } else if (status === "waiting") {
-      toast.info("⏳ Payment pending confirmation...");
-    } else if (status === "failed") {
-      toast.error("❌ Payment failed or cancelled.");
-    }
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20">
@@ -120,7 +110,9 @@ export default function DepositClient({ user }: any) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Deposit</h1>
-            <p className="text-blue-200 mt-1">Make instant deposits using crypto</p>
+            <p className="text-blue-200 mt-1">
+              Make instant deposits using crypto
+            </p>
           </div>
           <Badge
             variant="outline"
@@ -130,7 +122,15 @@ export default function DepositClient({ user }: any) {
           </Badge>
         </div>
 
-        {/* Deposit Form */}
+        {/* تنبيه في حالة الإيقاف */}
+        {!isEnabled && (
+          <div className="bg-red-600/10 border border-red-500 text-red-400 p-4 rounded-md flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5" />
+            <p>Deposits are currently disabled by the admin.</p>
+          </div>
+        )}
+
+        {/* Form */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit Information</CardTitle>
@@ -153,18 +153,19 @@ export default function DepositClient({ user }: any) {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Deposit Amount (USD)</Label>
+              <Label className="text-white">
+                Deposit Amount (Min ${minDeposit})
+              </Label>
               <Input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount"
+                placeholder={`Minimum $${minDeposit}`}
                 className="h-12 bg-slate-700 text-white border-slate-600"
-                min={1}
               />
               {amount && (
                 <p className="text-blue-300 text-sm">
-                  Network Fee (0.1%): ${networkFee.toFixed(2)} — You’ll receive approximately $
+                  Network Fee (0.1%): ${networkFee.toFixed(2)} — You’ll receive $
                   {(Number(amount) - networkFee).toFixed(2)}
                 </p>
               )}
@@ -173,12 +174,11 @@ export default function DepositClient({ user }: any) {
             <Button
               onClick={createPayment}
               className="w-full h-12 font-semibold text-lg bg-green-600 hover:bg-green-700"
-              disabled={isProcessing}
+              disabled={isProcessing || !isEnabled}
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                  Processing...
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" /> Processing...
                 </>
               ) : (
                 "Deposit Now"
@@ -187,7 +187,7 @@ export default function DepositClient({ user }: any) {
           </CardContent>
         </Card>
 
-        {/* Deposit History */}
+        {/* History */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white">Deposit History</CardTitle>
@@ -204,7 +204,9 @@ export default function DepositClient({ user }: any) {
                   className="flex justify-between p-3 border border-slate-700 rounded-lg bg-slate-700/30"
                 >
                   <div>
-                    <p className="text-white font-semibold">${Number(dep.amount).toFixed(2)}</p>
+                    <p className="text-white font-semibold">
+                      ${Number(dep.amount).toFixed(2)}
+                    </p>
                     <p className="text-sm text-gray-400">
                       {new Date(dep.created_at).toLocaleString()}
                     </p>
