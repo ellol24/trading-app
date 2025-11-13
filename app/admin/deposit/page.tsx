@@ -1,35 +1,53 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase/client"
-import { notify } from "@/lib/notify"
+import { useEffect, useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/lib/supabase/client";
+import { notify } from "@/lib/notify";
 
 type Deposit = {
-  id: string
-  uid: string
-  username: string
-  email: string
-  amount: number
-  status: string
-  proof_base64?: string
-  created_at: string
+  id: string;
+  uid: string;
+  username: string;
+  email: string;
+  amount: number;
+  status: string;
+  proof_base64?: string;
+  created_at: string;
   deposit_wallets?: {
-    asset: string
-    address: string
-  } | null
-}
+    asset: string;
+    address: string;
+  } | null;
+};
+
+type DepositSettings = {
+  is_enabled: boolean;
+  min_deposit_amount: number;
+};
 
 export default function AdminDepositsPage() {
-  const [deposits, setDeposits] = useState<Deposit[]>([])
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState("")
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [settings, setSettings] = useState<DepositSettings>({
+    is_enabled: true,
+    min_deposit_amount: 10,
+  });
+  const [stats, setStats] = useState({
+    totalDeposits: 0,
+    totalAmount: 0,
+    todayDeposits: 0,
+    todayAmount: 0,
+  });
 
+  // ✅ تحميل الإيداعات
   async function loadDeposits() {
-    setLoading(true)
+    setLoading(true);
     const { data, error } = await supabase
       .from("deposits")
       .select(`
@@ -46,66 +64,203 @@ export default function AdminDepositsPage() {
           address
         )
       `)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error)
-      notify.deposit.failed()
+      console.error(error);
+      notify.deposit.failed();
     } else {
-      setDeposits(data || [])
+      setDeposits(data || []);
+      calcStats(data || []);
     }
-    setLoading(false)
+    setLoading(false);
+  }
+
+  // ✅ تحميل إعدادات الإيداع
+  async function loadSettings() {
+    const { data, error } = await supabase
+      .from("deposit_settings")
+      .select("is_enabled, min_deposit_amount")
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data)
+      setSettings({
+        is_enabled: data.is_enabled,
+        min_deposit_amount: Number(data.min_deposit_amount),
+      });
   }
 
   useEffect(() => {
-    loadDeposits()
-  }, [])
+    loadDeposits();
+    loadSettings();
+  }, []);
 
-  // ✅ Admin Approve Deposit (trigger سيقوم بتحديث الرصيد)
-  async function approveDeposit(dep: Deposit) {
-    try {
-      const { error: updateError } = await supabase
-        .from("deposits")
-        .update({ status: "approved" })
-        .eq("id", dep.id)
+  // ✅ حساب الإحصائيات
+  function calcStats(data: Deposit[]) {
+    const totalDeposits = data.length;
+    const totalAmount = data.reduce((sum, d) => sum + Number(d.amount), 0);
+    const today = new Date().toISOString().split("T")[0];
+    const todayList = data.filter((d) =>
+      d.created_at.startsWith(today)
+    );
+    const todayDeposits = todayList.length;
+    const todayAmount = todayList.reduce(
+      (sum, d) => sum + Number(d.amount),
+      0
+    );
 
-      if (updateError) throw updateError
+    setStats({
+      totalDeposits,
+      totalAmount,
+      todayDeposits,
+      todayAmount,
+    });
+  }
 
-      notify.deposit.submitted("Deposit approved ✅ (Balance updated by trigger)")
-      loadDeposits()
-    } catch (err) {
-      console.error(err)
-      notify.deposit.failed()
+  // ✅ حفظ الإعدادات
+  async function saveSettings() {
+    const { error } = await supabase
+      .from("deposit_settings")
+      .update({
+        is_enabled: settings.is_enabled,
+        min_deposit_amount: settings.min_deposit_amount,
+        updated_at: new Date().toISOString(),
+      })
+      .neq("id", 0); // لتحديث أول صف فقط
+
+    if (error) {
+      notify.deposit.failed();
+      console.error(error);
+    } else {
+      notify.deposit.submitted("Settings updated ✅");
     }
   }
 
-  // ❌ Reject Deposit
+  // ✅ الموافقة على الإيداع
+  async function approveDeposit(dep: Deposit) {
+    try {
+      const { error } = await supabase
+        .from("deposits")
+        .update({ status: "approved" })
+        .eq("id", dep.id);
+
+      if (error) throw error;
+      notify.deposit.submitted("Deposit approved ✅");
+      loadDeposits();
+    } catch (err) {
+      console.error(err);
+      notify.deposit.failed();
+    }
+  }
+
+  // ❌ رفض الإيداع
   async function rejectDeposit(dep: Deposit) {
     try {
       const { error } = await supabase
         .from("deposits")
         .update({ status: "rejected" })
-        .eq("id", dep.id)
+        .eq("id", dep.id);
 
-      if (error) throw error
-
-      notify.deposit.submitted("Deposit rejected ❌")
-      loadDeposits()
+      if (error) throw error;
+      notify.deposit.submitted("Deposit rejected ❌");
+      loadDeposits();
     } catch (err) {
-      console.error(err)
-      notify.deposit.failed()
+      console.error(err);
+      notify.deposit.failed();
     }
   }
 
-  // ✅ فلترة حسب البحث (username / email / uid)
+  // ✅ فلترة حسب البحث
   const filteredDeposits = deposits.filter((dep) =>
     [dep.username, dep.email, dep.uid]
       .some((field) => field?.toLowerCase().includes(search.toLowerCase()))
-  )
+  );
 
   return (
     <div className="p-6 space-y-6">
-      {/* الهيدر مع محرك البحث */}
+      {/* إعدادات الإيداع */}
+      <Card className="border-border bg-background/40">
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>Deposit Settings</span>
+            <Button onClick={saveSettings}>Save Changes</Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-3 gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={settings.is_enabled}
+              onCheckedChange={(v) =>
+                setSettings((s) => ({ ...s, is_enabled: v }))
+              }
+            />
+            <Label>Deposits Enabled</Label>
+          </div>
+          <div>
+            <Label>Minimum Deposit (USD)</Label>
+            <Input
+              type="number"
+              value={settings.min_deposit_amount}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  min_deposit_amount: Number(e.target.value),
+                }))
+              }
+            />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Last Updated: {new Date().toLocaleString()}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* الإحصائيات */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground">
+              Total Deposits
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.totalDeposits}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground">
+              Total Amount
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">${stats.totalAmount.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground">
+              Today Deposits
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.todayDeposits}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground">
+              Today Amount
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">${stats.todayAmount.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* البحث */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Deposit Requests</h1>
         <Input
@@ -116,6 +271,7 @@ export default function AdminDepositsPage() {
         />
       </div>
 
+      {/* قائمة الإيداعات */}
       {loading && <p className="text-muted-foreground">Loading...</p>}
 
       <div className="grid gap-4">
@@ -123,7 +279,9 @@ export default function AdminDepositsPage() {
           <Card key={dep.id} className="bg-background border-border">
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
-                <span>{dep.username} ({dep.email})</span>
+                <span>
+                  {dep.username} ({dep.email})
+                </span>
                 <Badge
                   className={
                     dep.status === "pending"
@@ -138,14 +296,25 @@ export default function AdminDepositsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p><strong>Asset:</strong> {dep.deposit_wallets?.asset ?? "-"}</p>
-              <p><strong>Address:</strong> {dep.deposit_wallets?.address ?? "-"}</p>
-              <p><strong>Amount:</strong> {dep.amount}</p>
-              <p><strong>Date:</strong> {new Date(dep.created_at).toLocaleString()}</p>
+              <p>
+                <strong>Asset:</strong> {dep.deposit_wallets?.asset ?? "-"}
+              </p>
+              <p>
+                <strong>Address:</strong> {dep.deposit_wallets?.address ?? "-"}
+              </p>
+              <p>
+                <strong>Amount:</strong> ${dep.amount}
+              </p>
+              <p>
+                <strong>Date:</strong>{" "}
+                {new Date(dep.created_at).toLocaleString()}
+              </p>
 
               {dep.proof_base64 && (
                 <div>
-                  <p className="mb-1"><strong>Proof:</strong></p>
+                  <p className="mb-1">
+                    <strong>Proof:</strong>
+                  </p>
                   <img
                     src={dep.proof_base64}
                     alt="Deposit Proof"
@@ -175,5 +344,5 @@ export default function AdminDepositsPage() {
         ))}
       </div>
     </div>
-  )
+  );
 }
