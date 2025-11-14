@@ -145,6 +145,7 @@ export default function AdminWithdrawalsPage() {
       const userIds = Array.from(new Set(wd.map((r) => r.user_id).filter(Boolean)));
       const walletIds = Array.from(new Set(wd.map((r) => r.wallet_id).filter(Boolean)));
 
+      // fetch users (manual join)
       const { data: users, error: usersErr } = await supabase
         .from<UserProfile>("user_profiles")
         .select("uid, full_name, email, balance")
@@ -152,6 +153,7 @@ export default function AdminWithdrawalsPage() {
 
       if (usersErr) console.error("Failed to fetch users", usersErr);
 
+      // fetch wallets (manual join)
       const { data: wallets, error: walletsErr } = await supabase
         .from<Wallet>("withdrawal_wallets")
         .select("id, user_id, asset, address, label")
@@ -178,7 +180,7 @@ export default function AdminWithdrawalsPage() {
     loadWithdrawals();
   }, []);
 
-  // toggle withdraw: update withdrawal_control (single row)
+  // --- toggle withdraw: update withdrawal_control (single row)
   const toggleWithdraw = async () => {
     setIsSaving(true);
     try {
@@ -197,7 +199,7 @@ export default function AdminWithdrawalsPage() {
     }
   };
 
-  // save settings: insert new row in withdrawal_settings (keeps history)
+  // --- save settings: insert new row in withdrawal_settings (keeps history)
   const saveSettings = async () => {
     setIsSaving(true);
     try {
@@ -214,7 +216,7 @@ export default function AdminWithdrawalsPage() {
     }
   };
 
-  // Approve: mark approved (balance was deducted at creation)
+  // --- Approve: mark approved (balance was deducted at creation)
   const approveWithdrawal = async (id: string) => {
     const w = withdrawals.find((x) => x.id === id);
     if (!w) return toast.error("Withdrawal not found.");
@@ -238,7 +240,7 @@ export default function AdminWithdrawalsPage() {
     }
   };
 
-  // Reject: refund (since we deducted at creation), then mark rejected
+  // --- Reject: refund (since we deducted at creation), then mark rejected
   const rejectWithdrawal = async (id: string) => {
     const w = withdrawals.find((x) => x.id === id);
     if (!w) return toast.error("Withdrawal not found.");
@@ -246,7 +248,6 @@ export default function AdminWithdrawalsPage() {
 
     const t = toast.loading("Rejecting withdrawal...");
     try {
-      // fetch fresh user
       const { data: userRow, error: userErr } = await supabase
         .from<UserProfile>("user_profiles")
         .select("uid, balance")
@@ -282,7 +283,48 @@ export default function AdminWithdrawalsPage() {
     }
   };
 
-  // search/filter/sort computed
+  // --- computed statistics (LOCAL TIME)
+  const stats = useMemo(() => {
+    const totalAll = withdrawals.reduce((s, w) => s + Number(w.amount || 0), 0);
+    const totalApproved = withdrawals
+      .filter((w) => w.status === "approved")
+      .reduce((s, w) => s + Number(w.amount || 0), 0);
+
+    const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
+    const approvedCount = withdrawals.filter((w) => w.status === "approved").length;
+    const rejectedCount = withdrawals.filter((w) => w.status === "rejected").length;
+
+    // Today's stats (local time) — A) include all statuses
+    const now = new Date();
+    const isSameLocalDay = (iso: string) => {
+      const d = new Date(iso);
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    };
+
+    const todays = withdrawals.filter((w) => isSameLocalDay(w.created_at));
+    const todaysCount = todays.length;
+    const todaysTotal = todays.reduce((s, w) => s + Number(w.amount || 0), 0);
+
+    return {
+      totalAll,
+      totalApproved,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+      todaysCount,
+      todaysTotal,
+    };
+  }, [withdrawals]);
+
+  // --- local number formatter
+  const money = (n: number) =>
+    new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+
+  // --- filtered list (search / filter / sort)
   const filtered = useMemo(() => {
     let list = [...withdrawals];
     if (query.trim()) {
@@ -303,98 +345,66 @@ export default function AdminWithdrawalsPage() {
     return list;
   }, [withdrawals, query, statusFilter, sortBy]);
 
-  // ---------------------
-  // Statistics (UTC)
-  // ---------------------
-  const stats = useMemo(() => {
-    // total withdrawals sum of amount (all statuses)
-    const total = withdrawals.reduce((acc, w) => acc + Number(w.amount || 0), 0);
-
-    // counts by status
-    const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
-    const approvedCount = withdrawals.filter((w) => w.status === "approved").length;
-    const rejectedCount = withdrawals.filter((w) => w.status === "rejected").length;
-
-    // today's range in UTC
-    const now = new Date();
-    const utcYear = now.getUTCFullYear();
-    const utcMonth = now.getUTCMonth();
-    const utcDate = now.getUTCDate();
-    const dayStartUtc = Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0);
-    const dayEndUtc = dayStartUtc + 24 * 60 * 60 * 1000;
-
-    const todays = withdrawals.filter((w) => {
-      const t = new Date(w.created_at).getTime();
-      return t >= dayStartUtc && t < dayEndUtc;
-    });
-
-    const totalToday = todays.reduce((acc, w) => acc + Number(w.amount || 0), 0);
-    const countToday = todays.length;
-
-    return {
-      total,
-      totalToday,
-      countToday,
-      pendingCount,
-      approvedCount,
-      rejectedCount,
-    };
-  }, [withdrawals]);
-
-  const fmt = (n: number) => {
-    // basic formatting with 2 decimals for amounts
-    return isFinite(n) ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
-  };
-
   return (
     <div className="p-6 space-y-6">
-      {/* Statistics Card (top) */}
+      {/* Stats card (top) */}
       <Card>
         <CardHeader>
-          <CardTitle>Withdrawals Statistics (UTC)</CardTitle>
+          <CardTitle>Withdrawal Statistics (Local Time)</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-3 border rounded">
-            <div className="text-sm text-muted-foreground">Total Withdrawals</div>
-            <div className="text-xl font-semibold">${fmt(stats.total)}</div>
-          </div>
-
-          <div className="p-3 border rounded">
-            <div className="text-sm text-muted-foreground">Total Withdrawals Today (UTC)</div>
-            <div className="text-xl font-semibold">${fmt(stats.totalToday)}</div>
-            <div className="text-xs text-muted-foreground mt-1">Count today: {stats.countToday}</div>
-          </div>
-
-          <div className="p-3 border rounded grid grid-cols-1 gap-2">
-            <div className="flex justify-between">
-              <div className="text-sm text-muted-foreground">Pending</div>
-              <div className="font-semibold">{stats.pendingCount}</div>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Large totals */}
+            <div className="p-4 rounded bg-background/5 border border-border/30">
+              <div className="text-sm text-muted-foreground">Total Withdrawals</div>
+              <div className="text-2xl font-semibold">{money(stats.totalAll)}</div>
+              <div className="text-xs text-muted-foreground mt-1">Sum of all withdrawals</div>
             </div>
-            <div className="flex justify-between">
-              <div className="text-sm text-muted-foreground">Approved</div>
-              <div className="font-semibold">{stats.approvedCount}</div>
+
+            <div className="p-4 rounded bg-background/5 border border-border/30">
+              <div className="text-sm text-muted-foreground">Total Approved</div>
+              <div className="text-2xl font-semibold">{money(stats.totalApproved)}</div>
+              <div className="text-xs text-muted-foreground mt-1">Sum of approved withdrawals</div>
             </div>
-            <div className="flex justify-between">
-              <div className="text-sm text-muted-foreground">Rejected</div>
-              <div className="font-semibold">{stats.rejectedCount}</div>
+
+            {/* Counts */}
+            <div className="p-4 rounded bg-background/5 border border-border/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-muted-foreground">Pending</div>
+                  <div className="text-xl font-semibold">{stats.pendingCount}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Approved</div>
+                  <div className="text-xl font-semibold">{stats.approvedCount}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Today's */}
+            <div className="p-4 rounded bg-background/5 border border-border/30">
+              <div className="text-sm text-muted-foreground">Today (all statuses)</div>
+              <div className="text-xl font-semibold">{money(stats.todaysTotal)}</div>
+              <div className="text-sm text-muted-foreground mt-1">{stats.todaysCount} withdrawals today</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Control card */}
       <Card>
         <CardHeader>
           <CardTitle>Withdraw Control</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <Button onClick={toggleWithdraw} className={withdrawEnabled ? "bg-red-600" : "bg-green-600"}>
               {isSaving ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Saving...</> : (withdrawEnabled ? "Disable Withdrawals" : "Enable Withdrawals")}
             </Button>
             <div className="text-sm text-muted-foreground">Status: {withdrawEnabled ? <span className="text-green-400">Enabled</span> : <span className="text-red-400">Disabled</span>}</div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <label className="text-sm">Fee Percentage (%)</label>
             <Input type="number" className="w-28" value={feePercentage} onChange={(e) => setFeePercentage(Number(e.target.value || 0))} />
             <label className="text-sm">Min Withdraw (USD)</label>
@@ -404,40 +414,43 @@ export default function AdminWithdrawalsPage() {
         </CardContent>
       </Card>
 
+      {/* List + controls */}
       <Card>
         <CardHeader>
           <CardTitle>Withdrawal Requests</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
               <Search />
               <Input placeholder="Search by user, email, wallet, id..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
 
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
-              <SelectTrigger className="h-10 w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
+                <SelectTrigger className="h-10 w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
-              <SelectTrigger className="h-10 w-40"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="created_desc">Newest first</SelectItem>
-                <SelectItem value="created_asc">Oldest first</SelectItem>
-                <SelectItem value="amount_desc">Amount desc</SelectItem>
-                <SelectItem value="amount_asc">Amount asc</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
+                <SelectTrigger className="h-10 w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_desc">Newest first</SelectItem>
+                  <SelectItem value="created_asc">Oldest first</SelectItem>
+                  <SelectItem value="amount_desc">Amount desc</SelectItem>
+                  <SelectItem value="amount_asc">Amount asc</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <div className="ml-auto text-sm text-muted-foreground">{filtered.length} results</div>
+              <div className="ml-auto text-sm text-muted-foreground">{filtered.length} results</div>
+            </div>
           </div>
 
           {loading ? (
@@ -445,15 +458,15 @@ export default function AdminWithdrawalsPage() {
           ) : (
             <div className="space-y-3">
               {filtered.map((w) => (
-                <div key={w.id} className="p-4 rounded-lg border bg-background/5 flex justify-between items-start gap-4">
+                <div key={w.id} className="p-4 rounded-lg border bg-background/5 flex flex-col md:flex-row justify-between items-start gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start md:items-center gap-3 flex-col md:flex-row">
                       <div className="text-xl font-semibold">${Number(w.amount).toFixed(2)}</div>
                       <div className="text-sm text-muted-foreground">
                         {w.user?.full_name || w.user?.email || "Unknown user"}
                         <div className="text-xs">{w.user?.email}</div>
                       </div>
-                      <div className="ml-4 text-xs text-muted-foreground">Wallet: {w.wallet?.label || w.wallet?.asset || "-"}</div>
+                      <div className="ml-0 md:ml-4 text-xs text-muted-foreground">Wallet: {w.wallet?.label || w.wallet?.asset || "-"}</div>
                     </div>
 
                     <div className="mt-2 text-sm text-muted-foreground">
@@ -463,11 +476,7 @@ export default function AdminWithdrawalsPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <Badge className={
-                      w.status === "approved" ? "bg-green-600 text-white" :
-                      w.status === "rejected" ? "bg-red-600 text-white" :
-                      "bg-yellow-500 text-black"
-                    }>
+                    <Badge className={ w.status === "approved" ? "bg-green-600 text-white" : w.status === "rejected" ? "bg-red-600 text-white" : "bg-yellow-500 text-black" }>
                       {w.status}
                     </Badge>
 
@@ -500,7 +509,7 @@ export default function AdminWithdrawalsPage() {
             <div className="space-y-4 pt-4">
               <Card>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <h4 className="text-sm text-muted-foreground">Amount</h4>
                       <div className="font-semibold text-lg">${Number(activeWithdrawal.amount).toFixed(2)}</div>
