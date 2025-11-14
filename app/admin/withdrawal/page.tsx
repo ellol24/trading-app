@@ -75,7 +75,7 @@ export default function AdminWithdrawalsPage() {
     [withdrawals, openId]
   );
 
-  // load control (withdrawal_control)
+  // --- load control (withdrawal_control)
   useEffect(() => {
     const loadControl = async () => {
       try {
@@ -92,7 +92,7 @@ export default function AdminWithdrawalsPage() {
     loadControl();
   }, []);
 
-  // load settings (fee and min)
+  // --- load settings (fee and min)
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -119,7 +119,7 @@ export default function AdminWithdrawalsPage() {
     loadSettings();
   }, []);
 
-  // load withdrawals manual and merge users+wallets
+  // --- load withdrawals manual and merge users+wallets
   const loadWithdrawals = async () => {
     setLoading(true);
     try {
@@ -182,8 +182,6 @@ export default function AdminWithdrawalsPage() {
   const toggleWithdraw = async () => {
     setIsSaving(true);
     try {
-      // upsert: if exists update, else insert
-      // supabase upsert requires unique constraint; we use primary key id = 1
       const { error } = await supabase.from("withdrawal_control").upsert(
         { id: 1, is_enabled: !withdrawEnabled, updated_at: new Date().toISOString() },
         { onConflict: "id" }
@@ -305,8 +303,85 @@ export default function AdminWithdrawalsPage() {
     return list;
   }, [withdrawals, query, statusFilter, sortBy]);
 
+  // ---------------------
+  // Statistics (UTC)
+  // ---------------------
+  const stats = useMemo(() => {
+    // total withdrawals sum of amount (all statuses)
+    const total = withdrawals.reduce((acc, w) => acc + Number(w.amount || 0), 0);
+
+    // counts by status
+    const pendingCount = withdrawals.filter((w) => w.status === "pending").length;
+    const approvedCount = withdrawals.filter((w) => w.status === "approved").length;
+    const rejectedCount = withdrawals.filter((w) => w.status === "rejected").length;
+
+    // today's range in UTC
+    const now = new Date();
+    const utcYear = now.getUTCFullYear();
+    const utcMonth = now.getUTCMonth();
+    const utcDate = now.getUTCDate();
+    const dayStartUtc = Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0);
+    const dayEndUtc = dayStartUtc + 24 * 60 * 60 * 1000;
+
+    const todays = withdrawals.filter((w) => {
+      const t = new Date(w.created_at).getTime();
+      return t >= dayStartUtc && t < dayEndUtc;
+    });
+
+    const totalToday = todays.reduce((acc, w) => acc + Number(w.amount || 0), 0);
+    const countToday = todays.length;
+
+    return {
+      total,
+      totalToday,
+      countToday,
+      pendingCount,
+      approvedCount,
+      rejectedCount,
+    };
+  }, [withdrawals]);
+
+  const fmt = (n: number) => {
+    // basic formatting with 2 decimals for amounts
+    return isFinite(n) ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+  };
+
   return (
     <div className="p-6 space-y-6">
+      {/* Statistics Card (top) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Withdrawals Statistics (UTC)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-3 border rounded">
+            <div className="text-sm text-muted-foreground">Total Withdrawals</div>
+            <div className="text-xl font-semibold">${fmt(stats.total)}</div>
+          </div>
+
+          <div className="p-3 border rounded">
+            <div className="text-sm text-muted-foreground">Total Withdrawals Today (UTC)</div>
+            <div className="text-xl font-semibold">${fmt(stats.totalToday)}</div>
+            <div className="text-xs text-muted-foreground mt-1">Count today: {stats.countToday}</div>
+          </div>
+
+          <div className="p-3 border rounded grid grid-cols-1 gap-2">
+            <div className="flex justify-between">
+              <div className="text-sm text-muted-foreground">Pending</div>
+              <div className="font-semibold">{stats.pendingCount}</div>
+            </div>
+            <div className="flex justify-between">
+              <div className="text-sm text-muted-foreground">Approved</div>
+              <div className="font-semibold">{stats.approvedCount}</div>
+            </div>
+            <div className="flex justify-between">
+              <div className="text-sm text-muted-foreground">Rejected</div>
+              <div className="font-semibold">{stats.rejectedCount}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Withdraw Control</CardTitle>
@@ -388,7 +463,11 @@ export default function AdminWithdrawalsPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <Badge className={ w.status === "approved" ? "bg-green-600 text-white" : w.status === "rejected" ? "bg-red-600 text-white" : "bg-yellow-500 text-black" }>
+                    <Badge className={
+                      w.status === "approved" ? "bg-green-600 text-white" :
+                      w.status === "rejected" ? "bg-red-600 text-white" :
+                      "bg-yellow-500 text-black"
+                    }>
                       {w.status}
                     </Badge>
 
