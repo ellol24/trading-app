@@ -5,118 +5,94 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function updateSession(request: NextRequest) {
-  const response = NextResponse.next({ request });
-
-  // ❗ التأكد من إعدادات supabase
-  if (!supabaseUrl || !supabaseAnonKey) return response;
+  const response = NextResponse.next();
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get: (name) => request.cookies.get(name)?.value,
-      set: (name, value, options) => response.cookies.set({ name, value, ...options }),
-      remove: (name, options) => response.cookies.set({ name, value: "", ...options }),
+      get(name: string) {
+        return request.cookies.get(name)?.value;
+      },
+      set(name: string, value: string, options: any) {
+        response.cookies.set({ name, value, ...options });
+      },
+      remove(name: string, options: any) {
+        response.cookies.set({ name, value: "", ...options });
+      },
     },
   });
 
-  // 🔍 الحصول على الجلسة الفعلية
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   const url = new URL(request.url);
   const pathname = url.pathname;
+  const impersonateId = url.searchParams.get("impersonate");
 
-  // =============================
-  // 1) معالجة روابط الإحالة
-  // =============================
-  if (pathname.startsWith("/REF_")) {
-    const code = pathname.replace("/REF_", "");
-    const redirect = new URL("/auth/register", request.url);
-    redirect.searchParams.set("ref", code);
-    return NextResponse.redirect(redirect);
-  }
+  // --------------------------------------------------------
+  // 1️⃣  Impersonation Logic
+  // --------------------------------------------------------
+  if (impersonateId) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/auth/login", request.url));
+    }
 
-  // =============================
-  // 2) الصفحات العامة
-  // =============================
-  const publicRoutes = [
-    "/",
-    "/auth/login",
-    "/auth/register",
-    "/auth/callback",
-  ];
-
-  const isPublic = publicRoutes.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-
-  // =============================
-  // 3) ممنوع دخول الصفحات المحمية بدون جلسة
-  // =============================
-  if (!session && !isPublic) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
-  }
-
-  // =============================
-  // 4) لو هناك جلسة وفتح صفحة /auth/login → نعمل توجيه حسب الدور
-  // =============================
-  if (session && pathname.startsWith("/auth/login")) {
-    const { data: roleData } = await supabase
+    const { data: adminProfile } = await supabase
       .from("user_profiles")
       .select("role")
       .eq("uid", session.user.id)
       .single();
 
-    if (!roleData) return response;
-
-    if (roleData.role === "admin") {
-      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
-    } else {
+    // ❌ لو الشخص الحالي ليس Admin → رفض العملية
+    if (adminProfile?.role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+
+    // 🔥 تسجيل خروج الأدمن
+    await supabase.auth.signOut();
+
+    // 🔥 تسجيل دخول مستخدم impersonated
+    await supabase.auth.signInWithIdToken({
+      provider: "user",
+      token: impersonateId,
+    });
+
+    // 🔁 إعادة التوجيه للداشبورد كمستخدم
+    const redirect = new URL("/dashboard", request.url);
+    return NextResponse.redirect(redirect);
   }
 
-  // ⭐ 5) لو الأدمن يستخدم ميزة Login as User (impersonate)
-if (session && url.searchParams.has("impersonate")) {
-  const targetUID = url.searchParams.get("impersonate");
+  // --------------------------------------------------------
+  // 2️⃣  Public routes
+  // --------------------------------------------------------
+  const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/callback"];
+  const isPublic = publicRoutes.some((p) => pathname.startsWith(p));
 
-  // لا نسمح إذا لم يكن أدمن
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("uid", session.user.id)
-    .single();
-
-  if (profile?.role === "admin") {
-    // حذف جلسة الأدمن
-    response.cookies.set({
-      name: "sb-access-token",
-      value: "",
-      maxAge: 0,
-    });
-    response.cookies.set({
-      name: "sb-refresh-token",
-      value: "",
-      maxAge: 0,
-    });
-
-    // إنشاء جلسة جديدة للمستخدم المستهدف
-    const { data: userSession } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email: `${targetUID}@impersonate.fake`,
-    });
-
-    if (userSession?.properties?.action_link) {
-      return NextResponse.redirect(userSession.properties.action_link);
-    }
+  if (!session && !isPublic) {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
   }
-}
 
+  // --------------------------------------------------------
+  // 3️⃣ لو المستخدم في صفحة login وهو بالفعل مسجل
+  // --------------------------------------------------------
+  if (session && pathname.startsWith("/auth/login")) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("role")
+      .eq("uid", session.user.id)
+      .single();
+
+    return NextResponse.redirect(
+      new URL(
+        profile?.role === "admin" ? "/admin/dashboard" : "/dashboard",
+        request.url
+      )
+    );
+  }
 
   return response;
 }
 
-// تشغيله على كل الروابط
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
