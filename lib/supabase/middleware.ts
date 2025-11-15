@@ -76,6 +76,43 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // ⭐ 5) لو الأدمن يستخدم ميزة Login as User (impersonate)
+if (session && url.searchParams.has("impersonate")) {
+  const targetUID = url.searchParams.get("impersonate");
+
+  // لا نسمح إذا لم يكن أدمن
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("uid", session.user.id)
+    .single();
+
+  if (profile?.role === "admin") {
+    // حذف جلسة الأدمن
+    response.cookies.set({
+      name: "sb-access-token",
+      value: "",
+      maxAge: 0,
+    });
+    response.cookies.set({
+      name: "sb-refresh-token",
+      value: "",
+      maxAge: 0,
+    });
+
+    // إنشاء جلسة جديدة للمستخدم المستهدف
+    const { data: userSession } = await supabase.auth.admin.generateLink({
+      type: "magiclink",
+      email: `${targetUID}@impersonate.fake`,
+    });
+
+    if (userSession?.properties?.action_link) {
+      return NextResponse.redirect(userSession.properties.action_link);
+    }
+  }
+}
+
+
   return response;
 }
 
