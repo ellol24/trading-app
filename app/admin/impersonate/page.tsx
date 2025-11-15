@@ -1,40 +1,35 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useSearchParams, useRouter, useParams } from "next/navigation";
 
-function ImpersonateContent() {
-  const searchParams = useSearchParams();
-  const uid = searchParams.get("uid");
+export default function ImpersonatePage() {
+  const params = useParams();
+  const router = useRouter();
+  const uid = params.uid;
 
   useEffect(() => {
     async function impersonate() {
-      const res = await fetch("/api/admin/impersonate?uid=" + uid, {
-        method: "POST",
-      });
+      try {
+        const res = await fetch(`/api/admin/impersonate?uid=${uid}`);
 
-      if (res.ok) {
-        window.location.href = "/dashboard";
-      } else {
-        alert("حدث خطأ أثناء تسجيل دخول المستخدم");
+        if (!res.ok) {
+          alert("حدث خطأ أثناء تفعيل تسجيل الدخول كمستخدم");
+          return;
+        }
+
+        router.push("/dashboard");
+      } catch {
+        alert("حدث خطأ أثناء تفعيل المستخدم");
       }
     }
 
     impersonate();
-  }, [uid]);
+  }, [uid, router]);
 
   return (
     <div className="p-6 text-center">
       <h2 className="text-xl font-semibold">جاري تسجيل دخول المستخدم...</h2>
     </div>
-  );
-}
-
-export default function ImpersonatePage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ImpersonateContent />
-    </Suspense>
   );
 }
