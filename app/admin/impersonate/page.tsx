@@ -1,26 +1,23 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function ImpersonatePage() {
+function ImpersonateContent() {
   const searchParams = useSearchParams();
   const uid = searchParams.get("uid");
 
   useEffect(() => {
     async function impersonate() {
-      if (!uid) return;
-
-      const res = await fetch("/api/admin/impersonate", {
+      const res = await fetch("/api/admin/impersonate?uid=" + uid, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid }),
       });
 
       if (res.ok) {
         window.location.href = "/dashboard";
       } else {
-        alert("حدث خطأ أثناء انتحال المستخدم");
+        alert("حدث خطأ أثناء تسجيل دخول المستخدم");
       }
     }
 
@@ -29,7 +26,15 @@ export default function ImpersonatePage() {
 
   return (
     <div className="p-6 text-center">
-      <h2 className="text-xl font-semibold">جارٍ تسجيل دخول المستخدم…</h2>
+      <h2 className="text-xl font-semibold">جاري تسجيل دخول المستخدم...</h2>
     </div>
+  );
+}
+
+export default function ImpersonatePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ImpersonateContent />
+    </Suspense>
   );
 }
