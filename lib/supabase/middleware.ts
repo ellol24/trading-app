@@ -1,98 +1,62 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export async function POST(req: Request) {
+  try {
+    const { uid } = await req.json();
 
-export async function updateSession(request: NextRequest) {
-  const response = NextResponse.next();
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value;
-      },
-      set(name: string, value: string, options: any) {
-        response.cookies.set({ name, value, ...options });
-      },
-      remove(name: string, options: any) {
-        response.cookies.set({ name, value: "", ...options });
-      },
-    },
-  });
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const url = new URL(request.url);
-  const pathname = url.pathname;
-  const impersonateId = url.searchParams.get("impersonate");
-
-  // --------------------------------------------------------
-  // 1️⃣  Impersonation Logic
-  // --------------------------------------------------------
-  if (impersonateId) {
-    if (!session) {
-      return NextResponse.redirect(new URL("/auth/login", request.url));
+    if (!uid) {
+      return NextResponse.json({ error: "Missing UID" }, { status: 400 });
     }
 
-    const { data: adminProfile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("uid", session.user.id)
-      .single();
+    const cookieStore = cookies();
 
-    // ❌ لو الشخص الحالي ليس Admin → رفض العملية
-    if (adminProfile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
+    // ⬅️ أنشئ عميل سوپابيس عادي
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name, value, options) {
+            cookieStore.set(name, value, options);
+          },
+          remove(name, options) {
+            cookieStore.set(name, "", options);
+          },
+        },
+      }
+    );
 
-    // 🔥 تسجيل خروج الأدمن
-    await supabase.auth.signOut();
-
-    // 🔥 تسجيل دخول مستخدم impersonated
-    await supabase.auth.signInWithIdToken({
-      provider: "user",
-      token: impersonateId,
+    // ⬅️ اجلب جلسة المستخدم المطلوب impersonate
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "magiclink",
+      email: "",
+      redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
     });
 
-    // 🔁 إعادة التوجيه للداشبورد كمستخدم
-    const redirect = new URL("/dashboard", request.url);
-    return NextResponse.redirect(redirect);
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // ⬅️ إنشاء جلسة يدوية
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.properties.action_link_token!,
+      refresh_token: data.properties.action_link_token!,
+    });
+
+    if (sessionError) {
+      console.error(sessionError);
+      return NextResponse.json({ error: sessionError.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-
-  // --------------------------------------------------------
-  // 2️⃣  Public routes
-  // --------------------------------------------------------
-  const publicRoutes = ["/", "/auth/login", "/auth/register", "/auth/callback"];
-  const isPublic = publicRoutes.some((p) => pathname.startsWith(p));
-
-  if (!session && !isPublic) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
-  }
-
-  // --------------------------------------------------------
-  // 3️⃣ لو المستخدم في صفحة login وهو بالفعل مسجل
-  // --------------------------------------------------------
-  if (session && pathname.startsWith("/auth/login")) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("uid", session.user.id)
-      .single();
-
-    return NextResponse.redirect(
-      new URL(
-        profile?.role === "admin" ? "/admin/dashboard" : "/dashboard",
-        request.url
-      )
-    );
-  }
-
-  return response;
 }
-
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
