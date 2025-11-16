@@ -19,6 +19,7 @@ import {
   RotateCw,
   Trash2,
   LogIn,
+  Key,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -46,6 +47,9 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
+
+  // ⭐ جديد: تخزين كلمة المرور الجديدة
+  const [newPassword, setNewPassword] = useState("");
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -127,8 +131,27 @@ export default function AdminUsersPage() {
   };
 
   const impersonateUser = async (uid: string) => {
-    // ✅ فتح جلسة المستخدم المستهدف
     window.open(`/dashboard?impersonate=${uid}`, "_blank");
+  };
+
+  // ⭐⭐ الوظيفة الجديدة: تغيير كلمة المرور
+  const changePassword = async () => {
+    if (!newPassword || !selectedUser) {
+      alert("Please enter a password.");
+      return;
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(
+      selectedUser.uid,
+      { password: newPassword }
+    );
+
+    if (error) {
+      alert("Error changing password: " + error.message);
+    } else {
+      alert("Password updated successfully!");
+      setNewPassword("");
+    }
   };
 
   const filteredUsers = users.filter(
@@ -243,7 +266,7 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {/* ✅ البطاقة المنبثقة (عند الضغط على ⋮) */}
+      {/* ------- Dialog ------- */}
       {selectedUser && (
         <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
           <DialogContent className="bg-slate-900 text-white border border-slate-700 rounded-xl">
@@ -254,63 +277,79 @@ export default function AdminUsersPage() {
             </DialogHeader>
 
             <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 w-full flex items-center gap-2"
-                  onClick={() => impersonateUser(selectedUser.uid)}
-                >
-                  <LogIn className="w-4 h-4" /> Login as User
-                </Button>
 
-                <Button
-                  className="bg-green-600 hover:bg-green-700 w-full flex items-center gap-2"
-                  onClick={() => handleBalanceUpdate()}
-                >
-                  <DollarSign className="w-4 h-4" /> Add Balance (${amount || 0})
-                </Button>
+              {/* ⭐ جديد: تغيير كلمة المرور */}
+              <div className="space-y-2">
                 <Input
-                  placeholder="Amount (+/-)"
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  placeholder="New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   className="bg-slate-800 border-slate-600"
                 />
-
                 <Button
-                  className="bg-yellow-500 hover:bg-yellow-600 w-full flex items-center gap-2"
-                  onClick={() =>
-                    updateUser(selectedUser.uid, {
-                      role:
-                        selectedUser.role === "admin" ? "user" : "admin",
-                    })
-                  }
+                  className="bg-purple-600 hover:bg-purple-700 w-full flex items-center gap-2"
+                  onClick={changePassword}
                 >
-                  <RotateCw className="w-4 h-4" /> Toggle Role
-                </Button>
-
-                <Button
-                  className="bg-red-600 hover:bg-red-700 w-full flex items-center gap-2"
-                  onClick={() =>
-                    updateUser(selectedUser.uid, {
-                      status:
-                        selectedUser.status === "active"
-                          ? "banned"
-                          : "active",
-                    })
-                  }
-                >
-                  <Ban className="w-4 h-4" />{" "}
-                  {selectedUser.status === "active" ? "Ban User" : "Unban User"}
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  className="w-full flex items-center gap-2"
-                  onClick={() => deleteUser(selectedUser.uid)}
-                >
-                  <Trash2 className="w-4 h-4" /> Delete User
+                  <Key className="w-4 h-4" /> Change Password
                 </Button>
               </div>
+
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 w-full flex items-center gap-2"
+                onClick={() => impersonateUser(selectedUser.uid)}
+              >
+                <LogIn className="w-4 h-4" /> Login as User
+              </Button>
+
+              <Button
+                className="bg-green-600 hover:bg-green-700 w-full flex items-center gap-2"
+                onClick={() => handleBalanceUpdate()}
+              >
+                <DollarSign className="w-4 h-4" /> Add Balance (${amount || 0})
+              </Button>
+              <Input
+                placeholder="Amount (+/-)"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="bg-slate-800 border-slate-600"
+              />
+
+              <Button
+                className="bg-yellow-500 hover:bg-yellow-600 w-full flex items-center gap-2"
+                onClick={() =>
+                  updateUser(selectedUser.uid, {
+                    role:
+                      selectedUser.role === "admin" ? "user" : "admin",
+                  })
+                }
+              >
+                <RotateCw className="w-4 h-4" /> Toggle Role
+              </Button>
+
+              <Button
+                className="bg-red-600 hover:bg-red-700 w-full flex items-center gap-2"
+                onClick={() =>
+                  updateUser(selectedUser.uid, {
+                    status:
+                      selectedUser.status === "active"
+                        ? "banned"
+                        : "active",
+                  })
+                }
+              >
+                <Ban className="w-4 h-4" />{" "}
+                {selectedUser.status === "active" ? "Ban User" : "Unban User"}
+              </Button>
+
+              <Button
+                variant="destructive"
+                className="w-full flex items-center gap-2"
+                onClick={() => deleteUser(selectedUser.uid)}
+              >
+                <Trash2 className="w-4 h-4" /> Delete User
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
