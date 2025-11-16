@@ -47,41 +47,33 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
-
-  // ⭐ جديد: تخزين كلمة المرور الجديدة
   const [newPassword, setNewPassword] = useState("");
 
   const fetchUsers = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles } = await supabase
         .from("user_profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (profilesError) throw profilesError;
-
-      const { data: deposits, error: depositsError } = await supabase
+      const { data: deposits } = await supabase
         .from("deposits")
         .select("user_id, amount, status");
 
-      if (depositsError) throw depositsError;
-
-      const depositsTotals: Record<string, number> = {};
+      const totals: Record<string, number> = {};
       (deposits || []).forEach((d: any) => {
         if (d.status === "approved") {
-          depositsTotals[d.user_id] =
-            (depositsTotals[d.user_id] || 0) + Number(d.amount);
+          totals[d.user_id] = (totals[d.user_id] || 0) + Number(d.amount);
         }
       });
 
-      const enrichedUsers = (profiles || []).map((u: any) => ({
+      const enriched = (profiles || []).map((u: any) => ({
         ...u,
-        total_deposits: depositsTotals[u.uid] || 0,
+        total_deposits: totals[u.uid] || 0,
       }));
 
-      setUsers(enrichedUsers as UserProfile[]);
+      setUsers(enriched);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -99,24 +91,33 @@ export default function AdminUsersPage() {
       .update(updates)
       .eq("uid", uid);
 
-    if (error) {
-      alert("Error updating user: " + error.message);
-    } else {
-      fetchUsers();
-    }
+    if (error) alert(error.message);
+    else fetchUsers();
   };
 
   const deleteUser = async (uid: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm("Are you sure?")) return;
     const { error } = await supabase
       .from("user_profiles")
       .delete()
       .eq("uid", uid);
+    if (error) alert(error.message);
+    else fetchUsers();
+  };
 
-    if (error) {
-      alert("Error deleting user: " + error.message);
-    } else {
-      fetchUsers();
+  const handlePasswordChange = async () => {
+    if (!selectedUser) return;
+
+    const { error } = await supabase.rpc("update_user_password", {
+      target_uid: selectedUser.uid,
+      new_password: newPassword,
+    });
+
+    if (error) alert(error.message);
+    else {
+      alert("Password updated successfully!");
+      setNewPassword("");
+      setActionModalOpen(false);
     }
   };
 
@@ -124,139 +125,64 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     const newBalance = selectedUser.balance + amount;
     await updateUser(selectedUser.uid, { balance: newBalance });
-
     setAmount(0);
     setActionModalOpen(false);
-    setSelectedUser(null);
   };
 
-  const impersonateUser = async (uid: string) => {
+  const impersonateUser = (uid: string) => {
     window.open(`/dashboard?impersonate=${uid}`, "_blank");
-  };
-
-  // ⭐⭐ الوظيفة الجديدة: تغيير كلمة المرور
-  const changePassword = async () => {
-    if (!newPassword || !selectedUser) {
-      alert("Please enter a password.");
-      return;
-    }
-
-    const { error } = await supabase.auth.admin.updateUserById(
-      selectedUser.uid,
-      { password: newPassword }
-    );
-
-    if (error) {
-      alert("Error changing password: " + error.message);
-    } else {
-      alert("Password updated successfully!");
-      setNewPassword("");
-    }
   };
 
   const filteredUsers = users.filter(
     (u) =>
       u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase()) ||
-      u.uid.toLowerCase().includes(search.toLowerCase()) ||
-      u.referral_code?.toLowerCase().includes(search.toLowerCase()) ||
-      u.referral_code_used?.toLowerCase().includes(search.toLowerCase())
+      u.uid.includes(search)
   );
 
-  if (loading)
-    return <p className="p-4 text-center text-gray-400">Loading users...</p>;
-  if (error)
-    return <p className="p-4 text-center text-red-500">Error: {error}</p>;
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-        👑 Admin Users Panel
-      </h1>
+      <h1 className="text-3xl font-bold text-white">Admin Users Panel</h1>
 
       <Input
-        placeholder="Search by name, email, or UID..."
-        className="bg-slate-800 text-white border-slate-700"
+        className="bg-slate-800 text-white"
+        placeholder="Search user..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <Card className="bg-slate-900 border-slate-700">
+      <Card className="bg-slate-900">
         <CardHeader>
           <CardTitle className="text-white">All Users</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm text-gray-300 border-collapse">
+        <CardContent>
+          <table className="w-full text-gray-300">
             <thead>
               <tr className="bg-slate-800 text-gray-200">
-                <th className="p-2 text-left">User</th>
-                <th className="p-2 text-left">Email</th>
-                <th className="p-2 text-center">Balance</th>
-                <th className="p-2 text-center">Referrals</th>
-                <th className="p-2 text-center">Status</th>
-                <th className="p-2 text-center">Role</th>
-                <th className="p-2 text-center">Actions</th>
+                <th className="p-2">User</th>
+                <th className="p-2">Email</th>
+                <th className="p-2">Balance</th>
+                <th className="p-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr
-                  key={user.uid}
-                  className="border-b border-slate-800 hover:bg-slate-800/60"
-                >
-                  <td className="p-2 flex items-center gap-2">
-                    <UserCircle className="w-5 h-5 text-blue-400" />
-                    <div>
-                      <div className="font-semibold">{user.full_name ?? "-"}</div>
-                      <div className="text-xs text-slate-400 font-mono">
-                        {user.uid.slice(0, 8)}
-                      </div>
-                    </div>
-                  </td>
+                <tr key={user.uid} className="border-b border-slate-800">
+                  <td className="p-2">{user.full_name}</td>
+                  <td className="p-2">{user.email}</td>
+                  <td className="p-2 text-green-400">${user.balance}</td>
                   <td className="p-2">
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-4 h-4 text-slate-400" />
-                      {user.email ?? "-"}
-                    </div>
-                  </td>
-                  <td className="p-2 text-center text-green-400 font-semibold">
-                    ${user.balance.toFixed(2)}
-                  </td>
-                  <td className="p-2 text-center text-blue-400 font-semibold">
-                    {user.total_referrals ?? 0}
-                  </td>
-                  <td className="p-2 text-center">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.status === "active"
-                          ? "bg-green-600 text-white"
-                          : "bg-red-600 text-white"
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="p-2 text-center">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.role === "admin"
-                          ? "bg-purple-600 text-white"
-                          : "bg-gray-600 text-white"
-                      }`}
-                    >
-                      {user.role ?? "user"}
-                    </span>
-                  </td>
-                  <td className="p-2 text-center">
                     <Button
                       variant="ghost"
-                      size="icon"
                       onClick={() => {
                         setSelectedUser(user);
                         setActionModalOpen(true);
                       }}
                     >
-                      <MoreVertical className="w-5 h-5 text-slate-300" />
+                      <MoreVertical />
                     </Button>
                   </td>
                 </tr>
@@ -266,70 +192,65 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {/* ------- Dialog ------- */}
       {selectedUser && (
         <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
-          <DialogContent className="bg-slate-900 text-white border border-slate-700 rounded-xl">
+          <DialogContent className="bg-slate-900 text-white">
             <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-blue-300">
+              <DialogTitle>
                 Manage User: {selectedUser.full_name}
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
+              <Button
+                className="bg-blue-600 w-full"
+                onClick={() => impersonateUser(selectedUser.uid)}
+              >
+                <LogIn /> Login as User
+              </Button>
 
-              {/* ⭐ جديد: تغيير كلمة المرور */}
-              <div className="space-y-2">
+              <Button
+                className="bg-green-600 w-full"
+                onClick={handleBalanceUpdate}
+              >
+                <DollarSign /> Add Balance (${amount})
+              </Button>
+              <Input
+                type="number"
+                className="bg-slate-800"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+              />
+
+              {/* 🔥 تغيير كلمة مرور المستخدم */}
+              <div>
                 <Input
-                  placeholder="New Password"
-                  type="password"
+                  placeholder="New password"
+                  className="bg-slate-800"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="bg-slate-800 border-slate-600"
                 />
                 <Button
-                  className="bg-purple-600 hover:bg-purple-700 w-full flex items-center gap-2"
-                  onClick={changePassword}
+                  className="bg-yellow-500 w-full mt-2"
+                  onClick={handlePasswordChange}
                 >
-                  <Key className="w-4 h-4" /> Change Password
+                  <Key /> Change Password
                 </Button>
               </div>
 
               <Button
-                className="bg-blue-600 hover:bg-blue-700 w-full flex items-center gap-2"
-                onClick={() => impersonateUser(selectedUser.uid)}
-              >
-                <LogIn className="w-4 h-4" /> Login as User
-              </Button>
-
-              <Button
-                className="bg-green-600 hover:bg-green-700 w-full flex items-center gap-2"
-                onClick={() => handleBalanceUpdate()}
-              >
-                <DollarSign className="w-4 h-4" /> Add Balance (${amount || 0})
-              </Button>
-              <Input
-                placeholder="Amount (+/-)"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="bg-slate-800 border-slate-600"
-              />
-
-              <Button
-                className="bg-yellow-500 hover:bg-yellow-600 w-full flex items-center gap-2"
+                className="bg-purple-600 w-full"
                 onClick={() =>
                   updateUser(selectedUser.uid, {
-                    role:
-                      selectedUser.role === "admin" ? "user" : "admin",
+                    role: selectedUser.role === "admin" ? "user" : "admin",
                   })
                 }
               >
-                <RotateCw className="w-4 h-4" /> Toggle Role
+                <RotateCw /> Toggle Role
               </Button>
 
               <Button
-                className="bg-red-600 hover:bg-red-700 w-full flex items-center gap-2"
+                className="bg-red-600 w-full"
                 onClick={() =>
                   updateUser(selectedUser.uid, {
                     status:
@@ -339,16 +260,15 @@ export default function AdminUsersPage() {
                   })
                 }
               >
-                <Ban className="w-4 h-4" />{" "}
-                {selectedUser.status === "active" ? "Ban User" : "Unban User"}
+                <Ban /> Toggle Ban
               </Button>
 
               <Button
                 variant="destructive"
-                className="w-full flex items-center gap-2"
+                className="w-full"
                 onClick={() => deleteUser(selectedUser.uid)}
               >
-                <Trash2 className="w-4 h-4" /> Delete User
+                <Trash2 /> Delete User
               </Button>
             </div>
           </DialogContent>
