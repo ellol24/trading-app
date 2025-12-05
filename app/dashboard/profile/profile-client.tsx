@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLanguage } from "@/contexts/language-context";
 import { supabase } from "@/lib/supabase/client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +47,6 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
-  const { language, setLanguage } = useLanguage();
   const { toast } = useToast();
 
   // UI states
