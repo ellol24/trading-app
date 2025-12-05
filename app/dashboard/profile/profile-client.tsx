@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter }
+import { useLanguage } from "@/contexts/language-context" from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,7 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
+  const { language, setLanguage } = useLanguage();
   const { toast } = useToast();
 
   // UI states
@@ -57,9 +59,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  // language state
-  const [language, setLanguage] = useState("en");
-
 
   // local form state
   const [profileData, setProfileData] = useState({
@@ -140,17 +139,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     loadIfMissing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  // load language from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("app_language") || localStorage.getItem("lang");
-      if (saved) setLanguage(saved);
-    } catch (e) {
-      // ignore (SSR or disabled storage)
-    }
-  }, []);
-
 
   // helper: basic email validation
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -335,18 +323,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     }
   };
 
-
-  const handleLanguageChange = (lang: string) => {
-    try {
-      setLanguage(lang);
-      localStorage.setItem("app_language", lang);
-      // trigger a refresh so that any server-side data depending on language updates
-      try { router.refresh(); } catch (e) {}
-    } catch (e) {
-      console.error("language change error", e);
-    }
-  };
-
   // If not logged in show message
   if (!user) {
     return (
@@ -394,22 +370,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
             <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent" onClick={handleExportData} disabled={isExporting}>
               <Download className="w-4 h-4 mr-2" />{isExporting ? "Exporting..." : "Export Data"}
             </Button>
-
-            {/* Language selector */}
-            <div className="flex items-center">
-              <select
-                value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                disabled={!isEditing}
-                aria-label="Select language"
-                className="ml-3 bg-slate-800/50 border border-slate-600 text-white rounded-lg p-2"
-              >
-                <option value="en">English</option>
-                <option value="ar">العربية</option>
-                <option value="fr">Français</option>
-              </select>
-            </div>
-
             <Button
               variant="outline"
               className="border-red-600 text-red-400 hover:bg-red-600/10 bg-transparent"
