@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter }
-import { useLanguage } from "@/contexts/language-context" from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/language-context";
 import { supabase } from "@/lib/supabase/client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
