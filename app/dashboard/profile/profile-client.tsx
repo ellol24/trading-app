@@ -4,9 +4,11 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { LanguageContext } from "@/contexts/language-context";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +49,7 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
+  const { language, setLanguage } = useContext(LanguageContext);
   const { toast } = useToast();
 
   // UI states
@@ -365,6 +368,17 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
           </div>
 
           <div className="flex items-center space-x-3">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-32 bg-slate-800 text-white border-slate-600">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="ar">Arabic</SelectItem>
+                <SelectItem value="fr">French</SelectItem>
+                <SelectItem value="de">German</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent" onClick={handleExportData} disabled={isExporting}>
               <Download className="w-4 h-4 mr-2" />{isExporting ? "Exporting..." : "Export Data"}
             </Button>
