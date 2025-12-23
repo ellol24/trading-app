@@ -14,27 +14,27 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          
-            {/* ✅ سكربت الحماية */}
-            <ProtectionScript />
 
-              
+          {/* ✅ سكربت الحماية */}
+          <ProtectionScript />
 
-            {/* ✅ المحتوى الرئيسي */}
-            <main className="min-h-screen">{children}</main>
+
+
+          {/* ✅ المحتوى الرئيسي */}
+          <main className="min-h-screen">{children}</main>
 
           {/* ✅ الشريط السفلي */}
-            <BottomNavigation />
+          <BottomNavigation />
 
-            {/* ✅ إشعارات Sonner */}
-            <Toaster
-              position="top-center"
-              theme="dark"
-              richColors
-              closeButton
-              expand
-            />
-          
+          {/* ✅ إشعارات Sonner */}
+          <Toaster
+            position="top-center"
+            theme="dark"
+            richColors
+            closeButton
+            expand
+          />
+
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
