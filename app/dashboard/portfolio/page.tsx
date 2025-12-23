@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { TrendingUp, TrendingDown, DollarSign, PieChart, BarChart3, Clock, Target, Award, Activity } from 'lucide-react'
+import { useLanguage } from "@/contexts/language-context"
 
 const portfolioData = {
   totalBalance: 15750.00,
@@ -118,6 +119,7 @@ const assetAllocation = [
 ]
 
 export default function PortfolioPage() {
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState("overview")
 
   return (
@@ -126,12 +128,12 @@ export default function PortfolioPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Portfolio</h1>
-            <p className="text-blue-200 mt-1">Track your trading performance and positions</p>
+            <h1 className="text-3xl font-bold text-white">{t('portfolio.portfolioTitle')}</h1>
+            <p className="text-blue-200 mt-1">{t('portfolio.trackPerformance')}</p>
           </div>
           <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
             <TrendingUp className="w-4 h-4 mr-2" />
-            +{portfolioData.todayPnLPercentage}% Today
+            +{portfolioData.todayPnLPercentage}% {t('portfolio.todayPnL')}
           </Badge>
         </div>
 
@@ -141,7 +143,7 @@ export default function PortfolioPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Balance</p>
+                  <p className="text-muted-foreground text-sm">{t('dashboard.totalBalance')}</p>
                   <p className="text-2xl font-bold text-white">${portfolioData.totalBalance.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
@@ -155,7 +157,7 @@ export default function PortfolioPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Profit</p>
+                  <p className="text-muted-foreground text-sm">{t('dashboard.totalProfit')}</p>
                   <p className="text-2xl font-bold text-green-400">${portfolioData.totalProfit.toLocaleString()}</p>
                   <p className="text-green-400 text-sm">+{portfolioData.profitPercentage}%</p>
                 </div>
@@ -170,7 +172,7 @@ export default function PortfolioPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Available Balance</p>
+                  <p className="text-muted-foreground text-sm">{t('dashboard.availableBalance')}</p>
                   <p className="text-2xl font-bold text-white">${portfolioData.availableBalance.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
@@ -184,7 +186,7 @@ export default function PortfolioPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Today's P&L</p>
+                  <p className="text-muted-foreground text-sm">{t('portfolio.todayPnL')}</p>
                   <p className="text-2xl font-bold text-green-400">+${portfolioData.todayPnL}</p>
                   <p className="text-green-400 text-sm">+{portfolioData.todayPnLPercentage}%</p>
                 </div>
@@ -199,10 +201,10 @@ export default function PortfolioPage() {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-background/20 border border-border/30">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-primary">Overview</TabsTrigger>
-            <TabsTrigger value="positions" className="data-[state=active]:bg-primary">Active Positions</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-primary">Trade History</TabsTrigger>
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-primary">Analytics</TabsTrigger>
+            <TabsTrigger value="overview" className="data-[state=active]:bg-primary">{t('portfolio.overview')}</TabsTrigger>
+            <TabsTrigger value="positions" className="data-[state=active]:bg-primary">{t('portfolio.positions')}</TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-primary">{t('portfolio.history')}</TabsTrigger>
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-primary">{t('portfolio.analytics')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -212,7 +214,7 @@ export default function PortfolioPage() {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center space-x-2">
                     <PieChart className="w-5 h-5" />
-                    <span>Asset Allocation</span>
+                    <span>{t('portfolio.assetAllocation')}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -236,15 +238,15 @@ export default function PortfolioPage() {
                 <CardHeader>
                   <CardTitle className="text-white flex items-center space-x-2">
                     <BarChart3 className="w-5 h-5" />
-                    <span>Performance Chart</span>
+                    <span>{t('portfolio.performanceChart')}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-64 bg-gradient-to-br from-slate-800/50 to-blue-900/30 rounded-lg flex items-center justify-center border border-border/30">
                     <div className="text-center">
                       <BarChart3 className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                      <p className="text-white font-semibold">Portfolio Performance</p>
-                      <p className="text-blue-200 text-sm mt-2">7-day performance chart</p>
+                      <p className="text-white font-semibold">{t('portfolio.portfolioPerformance')}</p>
+                      <p className="text-blue-200 text-sm mt-2">{t('portfolio.sevenDayChart')}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -257,7 +259,7 @@ export default function PortfolioPage() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center space-x-2">
                   <Target className="w-5 h-5" />
-                  <span>Active Positions ({activePositions.length})</span>
+                  <span>{t('portfolio.positions')} ({activePositions.length})</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -276,11 +278,11 @@ export default function PortfolioPage() {
                                 variant="outline"
                                 className={position.type === "HIGHER" ? "text-green-400 border-green-400" : "text-red-400 border-red-400"}
                               >
-                                {position.type}
+                                {position.type === "HIGHER" ? t('trading.higher') : t('trading.lower')}
                               </Badge>
                             </div>
                             <p className="text-muted-foreground text-sm">
-                              Entry: {position.entryPrice} • Current: {position.currentPrice}
+                              {t('portfolio.entry')}: {position.entryPrice} • {t('portfolio.current')}: {position.currentPrice}
                             </p>
                           </div>
                         </div>
@@ -288,7 +290,7 @@ export default function PortfolioPage() {
                           <div className="flex items-center space-x-4">
                             <div>
                               <p className="text-white font-semibold">${position.amount}</p>
-                              <p className="text-muted-foreground text-sm">Investment</p>
+                              <p className="text-muted-foreground text-sm">{t('portfolio.investment')}</p>
                             </div>
                             <div>
                               <p className={`font-bold ${position.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
@@ -317,7 +319,7 @@ export default function PortfolioPage() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center space-x-2">
                   <Award className="w-5 h-5" />
-                  <span>Recent Trades</span>
+                  <span>{t('portfolio.recentTrades')}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -336,7 +338,7 @@ export default function PortfolioPage() {
                                 variant="outline"
                                 className={trade.type === "HIGHER" ? "text-green-400 border-green-400" : "text-red-400 border-red-400"}
                               >
-                                {trade.type}
+                                {trade.type === "HIGHER" ? t('trading.higher') : t('trading.lower')}
                               </Badge>
                               <Badge
                                 variant="outline"
@@ -354,13 +356,13 @@ export default function PortfolioPage() {
                           <div className="flex items-center space-x-4">
                             <div>
                               <p className="text-white font-semibold">${trade.amount}</p>
-                              <p className="text-muted-foreground text-sm">Investment</p>
+                              <p className="text-muted-foreground text-sm">{t('portfolio.investment')}</p>
                             </div>
                             <div>
                               <p className={`font-bold text-lg ${trade.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                                 {trade.pnl >= 0 ? "+" : ""}${Math.abs(trade.pnl)}
                               </p>
-                              <p className="text-muted-foreground text-sm">P&L</p>
+                              <p className="text-muted-foreground text-sm">{t('portfolio.pnl')}</p>
                             </div>
                           </div>
                         </div>
@@ -376,35 +378,35 @@ export default function PortfolioPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="trading-card">
                 <CardHeader>
-                  <CardTitle className="text-white">Trading Statistics</CardTitle>
+                  <CardTitle className="text-white">{t('portfolio.tradingStats')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Total Trades</span>
+                    <span className="text-muted-foreground">{t('portfolio.totalTrades')}</span>
                     <span className="text-white font-semibold">127</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Winning Trades</span>
+                    <span className="text-muted-foreground">{t('portfolio.winningTrades')}</span>
                     <span className="text-green-400 font-semibold">86</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Losing Trades</span>
+                    <span className="text-muted-foreground">{t('portfolio.losingTrades')}</span>
                     <span className="text-red-400 font-semibold">41</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Win Rate</span>
+                    <span className="text-muted-foreground">{t('portfolio.winRate')}</span>
                     <span className="text-green-400 font-semibold">67.7%</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Average Trade</span>
+                    <span className="text-muted-foreground">{t('portfolio.avgTrade')}</span>
                     <span className="text-white font-semibold">$156</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Best Trade</span>
+                    <span className="text-muted-foreground">{t('portfolio.bestTrade')}</span>
                     <span className="text-green-400 font-semibold">+$450</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Worst Trade</span>
+                    <span className="text-muted-foreground">{t('portfolio.worstTrade')}</span>
                     <span className="text-red-400 font-semibold">-$300</span>
                   </div>
                 </CardContent>
@@ -412,14 +414,14 @@ export default function PortfolioPage() {
 
               <Card className="trading-card">
                 <CardHeader>
-                  <CardTitle className="text-white">Monthly Performance</CardTitle>
+                  <CardTitle className="text-white">{t('portfolio.monthlyPerformance')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-64 bg-gradient-to-br from-slate-800/50 to-blue-900/30 rounded-lg flex items-center justify-center border border-border/30">
                     <div className="text-center">
                       <BarChart3 className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                      <p className="text-white font-semibold">Monthly P&L Chart</p>
-                      <p className="text-blue-200 text-sm mt-2">Performance over the last 12 months</p>
+                      <p className="text-white font-semibold">{t('portfolio.monthlyPnlChart')}</p>
+                      <p className="text-blue-200 text-sm mt-2">{t('portfolio.performanceLast12Months')}</p>
                     </div>
                   </div>
                 </CardContent>
