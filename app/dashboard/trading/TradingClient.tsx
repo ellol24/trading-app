@@ -37,21 +37,24 @@ type TradeRound = {
 
 type IntervalType = "1min" | "5min" | "15min" | "30min" | "1h";
 
-const PERIODS: { value: IntervalType; label: string }[] = [
-  { value: "1min", label: "1 minute" },
-  { value: "5min", label: "5 minutes" },
-  { value: "15min", label: "15 minutes" },
-  { value: "30min", label: "30 minutes" },
-  { value: "1h", label: "1 hour" },
-];
-
 // Available forex pairs
 const FOREX = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
   "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "XAU/USD"
 ];
 
+import { useLanguage } from "@/contexts/language-context";
+
 export default function TradingClient({ user, profile }: TradingClientProps) {
+  const { t } = useLanguage();
+
+  const PERIODS: { value: IntervalType; label: string }[] = [
+    { value: "1min", label: `1 ${t('common.minute') || 'minute'}` }, // Need to check if minute key exists or add it
+    { value: "5min", label: `5 ${t('common.minutes') || 'minutes'}` },
+    { value: "15min", label: `15 ${t('common.minutes') || 'minutes'}` },
+    { value: "30min", label: `30 ${t('common.minutes') || 'minutes'}` },
+    { value: "1h", label: `1 ${t('common.hour') || 'hour'}` },
+  ];
   const [symbol, setSymbol] = useState("EUR/USD");
   const [amount, setAmount] = useState<number>(100);
   const [period, setPeriod] = useState<IntervalType>("5min");
@@ -60,6 +63,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [balance, setBalance] = useState<number>(0);
+
 
   const userId = user?.id;
 
@@ -138,9 +142,9 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     });
 
     if (error) {
-      toast.error(`❌ Failed to join round: ${error.message}`);
+      toast.error(`❌ ${t('trading.joinFailed')}: ${error.message}`);
     } else {
-      toast.success("✅ Joined round successfully!");
+      toast.success(`✅ ${t('trading.joinSuccess')}`);
       setJoinedRounds([...joinedRounds, roundId]);
     }
   };
@@ -148,23 +152,23 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   // Place a trade
   const onTrade = async (type: "CALL" | "PUT") => {
     if (!activeDeal) {
-      toast.warning("⚠️ No active trading round available.");
+      toast.warning(`⚠️ ${t('trading.noActiveRound')}`);
       return;
     }
 
     if (!userId) {
-      toast.error("❌ You must be logged in to place a trade.");
+      toast.error(`❌ ${t('trading.loginRequired')}`);
       return;
     }
 
     if (!joinedRounds.includes(activeDeal.id)) {
-      toast.warning("⚠️ You must join this round before trading.");
+      toast.warning(`⚠️ ${t('trading.joinRequired')}`);
       return;
     }
 
     // Check user balance
     if (balance < amount) {
-      toast.error("❌ Insufficient balance to place this trade.");
+      toast.error(`❌ ${t('trading.insufficientBalance')}`);
       return;
     }
 
@@ -182,14 +186,14 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
     if (error) {
       if (error.message.includes("duplicate key value") || error.code === "23505") {
-        toast.warning("⚠️ You cannot enter the same round more than once.");
+        toast.warning(`⚠️ ${t('trading.alreadyEntered')}`);
       } else {
-        toast.error(`❌ Error placing trade: ${error.message}`);
+        toast.error(`❌ ${t('trading.placeTradeError')}: ${error.message}`);
       }
       return;
     }
 
-    toast.success(`✅ Trade placed successfully! You entered ${type} on ${symbol} with $${amount}.`);
+    toast.success(`✅ ${t('trading.tradePlacedSuccess')} (${type} ${symbol} $${amount})`);
     fetchTrades();
     fetchBalance(); // Refresh balance after placing trade
   };
@@ -206,11 +210,11 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           {/* Assets */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
-              <CardTitle className="text-white">Select Asset</CardTitle>
+              <CardTitle className="text-white">{t('trading.selectAsset')}</CardTitle>
               {activeDeal ? (
-                <Badge className="bg-transparent border-green-400/40 text-green-300">Live</Badge>
+                <Badge className="bg-transparent border-green-400/40 text-green-300">{t('trading.live')}</Badge>
               ) : (
-                <Badge className="bg-transparent border-slate-400/40 text-slate-200">Waiting</Badge>
+                <Badge className="bg-transparent border-slate-400/40 text-slate-200">{t('trading.waiting')}</Badge>
               )}
             </CardHeader>
             <CardContent className="space-y-6">
@@ -236,29 +240,29 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
                   <div>
                     <span className="text-white font-semibold">{activeDeal.symbol}</span>{" "}
-                    round is live • Ends in{" "}
+                    {t('trading.roundLive')} • {t('trading.endsIn')}{" "}
                     <span className="font-mono text-white">
                       {secondsUntil(new Date(activeDeal.start_time).getTime() + activeDeal.duration_sec * 1000)}s
                     </span>{" "}
-                    • Admin Direction:{" "}
+                    • {t('trading.adminDirection')}:{" "}
                     <span className="uppercase">{activeDeal.admin_direction}</span>{" "}
-                    • Payout {activeDeal.payout_percent}%
+                    • {t('trading.payoutLabel')} {activeDeal.payout_percent}%
                   </div>
                   <Clock className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
                 </div>
               ) : nextDeal ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200">
                   <div>
-                    Next round{" "}
+                    {t('trading.nextRound')}{" "}
                     <span className="text-white font-semibold">{nextDeal.symbol}</span>{" "}
-                    starts in{" "}
+                    {t('trading.startsIn')}{" "}
                     <span className="font-mono text-white">{secondsUntil(nextDeal.start_time)}s</span>{" "}
-                    • Duration {nextDeal.duration_sec}s • Entry window ±{nextDeal.entry_window_sec}s
+                    • {t('trading.durationSeconds').replace('{s}', String(nextDeal.duration_sec))} • {t('trading.entryWindow')} ±{nextDeal.entry_window_sec}s
                   </div>
                   <ShieldAlert className="w-5 h-5 text-blue-300 mt-2 sm:mt-0" />
                 </div>
               ) : (
-                <div className="text-blue-200">No scheduled rounds yet.</div>
+                <div className="text-blue-200">{t('trading.noScheduledRounds')}</div>
               )}
             </CardContent>
           </Card>
@@ -272,11 +276,11 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           {/* Trade Setup */}
           <Card className="trading-card" translate="no">
             <CardHeader>
-              <CardTitle className="text-white">Trade Setup</CardTitle>
+              <CardTitle className="text-white">{t('trading.tradeSetup')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-white">Trade Amount ($)</Label>
+                <Label className="text-white">{t('trading.tradeAmount')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -285,10 +289,10 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white">Period</Label>
+                <Label className="text-white">{t('trading.period')}</Label>
                 <Select value={period} onValueChange={(val: IntervalType) => setPeriod(val)}>
                   <SelectTrigger className="bg-slate-800/60 border-slate-700 text-white">
-                    <SelectValue placeholder="Select period" />
+                    <SelectValue placeholder={t('trading.selectPeriod')} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
@@ -299,19 +303,19 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               </div>
 
               {/* Show balance */}
-              <p className="text-blue-300 text-sm">Available Balance: ${balance.toFixed(2)}</p>
+              <p className="text-blue-300 text-sm">{t('dashboard.availableBalance')}: ${balance.toFixed(2)}</p>
 
               {activeDeal && !joinedRounds.includes(activeDeal.id) ? (
                 <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => joinRound(activeDeal.id)}>
-                  Join Round
+                  {t('trading.joinRound')}
                 </Button>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <Button className="h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onTrade("CALL")}>
-                    BUY
+                    {t('trading.buy')}
                   </Button>
                   <Button className="h-12 bg-red-600 hover:bg-red-700 text-white" onClick={() => onTrade("PUT")}>
-                    SELL
+                    {t('trading.sell')}
                   </Button>
                 </div>
               )}
@@ -321,39 +325,38 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           {/* Previous Trades */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex items-center justify-between">
-              <CardTitle className="text-white">Previous Trades</CardTitle>
-              <Button variant="outline" size="sm">View All</Button>
+              <CardTitle className="text-white">{t('trading.previousTrades')}</CardTitle>
+              <Button variant="outline" size="sm">{t('dashboard.viewAll')}</Button>
             </CardHeader>
             <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
               {trades.length === 0 && (
-                <p className="text-slate-300 text-sm">No trades yet.</p>
+                <p className="text-slate-300 text-sm">{t('trading.noTrades')}</p>
               )}
-              {trades.map((t) => (
+              {trades.map((trade) => (
                 <div
-                  key={t.id}
+                  key={trade.id}
                   className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between"
                 >
                   <div>
                     <p className="text-white text-sm">
-                      {t.asset} • {t.type}
+                      {trade.asset} • {trade.type}
                     </p>
                     <p className="text-slate-400 text-xs">
-                      {new Date(t.created_at).toLocaleString()} • ${t.amount}
+                      {new Date(trade.created_at).toLocaleString()} • ${trade.amount}
                     </p>
                     <p className="text-slate-400 text-xs">
-                      ROI: {t.roi_percentage}% • P/L: {t.profit_loss || 0}
+                      {t('packages.roi')}: {trade.roi_percentage}% • {t('trading.profitLoss')}: {trade.profit_loss || 0}
                     </p>
                   </div>
                   <Badge
-                    className={`${
-                      t.result === "win"
-                        ? "bg-green-500/20 text-green-300 border-green-400"
-                        : t.result === "lose"
+                    className={`${trade.result === "win"
+                      ? "bg-green-500/20 text-green-300 border-green-400"
+                      : trade.result === "lose"
                         ? "bg-red-500/20 text-red-300 border-red-400"
                         : "bg-slate-500/20 text-slate-200 border-slate-400"
-                    }`}
+                      }`}
                   >
-                    {t.result || "pending"}
+                    {trade.result || t('common.pending')}
                   </Badge>
                 </div>
               ))}
