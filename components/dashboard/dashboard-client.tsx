@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { marketDataService, type MarketData } from "@/lib/market-data";
 import { supabase } from "@/lib/supabase/client";
+import { useLanguage } from "@/contexts/language-context";
 
 // ------------------ Interfaces ------------------
 interface UserProfile {
@@ -243,6 +244,8 @@ export default function DashboardClient({
     .slice(0, 5);
 
   // ------------------ UI ------------------
+  const { t } = useLanguage();
+
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
@@ -253,10 +256,10 @@ export default function DashboardClient({
         {/* Welcome Header */}
         <div className="text-center space-y-2" translate="no">
           <h1 className="text-3xl font-bold text-white">
-            Welcome Back, {userName}!
+            {t('dashboard.welcomeBackUser').replace('{name}', userName)}
           </h1>
           <p className="text-blue-200">
-            Here's your trading overview for today
+            {t('dashboard.overviewSubtitle')}
           </p>
         </div>
 
@@ -271,7 +274,7 @@ export default function DashboardClient({
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">
-                    Total Balance
+                    {t('dashboard.totalBalance')}
                   </h2>
                   <p className="text-3xl font-bold text-white mt-2">
                     $
@@ -293,15 +296,14 @@ export default function DashboardClient({
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-300">
-                    Total Referrals
+                    {t('dashboard.totalReferrals')}
                   </h2>
                   <p className="text-3xl font-bold text-white mt-2">
                     {totalReferrals}
                   </p>
                   <p
-                    className={`text-sm flex items-center ${
-                      todayProfit >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
+                    className={`text-sm flex items-center ${todayProfit >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
                   >
                     {todayProfit >= 0 ? (
                       <TrendingUp className="w-4 h-4 mr-1" />
@@ -324,7 +326,7 @@ export default function DashboardClient({
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Trades</p>
+                  <p className="text-muted-foreground text-sm">{t('dashboard.totalTrades')}</p>
                   <p className="text-2xl font-bold text-white">
                     {totalTradesCount}
                   </p>
@@ -341,7 +343,7 @@ export default function DashboardClient({
         <Card className="trading-card" translate="no">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-white">Top Assets</CardTitle>
+              <CardTitle className="text-white">{t('dashboard.topAssets')}</CardTitle>
               <Link href="/dashboard/trading">
                 <Button
                   variant="outline"
@@ -349,7 +351,7 @@ export default function DashboardClient({
                   className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
                 >
                   <Eye className="w-4 h-4 mr-2" />
-                  View All
+                  {t('dashboard.viewAll')}
                 </Button>
               </Link>
             </div>
@@ -373,7 +375,7 @@ export default function DashboardClient({
                     <div>
                       <p className="text-white font-medium">{asset.symbol}</p>
                       <p className="text-muted-foreground text-sm">
-                        Vol: {(asset.volume ?? 0 / 1000).toFixed(0)}K
+                        {t('dashboard.volume').replace('{vol}', (asset.volume ?? 0 / 1000).toFixed(0))}
                       </p>
                     </div>
                   </div>
@@ -382,17 +384,16 @@ export default function DashboardClient({
                       {asset.symbol.includes("XAU")
                         ? `$${price.toFixed(1)}`
                         : asset.symbol.includes("JPY")
-                        ? price.toFixed(2)
-                        : price >= 1000
-                        ? `$${price.toLocaleString()}`
-                        : `$${price.toFixed(4)}`}
+                          ? price.toFixed(2)
+                          : price >= 1000
+                            ? `$${price.toLocaleString()}`
+                            : `$${price.toFixed(4)}`}
                     </p>
                     <p
-                      className={`text-sm flex items-center justify-end ${
-                        (asset.changePercent ?? 0) >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
+                      className={`text-sm flex items-center justify-end ${(asset.changePercent ?? 0) >= 0
+                        ? "text-green-400"
+                        : "text-red-400"
+                        }`}
                     >
                       {(asset.changePercent ?? 0) >= 0 ? (
                         <ArrowUpRight className="w-3 h-3 mr-1" />
@@ -414,7 +415,7 @@ export default function DashboardClient({
           <CardHeader>
             <CardTitle className="text-white flex items-center">
               <Activity className="w-5 h-5 mr-2" />
-              Recent Trading Activity
+              {t('dashboard.recentTrades')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -440,24 +441,23 @@ export default function DashboardClient({
                       </Badge>
                     </div>
                     <span
-                      className={`text-sm font-medium ${
-                        (trade.profit_loss ?? 0) > 0
-                          ? "text-green-400"
-                          : (trade.profit_loss ?? 0) < 0
+                      className={`text-sm font-medium ${(trade.profit_loss ?? 0) > 0
+                        ? "text-green-400"
+                        : (trade.profit_loss ?? 0) < 0
                           ? "text-red-400"
                           : "text-slate-300"
-                      }`}
+                        }`}
                     >
                       {trade.result === "win"
                         ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
                         : trade.result === "lose"
-                        ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
-                        : "Pending"}
+                          ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
+                          : t('common.pending')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Amount: ${Number(trade.amount ?? 0).toFixed(2)}</span>
-                    <span>ROI: {trade.roi_percentage ?? 0}%</span>
+                    <span>{t('common.amount')}: ${Number(trade.amount ?? 0).toFixed(2)}</span>
+                    <span>{t('packages.roi')}: {trade.roi_percentage ?? 0}%</span>
                     <span>
                       {trade.created_at
                         ? new Date(trade.created_at).toLocaleString()
@@ -469,8 +469,8 @@ export default function DashboardClient({
             ) : (
               <div className="text-center text-muted-foreground py-8">
                 <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No recent trades found</p>
-                <p className="text-sm">Start trading to see your activity</p>
+                <p>{t('dashboard.noRecentTrades')}</p>
+                <p className="text-sm">{t('dashboard.startTradingDesc')}</p>
               </div>
             )}
           </CardContent>
@@ -482,7 +482,7 @@ export default function DashboardClient({
             <div className="flex items-center justify-between">
               <CardTitle className="text-white flex items-center">
                 <Package className="w-5 h-5 mr-2" />
-                Investment Packages
+                {t('dashboard.investmentPackages')}
               </CardTitle>
               <Link href="/dashboard/packages">
                 <Button
@@ -491,7 +491,7 @@ export default function DashboardClient({
                   className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent"
                 >
                   <Eye className="w-4 h-4 mr-2" />
-                  View All
+                  {t('dashboard.viewAll')}
                 </Button>
               </Link>
             </div>
@@ -506,23 +506,23 @@ export default function DashboardClient({
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-white font-medium">{pkg.title}</h3>
-                      <Badge variant="secondary">Available</Badge>
+                      <Badge variant="secondary">{t('common.available')}</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div>
-                        <p className="text-muted-foreground">Min</p>
+                        <p className="text-muted-foreground">{t('dashboard.min')}</p>
                         <p className="text-white font-medium">
                           ${pkg.min_investment.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Duration</p>
+                        <p className="text-muted-foreground">{t('packages.duration')}</p>
                         <p className="text-white font-medium">
-                          {pkg.duration_days} days
+                          {pkg.duration_days} {t('packages.daysActive').split(' ')[0]}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Daily ROI</p>
+                        <p className="text-muted-foreground">{t('packages.dailyRoi')}</p>
                         <p className="text-green-400 font-medium">
                           {pkg.roi_daily_percentage}%
                         </p>
@@ -530,7 +530,7 @@ export default function DashboardClient({
                     </div>
                     <Link href="/dashboard/packages">
                       <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" size="sm">
-                        Invest Now
+                        {t('packages.investNow')}
                       </Button>
                     </Link>
                   </div>
@@ -538,7 +538,7 @@ export default function DashboardClient({
               ) : (
                 <div className="col-span-3 text-center text-muted-foreground py-8">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No investment packages available</p>
+                  <p>{t('dashboard.noPackages')}</p>
                 </div>
               )}
             </div>
@@ -548,7 +548,7 @@ export default function DashboardClient({
         {/* Quick Actions */}
         <Card className="trading-card" translate="no">
           <CardHeader>
-            <CardTitle className="text-white">Quick Actions</CardTitle>
+            <CardTitle className="text-white">{t('dashboard.quickActions')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -556,7 +556,7 @@ export default function DashboardClient({
                 <Button className="w-full h-16 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                   <div className="text-center">
                     <TrendingUp className="w-6 h-6 mx-auto mb-1" />
-                    <span className="text-sm">Buy Crypto</span>
+                    <span className="text-sm">{t('dashboard.buyCrypto')}</span>
                   </div>
                 </Button>
               </Link>
@@ -564,7 +564,7 @@ export default function DashboardClient({
                 <Button className="w-full h-16 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
                   <div className="text-center">
                     <TrendingDown className="w-6 h-6 mx-auto mb-1" />
-                    <span className="text-sm">Sell Crypto</span>
+                    <span className="text-sm">{t('dashboard.sellCrypto')}</span>
                   </div>
                 </Button>
               </Link>
@@ -572,7 +572,7 @@ export default function DashboardClient({
                 <Button className="w-full h-16 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
                   <div className="text-center">
                     <CreditCard className="w-6 h-6 mx-auto mb-1" />
-                    <span className="text-sm">Deposit</span>
+                    <span className="text-sm">{t('dashboard.deposit')}</span>
                   </div>
                 </Button>
               </Link>
@@ -580,7 +580,7 @@ export default function DashboardClient({
                 <Button className="w-full h-16 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-purple-700">
                   <div className="text-center">
                     <DollarSign className="w-6 h-6 mx-auto mb-1" />
-                    <span className="text-sm">Withdraw</span>
+                    <span className="text-sm">{t('dashboard.withdraw')}</span>
                   </div>
                 </Button>
               </Link>
