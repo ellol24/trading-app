@@ -46,6 +46,8 @@ type ReferralStats = {
   packageEarnings?: number;
 };
 
+import { useLanguage } from "@/contexts/language-context";
+
 export default function ReferralsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<ReferralHistory[]>([]);
@@ -57,6 +59,7 @@ export default function ReferralsPage() {
     packageEarnings: 0,
   });
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   // ✉️ إخفاء الإيميل جزئياً
   const maskEmail = (email: string | null) => {
@@ -191,35 +194,35 @@ export default function ReferralsPage() {
     : "";
 
   const copyLink = async () => {
-    if (!referralLink) return toast.error("Referral link not ready");
+    if (!referralLink) return toast.error(t('referrals.referralLinkNotReady'));
     await navigator.clipboard.writeText(referralLink);
-    toast.success("Copied to clipboard!");
+    toast.success(t('dashboard.linkCopied'));
   };
 
   if (loading) return <ReferralsLoading />;
 
   // 🎨 واجهة الصفحة
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-20" translate="no">
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white">Referral Program</h1>
+          <h1 className="text-3xl font-bold text-white">{t('referrals.referralProgram')}</h1>
           <Badge
             variant="outline"
             className="text-green-400 border-green-400 bg-green-400/10 px-4 py-2"
           >
-            <Trophy className="w-4 h-4 mr-2" /> 3 Levels Commission
+            <Trophy className="w-4 h-4 mr-2" /> {t('referrals.threeLevelsCommission')}
           </Badge>
         </div>
 
         {/* Stats Section */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard title="Total Referrals" value={stats.referralsCount} icon={<Users />} color="blue" />
-          <StatCard title="Deposit Earnings" value={stats.depositEarnings} icon={<DollarSign />} color="yellow" />
-          <StatCard title="Trading Earnings" value={stats.tradeEarnings} icon={<TrendingUp />} color="purple" />
-          <StatCard title="Package Earnings" value={stats.packageEarnings} icon={<Package />} color="teal" />
-          <StatCard title="Total Earnings" value={stats.totalEarnings} icon={<BarChart3 />} color="green" />
+          <StatCard title={t('dashboard.totalReferrals')} value={stats.referralsCount} icon={<Users />} color="blue" />
+          <StatCard title={t('referrals.depositEarnings')} value={stats.depositEarnings} icon={<DollarSign />} color="yellow" />
+          <StatCard title={t('referrals.tradingEarnings')} value={stats.tradeEarnings} icon={<TrendingUp />} color="purple" />
+          <StatCard title={t('referrals.packageEarnings')} value={stats.packageEarnings} icon={<Package />} color="teal" />
+          <StatCard title={t('referrals.totalEarnings')} value={stats.totalEarnings} icon={<BarChart3 />} color="green" />
         </div>
 
         {/* Referral Link */}
@@ -227,7 +230,7 @@ export default function ReferralsPage() {
           <CardHeader>
             <CardTitle className="text-white flex items-center space-x-2">
               <Share className="h-5 w-5" />
-              <span>Your Referral Link</span>
+              <span>{t('referrals.yourReferralLink')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="flex space-x-2">
@@ -245,14 +248,14 @@ export default function ReferralsPage() {
         {/* Referral History */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Referral History</CardTitle>
+            <CardTitle className="text-white">{t('referrals.referralHistory')}</CardTitle>
           </CardHeader>
           <CardContent>
             {[1, 2, 3].map((level) => (
               <div key={level} className="mb-6">
-                <h3 className="text-lg font-semibold text-blue-400 mb-3">Level {level}</h3>
+                <h3 className="text-lg font-semibold text-blue-400 mb-3">{t('referrals.level')} {level}</h3>
                 {history.filter((r) => r.level === level).length === 0 ? (
-                  <p className="text-gray-400 text-sm">No referrals at this level.</p>
+                  <p className="text-gray-400 text-sm">{t('referrals.noReferralsAtLevel')}</p>
                 ) : (
                   history
                     .filter((r) => r.level === level)
@@ -263,9 +266,9 @@ export default function ReferralsPage() {
                       >
                         <div>
                           <p className="text-white font-semibold">{maskName(ref.username)}</p>
-                          <p className="text-gray-400 text-sm">{maskEmail(ref.referred_email)}</p>
+                          <p className="text-gray-400 text-sm">{maskEmail(ref.referred_email ?? null)}</p>
                           <p className="text-xs text-gray-500">
-                            Joined:{" "}
+                            {t('referrals.joined')}{" "}
                             {ref.joinDate
                               ? new Date(ref.joinDate).toLocaleString()
                               : "—"}
@@ -279,7 +282,7 @@ export default function ReferralsPage() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-400">
-                            Referrals: {ref.totalReferrals ?? 0}
+                            {t('referrals.referralsCountLabel')} {ref.totalReferrals ?? 0}
                           </p>
                           <Badge className="bg-green-600">{ref.status}</Badge>
                         </div>
