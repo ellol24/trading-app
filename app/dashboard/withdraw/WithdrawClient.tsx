@@ -64,6 +64,8 @@ type WithdrawalRequest = {
   wallet?: WithdrawalWallet;
 };
 
+import { useLanguage } from "@/contexts/language-context";
+
 export default function WithdrawClient({ user, profile }: Props) {
   const [wallets, setWallets] = useState<WithdrawalWallet[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
@@ -74,6 +76,7 @@ export default function WithdrawClient({ user, profile }: Props) {
   const [feePercentage, setFeePercentage] = useState<number>(10);
   const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
   const [minWithdrawAmount, setMinWithdrawAmount] = useState<number>(21);
+  const { t } = useLanguage();
 
   const [newWallet, setNewWallet] = useState<{
     asset: WithdrawalWallet["asset"] | "";
@@ -140,7 +143,7 @@ export default function WithdrawClient({ user, profile }: Props) {
         .order("created_at", { ascending: false });
 
       if (error) {
-        toast.error("❌ Failed to load wallets.");
+        toast.error(`❌ ${t('wallet.walletsLoadError')}`);
       } else if (data) setWallets(data);
     };
     fetchWallets();
@@ -155,7 +158,7 @@ export default function WithdrawClient({ user, profile }: Props) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("❌ Failed to load withdrawals history.");
+      toast.error(`❌ ${t('wallet.historyLoadError')}`);
     } else if (data) setWithdrawals(data);
   };
 
@@ -182,19 +185,19 @@ export default function WithdrawClient({ user, profile }: Props) {
   const submitWithdrawal = async () => {
     const amt = Number(amount);
     if (!withdrawEnabled) {
-      toast.error("🚫 Withdrawals are currently disabled by the administration.");
+      toast.error(`🚫 ${t('wallet.withdrawalsDisabled')}`);
       return;
     }
 
     if (!selectedWallet || !amount || Number.isNaN(amt) || amt < minWithdrawAmount) {
       toast.warning(
-        `⚠️ Select a wallet and enter amount ≥ ${minWithdrawAmount} USD.`
+        `⚠️ ${t('wallet.selectWalletWarning').replace('${min}', String(minWithdrawAmount))}`
       );
       return;
     }
 
     setIsSubmitting(true);
-    const loadingToast = toast.loading("⏳ Submitting your withdrawal request...");
+    const loadingToast = toast.loading(`⏳ ${t('wallet.submittingRequest')}`);
 
     try {
       // 1) check daily limit: ensure no withdrawal created today by this user
@@ -208,7 +211,7 @@ export default function WithdrawClient({ user, profile }: Props) {
         throw todayErr;
       }
       if (todayRows && todayRows.length > 0) {
-        toast.error("🚫 You can only request one withdrawal per day.");
+        toast.error(`🚫 ${t('wallet.oneWithdrawalPerDay')}`);
         return;
       }
 
@@ -226,7 +229,7 @@ export default function WithdrawClient({ user, profile }: Props) {
 
       const currentBalance = Number(profileRow.balance || 0);
       if (currentBalance < amt) {
-        toast.error("⚠️ Insufficient balance for this withdrawal.");
+        toast.error(`⚠️ ${t('wallet.insufficientBalance')}`);
         return;
       }
 
@@ -264,11 +267,11 @@ export default function WithdrawClient({ user, profile }: Props) {
 
       // success
       setAmount("");
-      toast.success("✅ Withdrawal request submitted successfully!");
+      toast.success(`✅ ${t('wallet.withdrawalSubmitted')}`);
       await loadWithdrawals();
     } catch (err: any) {
       console.error("submitWithdrawal error", err);
-      toast.error("❌ Failed to submit withdrawal. " + (err?.message || ""));
+      toast.error(`❌ ${t('wallet.withdrawalFailed')} ` + (err?.message || ""));
     } finally {
       toast.dismiss(loadingToast);
       setIsSubmitting(false);
@@ -278,10 +281,10 @@ export default function WithdrawClient({ user, profile }: Props) {
   // add wallet (keeps original UI choices)
   const addWallet = async () => {
     if (!newWallet.asset || !newWallet.address) {
-      toast.warning("⚠️ Please fill wallet asset and address.");
+      toast.warning(`⚠️ ${t('wallet.fillWalletDetails')}`);
       return;
     }
-    const loadingToast = toast.loading("🔗 Adding new wallet...");
+    const loadingToast = toast.loading(`🔗 ${t('wallet.addingWallet')}`);
     const { error } = await supabase.from("withdrawal_wallets").insert([
       {
         user_id: user.id,
@@ -293,14 +296,14 @@ export default function WithdrawClient({ user, profile }: Props) {
     ]);
     toast.dismiss(loadingToast);
     if (error) {
-      toast.error("❌ Error adding wallet: " + error.message);
+      toast.error(`❌ ${t('wallet.walletAddError')}` + error.message);
     } else {
       const { data } = await supabase
         .from("withdrawal_wallets")
         .select("*")
         .eq("user_id", user.id);
       if (data) setWallets(data);
-      toast.success("✅ Wallet added successfully!");
+      toast.success(`✅ ${t('wallet.walletAdded')}`);
       setNewWallet({ asset: "", address: "", label: "" });
       setAddWalletOpen(false);
     }
@@ -315,20 +318,20 @@ export default function WithdrawClient({ user, profile }: Props) {
       <div className="max-w-6xl mx-auto space-y-6" translate="no">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Withdraw Funds</h1>
-            <p className="text-blue-200 mt-1">Send funds to your verified crypto wallet</p>
+            <h1 className="text-3xl font-bold text-white">{t('wallet.withdrawTitle')}</h1>
+            <p className="text-blue-200 mt-1">{t('wallet.withdrawSubtitle')}</p>
           </div>
           <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
             <Shield className="w-4 h-4 mr-2" />
-            SSL Secured
+            {t('wallet.sslSecured')}
           </Badge>
         </div>
 
         {!withdrawEnabled && (
           <Alert className="bg-red-600/20 border-red-600/40 text-red-300">
             <AlertCircle className="h-5 w-5" />
-            <AlertTitle>Withdrawals Disabled</AlertTitle>
-            <AlertDescription>Withdrawals are temporarily disabled by the administration.</AlertDescription>
+            <AlertTitle>{t('wallet.withdrawalsDisabledTitle')}</AlertTitle>
+            <AlertDescription>{t('wallet.withdrawalsDisabledDesc')}</AlertDescription>
           </Alert>
         )}
 
@@ -336,71 +339,70 @@ export default function WithdrawClient({ user, profile }: Props) {
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="withdraw" className="space-y-6">
               <TabsList className="grid w-full grid-cols-2 bg-background/20 border border-border/30">
-                <TabsTrigger value="withdraw" className="data-[state=active]:bg-primary">Withdraw</TabsTrigger>
-                <TabsTrigger value="wallets" className="data-[state=active]:bg-primary">Withdrawal Wallets</TabsTrigger>
+                <TabsTrigger value="withdraw" className="data-[state=active]:bg-primary">{t('common.withdraw')}</TabsTrigger>
+                <TabsTrigger value="wallets" className="data-[state=active]:bg-primary">{t('wallet.withdrawalWallets')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="withdraw">
                 <Card className="trading-card" translate="no">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2" /> Request Withdrawal
+                      <DollarSign className="w-5 h-5 mr-2" /> {t('wallet.requestWithdrawal')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <Alert className="bg-yellow-500/10 border-yellow-500/30">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle className="text-yellow-400">Important</AlertTitle>
+                      <AlertTitle className="text-yellow-400">{t('common.important')}</AlertTitle>
                       <AlertDescription className="text-yellow-200">
-                        A {feePercentage}% withdrawal fee is deducted from the amount sent.
-                        Min withdraw: ${minWithdrawAmount}
+                        {t('wallet.feeWarning').replace('{fee}', String(feePercentage)).replace('${min}', String(minWithdrawAmount))}
                       </AlertDescription>
                     </Alert>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-white">Select Wallet</Label>
+                        <Label className="text-white">{t('wallet.selectWallet')}</Label>
                         <Select value={selectedWalletId} onValueChange={setSelectedWalletId}>
                           <SelectTrigger className="h-12 bg-background/50 border-border/50">
-                            <SelectValue placeholder="Choose wallet" />
+                            <SelectValue placeholder={t('wallet.chooseWallet')} />
                           </SelectTrigger>
                           <SelectContent>
                             {wallets.map((w) => (
                               <SelectItem key={w.id} value={w.id}>
-                                {w.label || `${w.asset} Wallet`} — {w.address.slice(0, 8)}...{w.address.slice(-4)}
+                                {w.label || t('wallet.walletLabelDefault').replace('{asset}', w.asset)} — {w.address.slice(0, 8)}...{w.address.slice(-4)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        {!wallets.length && <p className="text-sm text-red-400">Add a withdrawal wallet first.</p>}
+                        {!wallets.length && <p className="text-sm text-red-400">{t('wallet.addWalletFirst')}</p>}
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-white">Amount (USD)</Label>
+                        <Label className="text-white">{t('wallet.amountUSD')}</Label>
                         <Input
                           type="number"
-                          placeholder="Enter amount"
+                          placeholder={t('wallet.enterAmount')}
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           className="h-12 bg-background/50 border-border/50 text-white"
                           min={minWithdrawAmount}
                         />
-                        <p className="text-xs text-muted-foreground">Minimum withdrawal: ${minWithdrawAmount}</p>
+                        <p className="text-xs text-muted-foreground">{t('wallet.minWithdraw').replace('${min}', String(minWithdrawAmount))}</p>
                       </div>
                     </div>
 
                     <div className="p-4 bg-background/20 rounded-lg border border-border/30 space-y-2">
-                      <h3 className="text-white font-semibold">Summary</h3>
+                      <h3 className="text-white font-semibold">{t('common.summary')}</h3>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Requested Amount</span>
+                        <span className="text-muted-foreground">{t('wallet.requestedAmount')}</span>
                         <span className="text-white">${amount || "0.00"}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Fee ({feePercentage}%)</span>
+                        <span className="text-muted-foreground">{t('wallet.fee').replace('{fee}', String(feePercentage))}</span>
                         <span className="text-red-400">-${fee.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm border-t border-border/30 pt-2">
-                        <span className="text-muted-foreground">You Will Receive</span>
+                        <span className="text-muted-foreground">{t('wallet.youWillReceive')}</span>
                         <span className="text-green-400 font-bold">${net.toFixed(2)}</span>
                       </div>
                     </div>
@@ -417,14 +419,14 @@ export default function WithdrawClient({ user, profile }: Props) {
                       }
                     >
                       {!withdrawEnabled ? (
-                        "Withdrawals Disabled"
+                        t('wallet.withdrawalsDisabledTitle')
                       ) : isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Submitting...
+                          {t('common.submitting')}
                         </>
                       ) : (
-                        "Submit Withdrawal Request"
+                        t('wallet.submitRequest')
                       )}
                     </Button>
                   </CardContent>
@@ -435,7 +437,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                 <Card className="trading-card">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center">
-                      <Wallet className="w-5 h-5 mr-2" /> Manage Withdrawal Wallets
+                      <Wallet className="w-5 h-5 mr-2" /> {t('wallet.manageWallets')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -443,17 +445,17 @@ export default function WithdrawClient({ user, profile }: Props) {
                       <Dialog open={addWalletOpen} onOpenChange={setAddWalletOpen}>
                         <DialogTrigger asChild>
                           <Button>
-                            <Plus className="w-4 h-4 mr-2" /> Add New Wallet
+                            <Plus className="w-4 h-4 mr-2" /> {t('wallet.addNewWallet')}
                           </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Add Withdrawal Wallet</DialogTitle>
-                            <DialogDescription>Temporarily added without email verification ✅</DialogDescription>
+                            <DialogTitle>{t('wallet.addWalletTitle')}</DialogTitle>
+                            <DialogDescription>{t('wallet.addWalletDesc')}</DialogDescription>
                           </DialogHeader>
                           <div className="grid gap-3 py-3">
                             <div className="space-y-2">
-                              <Label>Asset</Label>
+                              <Label>{t('common.asset')}</Label>
                               <Select
                                 value={newWallet.asset}
                                 onValueChange={(v) =>
@@ -461,7 +463,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                                 }
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select asset" />
+                                  <SelectValue placeholder={t('wallet.selectAsset')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="USDT (TRC20)">USDT (TRC20)</SelectItem>
@@ -471,18 +473,18 @@ export default function WithdrawClient({ user, profile }: Props) {
                             </div>
 
                             <div className="space-y-2">
-                              <Label>Label (optional)</Label>
+                              <Label>{t('wallet.walletLabel')}</Label>
                               <Input
-                                placeholder="e.g. Primary USDT (TRC20)"
+                                placeholder={t('wallet.walletLabelPlaceholder')}
                                 value={newWallet.label}
                                 onChange={(e) => setNewWallet((prev) => ({ ...prev, label: e.target.value }))}
                               />
                             </div>
 
                             <div className="space-y-2">
-                              <Label>Address</Label>
+                              <Label>{t('common.address')}</Label>
                               <Input
-                                placeholder="Paste withdrawal address"
+                                placeholder={t('wallet.addressPlaceholder')}
                                 value={newWallet.address}
                                 onChange={(e) => setNewWallet((prev) => ({ ...prev, address: e.target.value }))}
                               />
@@ -490,7 +492,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                           </div>
                           <DialogFooter>
                             <Button onClick={addWallet} disabled={!newWallet.asset || !newWallet.address}>
-                              Save Wallet
+                              {t('wallet.saveWallet')}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -502,7 +504,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                         <div key={w.id} className="p-4 rounded-lg bg-background/10 border border-border/30">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-white font-semibold">{w.label || `${w.asset} Wallet`}</p>
+                              <p className="text-white font-semibold">{w.label || t('wallet.walletLabelDefault').replace('{asset}', w.asset)}</p>
                               <p className="text-muted-foreground text-sm break-all">{w.address}</p>
                             </div>
                             <Badge
@@ -510,7 +512,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                               className={w.otp_verified ? "text-green-400 border-green-400" : "text-yellow-400 border-yellow-400"}
                             >
                               <CheckCircle2 className="w-3 h-3 mr-1" />
-                              {w.otp_verified ? "Verified" : "Pending Verification"}
+                              {w.otp_verified ? t('common.verified') : t('common.pendingVerification')}
                             </Badge>
                           </div>
                         </div>
@@ -525,7 +527,7 @@ export default function WithdrawClient({ user, profile }: Props) {
           <div className="space-y-6">
             <Card className="trading-card">
               <CardHeader>
-                <CardTitle className="text-white text-lg">Recent Withdrawals</CardTitle>
+                <CardTitle className="text-white text-lg">{t('wallet.recentWithdrawals')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {withdrawals.map((r) => (
@@ -538,11 +540,13 @@ export default function WithdrawClient({ user, profile }: Props) {
                           r.status === "paid" || r.status === "approved"
                             ? "text-green-400 border-green-400 bg-green-400/10"
                             : r.status === "rejected"
-                            ? "text-red-400 border-red-400 bg-red-400/10"
-                            : "text-yellow-400 border-yellow-400 bg-yellow-400/10"
+                              ? "text-red-400 border-red-400 bg-red-400/10"
+                              : "text-yellow-400 border-yellow-400 bg-yellow-400/10"
                         }
                       >
-                        {r.status}
+                        {r.status === "paid" || r.status === "approved" ? t('wallet.statusApproved') :
+                          r.status === "rejected" ? t('wallet.statusRejected') :
+                            t('common.pending')}
                       </Badge>
                     </div>
                     <p className="text-muted-foreground text-xs">
@@ -557,12 +561,12 @@ export default function WithdrawClient({ user, profile }: Props) {
             <Card className="trading-card">
               <CardHeader>
                 <CardTitle className="text-white text-lg flex items-center">
-                  <Lock className="w-5 h-5 mr-2" /> Security Tips
+                  <Lock className="w-5 h-5 mr-2" /> {t('wallet.securityTips')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>• Only withdraw to wallets you control.</p>
-                <p>• We will never DM you asking for your OTP.</p>
+                <p>• {t('wallet.securityTip1')}</p>
+                <p>• {t('wallet.securityTip2')}</p>
               </CardContent>
             </Card>
           </div>
