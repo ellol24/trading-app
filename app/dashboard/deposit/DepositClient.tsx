@@ -17,6 +17,8 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 
+import { useLanguage } from "@/contexts/language-context";
+
 const SUPPORTED_COINS = [
   { code: "usdttrc20", name: "USDT (TRC20)" },
   { code: "usdtbsc", name: "USDT (BEP20)" },
@@ -31,6 +33,7 @@ export default function DepositClient({ user }: any) {
   const [networkFee, setNetworkFee] = useState<number>(0);
   const [isEnabled, setIsEnabled] = useState(true);
   const [minDeposit, setMinDeposit] = useState(10);
+  const { t } = useLanguage();
 
   // تحميل الإعدادات من لوحة الإدمن
   useEffect(() => {
@@ -68,11 +71,11 @@ export default function DepositClient({ user }: any) {
   // إنشاء عملية إيداع
   const createPayment = async () => {
     if (!isEnabled) {
-      toast.error("🚫 Deposits are currently disabled by the admin.");
+      toast.error(`🚫 ${t('wallet.depositsDisabled')}`);
       return;
     }
     if (!amount || Number(amount) < minDeposit) {
-      toast.warning(`⚠️ Minimum deposit is $${minDeposit}`);
+      toast.warning(`⚠️ ${t('wallet.minDeposit').replace('${min}', String(minDeposit))}`);
       return;
     }
 
@@ -89,11 +92,11 @@ export default function DepositClient({ user }: any) {
       });
       const data = await res.json();
       if (res.ok && data.success && data.invoice_url) {
-        toast.success("Redirecting to payment page...");
+        toast.success(t('wallet.redirectingPayment'));
         window.location.href = data.invoice_url;
-      } else toast.error(data.error || "Failed to create payment");
+      } else toast.error(data.error || t('wallet.createPaymentFailed'));
     } catch (err) {
-      toast.error("Payment creation failed");
+      toast.error(t('wallet.paymentCreationFailed'));
     } finally {
       setIsProcessing(false);
     }
@@ -109,16 +112,16 @@ export default function DepositClient({ user }: any) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Deposit</h1>
+            <h1 className="text-3xl font-bold text-white">{t('wallet.depositTitle')}</h1>
             <p className="text-blue-200 mt-1">
-              Make instant deposits using crypto
+              {t('wallet.depositSubtitle')}
             </p>
           </div>
           <Badge
             variant="outline"
             className="text-green-400 border-green-400 bg-green-400/10"
           >
-            <CheckCircle2 className="w-4 h-4 mr-2" /> Auto
+            <CheckCircle2 className="w-4 h-4 mr-2" /> {t('wallet.auto')}
           </Badge>
         </div>
 
@@ -126,21 +129,21 @@ export default function DepositClient({ user }: any) {
         {!isEnabled && (
           <div className="bg-red-600/10 border border-red-500 text-red-400 p-4 rounded-md flex items-center space-x-3">
             <AlertCircle className="w-5 h-5" />
-            <p>Deposits are currently disabled by the admin.</p>
+            <p>{t('wallet.depositsDisabled')}</p>
           </div>
         )}
 
         {/* Form */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Deposit Information</CardTitle>
+            <CardTitle className="text-white">{t('wallet.depositInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label className="text-white">Select Currency</Label>
+              <Label className="text-white">{t('wallet.selectCurrency')}</Label>
               <Select value={coin} onValueChange={setCoin}>
                 <SelectTrigger className="h-12 bg-slate-700 text-white border-slate-600">
-                  <SelectValue placeholder="Choose coin" />
+                  <SelectValue placeholder={t('wallet.chooseCoin')} />
                 </SelectTrigger>
                 <SelectContent>
                   {SUPPORTED_COINS.map((c) => (
@@ -154,19 +157,20 @@ export default function DepositClient({ user }: any) {
 
             <div className="space-y-2">
               <Label className="text-white">
-                Deposit Amount (Min ${minDeposit})
+                {t('wallet.depositAmountMin').replace('${min}', String(minDeposit))}
               </Label>
               <Input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={`Minimum $${minDeposit}`}
+                placeholder={t('wallet.minimum').replace('${min}', String(minDeposit))}
                 className="h-12 bg-slate-700 text-white border-slate-600"
               />
               {amount && (
                 <p className="text-blue-300 text-sm">
-                  Network Fee (0.1%): ${networkFee.toFixed(2)} — You’ll receive $
-                  {(Number(amount) - networkFee).toFixed(2)}
+                  {t('wallet.networkFee')
+                    .replace('${fee}', networkFee.toFixed(2))
+                    .replace('${total}', (Number(amount) - networkFee).toFixed(2))}
                 </p>
               )}
             </div>
@@ -178,10 +182,10 @@ export default function DepositClient({ user }: any) {
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" /> Processing...
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" /> {t('wallet.processing')}
                 </>
               ) : (
-                "Deposit Now"
+                t('wallet.depositNow')
               )}
             </Button>
           </CardContent>
@@ -190,12 +194,12 @@ export default function DepositClient({ user }: any) {
         {/* History */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Deposit History</CardTitle>
+            <CardTitle className="text-white">{t('wallet.depositHistory')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {loadingHistory && <p className="text-gray-300">Loading...</p>}
+            {loadingHistory && <p className="text-gray-300">{t('common.loading')}</p>}
             {!loadingHistory && deposits.length === 0 && (
-              <p className="text-gray-400">No deposits yet.</p>
+              <p className="text-gray-400">{t('wallet.noDeposits')}</p>
             )}
             <div className="space-y-3">
               {deposits.map((dep) => (
@@ -216,11 +220,13 @@ export default function DepositClient({ user }: any) {
                       dep.status === "approved"
                         ? "bg-green-500/20 text-green-400"
                         : dep.status === "pending"
-                        ? "bg-yellow-500/20 text-yellow-400"
-                        : "bg-red-500/20 text-red-400"
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-red-500/20 text-red-400"
                     }
                   >
-                    {dep.status}
+                    {dep.status === "approved" ? t('wallet.statusApproved') :
+                      dep.status === "pending" ? t('common.pending') :
+                        t('wallet.statusRejected')}
                   </Badge>
                 </div>
               ))}
