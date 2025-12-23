@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useLanguage } from "@/contexts/language-context";
 
 import {
   Mail,
@@ -48,6 +50,7 @@ interface ProfileClientProps {
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   // UI states
   const [isEditing, setIsEditing] = useState(false);
@@ -252,48 +255,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     }
   };
 
-  // Export data client-side (no server route)
-  const handleExportData = async () => {
-    if (!user) return;
-    setIsExporting(true);
-    try {
-      const [{ data: profileRow }, { data: prefsRow }] = await Promise.all([
-        supabase.from("user_profiles").select("*").eq("uid", user.id).single(),
-        supabase.from("").select("*").eq("user_id", user.id).single(),
-      ]);
 
-      const exportObj = {
-        user: {
-          id: user.id,
-          email: user.email,
-          user_metadata: user.user_metadata,
-        },
-        profile: profileRow ?? null,
-        preferences: prefsRow ?? null,
-      };
-
-      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `export-${user.id}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      toast({ title: "Export ready", description: "Your data download started." });
-    } catch (err: any) {
-      console.error("export err:", err);
-      toast({
-        title: "Export failed",
-        description: err?.message || "Could not export data.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // start KYC flow
   const handleStartKYC = () => {
@@ -326,10 +288,9 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     return (
       <div
         className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6"
-        translate="no" // ⛔️ منع الترجمة لهذه الحاوية
-        data-react-protected // ⛔️ علامة حماية لتتوافق مع ProtectionScript
+        data-react-protected
       >
-        <p className="text-white">Please login to view your profile.</p>
+        <p className="text-white">{t('auth.login')}</p>
       </div>
     );
   }
@@ -338,8 +299,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24"
-      translate="no" // ⛔️ منع ترجمة الصفحة بالكامل
-      data-react-protected // ⛔️ حماية إضافية: تمنع الحذف الخاطئ لعناصر React من قبل سكربتات خارجية
+      data-react-protected
     >
       <div className="max-w-6xl mx-auto space-y-6" translate="no" data-react-protected>
         {/* Header */}
@@ -358,16 +318,15 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <p className="text-blue-200 flex items-center"><Mail className="w-4 h-4 mr-2" />{profileData.email}</p>
               <div className="flex items-center space-x-3 mt-2">
                 <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
-                  <CheckCircle className="w-3 h-3 mr-1" />{user?.email_confirmed_at ? "Verified Account" : "Unverified Account"}
+                  <CheckCircle className="w-3 h-3 mr-1" />{user?.email_confirmed_at ? t('profile.verifiedAccount') : t('profile.unverifiedAccount')}
                 </Badge>
               </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700/60 bg-transparent" onClick={handleExportData} disabled={isExporting}>
-              <Download className="w-4 h-4 mr-2" />{isExporting ? "Exporting..." : "Export Data"}
-            </Button>
+            <LanguageSwitcher />
+
             <Button
               variant="outline"
               className="border-red-600 text-red-400 hover:bg-red-600/10 bg-transparent"
@@ -375,9 +334,10 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               disabled={isLoggingOut}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              {isLoggingOut ? "Signing Out..." : "Sign Out"}
+              {isLoggingOut ? t('common.loading') : t('auth.logout')}
             </Button>
           </div>
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6" translate="no">
@@ -385,19 +345,19 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
           <div className="lg:col-span-1">
             <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
-                <CardTitle className="text-white text-lg">Account Overview</CardTitle>
+                <CardTitle className="text-white text-lg">{t('profile.accountOverview')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Account Status</span>
-                  <Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge>
+                  <span className="text-muted-foreground">{t('common.status')}</span>
+                  <Badge className="bg-green-600 text-white">{profile?.status || t('common.status_active')}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  
-                  
+
+
                 </div>
                 <div className="pt-4 border-t border-slate-700">
-                  <p className="text-muted-foreground text-sm">Last Login</p>
+                  <p className="text-muted-foreground text-sm">{t('profile.lastLogin')}</p>
                   <p className="text-white text-sm">{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Never"}</p>
                 </div>
               </CardContent>
@@ -418,12 +378,12 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 translate="no"
               >
                 <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <User className="w-4 h-4" /> Profile
+                  <User className="w-4 h-4" /> {t('profile.profile')}
                 </TabsTrigger>
                 <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <Shield className="w-4 h-4" /> Security
+                  <Shield className="w-4 h-4" /> {t('profile.security')}
                 </TabsTrigger>
-                
+
                 {/* Uncomment KYC / Activity if needed */}
               </TabsList>
 
@@ -431,14 +391,14 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="profile" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader className="flex items-center justify-between">
-                    <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />Personal Information</CardTitle>
+                    <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />{t('profile.personalInformation')}</CardTitle>
                     <div>
                       <Button variant="outline" size="sm" onClick={() => (isEditing ? setIsEditing(false) : setIsEditing(true))} className="mr-2 border-slate-600 text-slate-300 bg-transparent">
-                        {isEditing ? (<><X className="w-4 h-4 mr-2" /> Cancel</>) : (<><Edit className="w-4 h-4 mr-2" /> Edit Profile</>)}
+                        {isEditing ? (<><X className="w-4 h-4 mr-2" /> {t('common.cancel')}</>) : (<><Edit className="w-4 h-4 mr-2" /> {t('profile.editProfile')}</>)}
                       </Button>
                       {isEditing && (
                         <Button onClick={handleSave} size="sm" disabled={isSaving} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                          <Save className="w-4 h-4 mr-2" />{isSaving ? "Saving..." : "Save Changes"}
+                          <Save className="w-4 h-4 mr-2" />{isSaving ? t('common.saving') : t('profile.saveChanges')}
                         </Button>
                       )}
                     </div>
@@ -447,43 +407,43 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="firstName" className="text-slate-300">First Name</Label>
+                        <Label htmlFor="firstName" className="text-slate-300">{t('auth.firstName')}</Label>
                         <Input id="firstName" value={profileData.firstName} onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="lastName" className="text-slate-300">Last Name</Label>
+                        <Label htmlFor="lastName" className="text-slate-300">{t('auth.lastName')}</Label>
                         <Input id="lastName" value={profileData.lastName} onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-slate-300">Email Address</Label>
+                        <Label htmlFor="email" className="text-slate-300">{t('auth.email')}</Label>
                         <Input id="email" type="email" value={profileData.email} onChange={(e) => setProfileData({ ...profileData, email: e.target.value })} disabled className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-slate-300">Phone Number</Label>
+                        <Label htmlFor="phone" className="text-slate-300">{t('auth.phone')}</Label>
                         <Input id="phone" value={profileData.phone} onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="country" className="text-slate-300">Country</Label>
+                        <Label htmlFor="country" className="text-slate-300">{t('auth.country')}</Label>
                         <Input id="country" value={profileData.country} onChange={(e) => setProfileData({ ...profileData, country: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="city" className="text-slate-300">City</Label>
+                        <Label htmlFor="city" className="text-slate-300">{t('profile.city')}</Label>
                         <Input id="city" value={profileData.city} onChange={(e) => setProfileData({ ...profileData, city: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="address" className="text-slate-300">Address</Label>
+                      <Label htmlFor="address" className="text-slate-300">{t('common.address')}</Label>
                       <Input id="address" value={profileData.address} onChange={(e) => setProfileData({ ...profileData, address: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="zipCode" className="text-slate-300">Zip Code</Label>
+                      <Label htmlFor="zipCode" className="text-slate-300">{t('profile.zipCode')}</Label>
                       <Input id="zipCode" value={profileData.zipCode} onChange={(e) => setProfileData({ ...profileData, zipCode: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                     </div>
                   </CardContent>
@@ -494,16 +454,16 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="security" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />Security Settings</CardTitle>
+                    <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />{t('profile.security')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    
+
 
                     <div className="space-y-4">
-                      <h3 className="text-white font-medium">Change Password</h3>
+                      <h3 className="text-white font-medium">{t('profile.changePassword')}</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="currentPassword" className="text-slate-300">Current Password</Label>
+                          <Label htmlFor="currentPassword" className="text-slate-300">{t('profile.currentPassword')}</Label>
                           <div className="relative">
                             <Input id="currentPassword" type={showPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
                             <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowPassword(!showPassword)}>
@@ -513,7 +473,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="newPassword" className="text-slate-300">New Password</Label>
+                          <Label htmlFor="newPassword" className="text-slate-300">{t('profile.newPassword')}</Label>
                           <div className="relative">
                             <Input id="newPassword" type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
                             <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowNewPassword(!showNewPassword)}>
@@ -525,7 +485,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
                       <div className="flex justify-end">
                         <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white" onClick={handleChangePassword} disabled={isPasswordSaving}>
-                          {isPasswordSaving ? "Updating..." : "Update Password"}
+                          {isPasswordSaving ? t('common.updating') : t('profile.updatePassword')}
                         </Button>
                       </div>
                     </div>
@@ -537,7 +497,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="notifications" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Bell className="w-5 h-5 mr-2" />Notification Preferences</CardTitle>
+                    <CardTitle className="text-white flex items-center"><Bell className="w-5 h-5 mr-2" />{t('profile.notifications')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {Object.entries(prefs).map(([key, value]) => (
@@ -576,7 +536,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="activity" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />Recent Activity</CardTitle>
+                    <CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />{t('profile.activity')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -588,7 +548,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                             <p className="text-slate-400 text-sm">{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Never"}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">Success</Badge>
+                        <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">{t('common.success')}</Badge>
                       </div>
                     </div>
                   </CardContent>
