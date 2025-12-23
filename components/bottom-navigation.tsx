@@ -5,21 +5,13 @@ import { usePathname } from "next/navigation";
 import { Home, LineChart, Package, UsersRound, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useLanguage } from "@/contexts/language-context";
+
 type Item = {
   href: string;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
-
-const items: Item[] = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/trading", label: "Trading", icon: LineChart },
-  { href: "/dashboard/packages", label: "Packages", icon: Package },
-  { href: "/dashboard/referrals", label: "Referrals", icon: UsersRound },
-  { href: "/dashboard/profile", label: "Profile", icon: User },
-];
-
-const roots = items.map((i) => i.href);
 
 // ✅ مسارات يتم إخفاء الشريط فيها
 const hiddenPaths = ["/dashboard/deposit", "/dashboard/withdraw"];
@@ -32,7 +24,10 @@ function isInAllowedSection(path: string) {
   const p = normalize(path);
   // ✅ لا يظهر في deposit أو withdraw
   if (hiddenPaths.some((hide) => p.startsWith(hide))) return false;
-  return roots.some((root) => p === root || p.startsWith(root + "/"));
+  // Note: We check roots dynamically inside the component now or keep a static list of roots if needed.
+  // For simplicity, we can verify against the known routes:
+  const allowedRoots = ["/dashboard", "/dashboard/trading", "/dashboard/packages", "/dashboard/referrals", "/dashboard/profile"];
+  return allowedRoots.some((root) => p === root || p.startsWith(root + "/"));
 }
 
 function isActive(path: string, root: string) {
@@ -42,7 +37,16 @@ function isActive(path: string, root: string) {
 
 export default function BottomNavigation() {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const show = isInAllowedSection(pathname);
+
+  const items: Item[] = [
+    { href: "/dashboard", label: t('nav.home'), icon: Home },
+    { href: "/dashboard/trading", label: t('nav.trading'), icon: LineChart },
+    { href: "/dashboard/packages", label: t('nav.packages'), icon: Package },
+    { href: "/dashboard/referrals", label: t('nav.referrals'), icon: UsersRound },
+    { href: "/dashboard/profile", label: t('nav.profile'), icon: User },
+  ];
 
   if (!show) return null;
 
