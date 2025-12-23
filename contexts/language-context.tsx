@@ -6,7 +6,7 @@ import { translations, type Language, type Translation } from '@/lib/i18n'
 interface LanguageContextType {
   language: Language
   setLanguage: (lang: Language) => void
-  t: Translation
+  t: (key: string) => string
   isRTL: boolean
 }
 
@@ -14,34 +14,61 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>('en')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language
     if (savedLanguage && translations[savedLanguage]) {
       setLanguage(savedLanguage)
     }
+    setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    localStorage.setItem('language', language)
+
+    // Handle RTL - FORCE LTR as per request
+    // const isRTL = language === 'ar'
+    // document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr')
+    document.documentElement.setAttribute('dir', 'ltr')
+    document.documentElement.setAttribute('lang', language)
+  }, [language, mounted])
 
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang)
-    localStorage.setItem('language', lang)
-
-    // أبقي الاتجاه ثابت LTR حتى مع تغيير اللغة
-    document.documentElement.setAttribute('dir', 'ltr')
-    document.documentElement.setAttribute('lang', lang)
   }
+
+  // ✅ t function implementation handling nested keys (e.g., 'profile.verifiedAccount')
+  const t = (key: string): string => {
+    const keys = key.split('.');
+    let current: any = translations[language] || translations['en'];
+
+    for (const k of keys) {
+      if (current && typeof current === 'object' && k in current) {
+        current = current[k];
+      } else {
+        return key; // Return key if translation not found
+      }
+    }
+
+    return typeof current === 'string' ? current : key;
+  };
 
   const value: LanguageContextType = {
     language,
     setLanguage: handleSetLanguage,
-    t: translations[language],
-    isRTL: false // لأننا مش عايزين RTL
+    t,
+    isRTL: language === 'ar'
   }
 
+  // Prevent hydration mismatch by rendering children only after mount, 
+  // OR just render them and accept initial flash. 
+  // Better to render immediately but attributes might be wrong for a split second.
+  // Ideally, we'd use a robust solution, but for now this works.
   return (
     <LanguageContext.Provider value={value}>
-      {/* key={language} لإجبار React يعيد البناء عند تغيير اللغة */}
-      <div key={language}>
+      <div key={language} dir="ltr">
         {children}
       </div>
     </LanguageContext.Provider>
