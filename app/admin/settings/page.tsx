@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { saveAdminSettings } from "@/lib/actions/admin-settings";
 import {
   Card,
   CardContent,
@@ -122,24 +123,13 @@ export default function AdminPlatformControlsPage() {
       percentage: commissions.package[l] ?? 0,
     }));
 
-    // Save Commissions
-    const { error: depErr } = await supabase.from("referral_commission_rates").upsert(depositRows);
-    const { error: tradeErr } = await supabase.from("trade_profit_commission_rates").upsert(tradeRows);
-    const { error: pkgErr } = await supabase.from("package_referral_commission_rates").upsert(packageRows);
+    // Wait until the secure server action processes the save bypassing RLS
+    const result = await saveAdminSettings(depositRows, tradeRows, packageRows, welcomeBonus);
 
-    // Save Welcome Bonus Settings in system_settings
-    const { error: settingsErr } = await supabase.from("system_settings").upsert({
-      key: "welcome_bonus",
-      value: { enabled: welcomeBonus.enabled, amount: welcomeBonus.amount },
-      description: "Automatically applied welcome bonus for new user registrations",
-      category: "user_management"
-    });
-
-    if (depErr || tradeErr || pkgErr || settingsErr) {
+    if (!result.success) {
       toast({
         title: "Error Saving Settings",
-        description:
-          depErr?.message || tradeErr?.message || pkgErr?.message || settingsErr?.message,
+        description: result.error,
         variant: "destructive",
       });
     } else {
