@@ -561,4 +561,3 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     </div>
   );
 }
- 

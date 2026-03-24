@@ -10,30 +10,13 @@ import Link from "next/link"
 import { signIn } from "@/lib/auth-actions"
 import type { ActionState } from "@/lib/auth-actions"
 import { useRouter } from "next/navigation"
-
-function SubmitButton({ pending }: { pending: boolean }) {
-  return (
-    <Button
-      type="submit"
-      disabled={pending}
-      className="w-full professional-gradient h-12 text-base font-medium"
-    >
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Signing In...
-        </>
-      ) : (
-        "Sign In"
-      )}
-    </Button>
-  )
-}
+import { useLanguage } from "@/contexts/language-context"
 
 export default function LoginForm() {
   const router = useRouter()
   const [state, setState] = useState<ActionState>({})
   const [isPending, startTransition] = useTransition()
+  const { t } = useLanguage()
 
   async function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -54,9 +37,9 @@ export default function LoginForm() {
   return (
     <Card className="w-full max-w-md trading-card">
       <CardHeader className="space-y-2 text-center">
-        <CardTitle className="text-3xl font-bold text-white">Welcome Back</CardTitle>
+        <CardTitle className="text-3xl font-bold text-white">{t('auth.welcomeBack')}</CardTitle>
         <CardDescription className="text-slate-300">
-          Sign in to continue trading
+          {t('auth.signInSubtitle')}
         </CardDescription>
       </CardHeader>
 
@@ -76,7 +59,7 @@ export default function LoginForm() {
 
           <div className="space-y-2">
             <Label htmlFor="email" className="text-slate-200 font-medium">
-              Email Address
+              {t('auth.emailAddress')}
             </Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -93,7 +76,7 @@ export default function LoginForm() {
 
           <div className="space-y-2">
             <Label htmlFor="password" className="text-slate-200 font-medium">
-              Password
+              {t('auth.password')}
             </Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -101,7 +84,7 @@ export default function LoginForm() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Your password"
+                placeholder="********"
                 required
                 minLength={8}
                 className="professional-input pl-10 h-12"
@@ -109,19 +92,38 @@ export default function LoginForm() {
             </div>
           </div>
 
-          <SubmitButton pending={isPending} />
+          <SubmitButton pending={isPending} t={t} />
         </form>
 
         <div className="text-center text-slate-400">
-          Don&apos;t have an account?{" "}
+          {t('auth.dontHaveAccount')}{" "}
           <Link
             href="/auth/register"
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
-            Create one
+            {t('auth.createAccount')}
           </Link>
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function SubmitButton({ pending, t }: { pending: boolean, t: (key: string) => string }) {
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className="w-full professional-gradient h-12 text-base font-medium"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          {t('auth.signingIn')}
+        </>
+      ) : (
+        t('auth.signIn')
+      )}
+    </Button>
   )
 }

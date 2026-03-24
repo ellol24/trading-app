@@ -217,14 +217,14 @@ export default function DepositClient({ user }: any) {
                   </div>
                   <Badge
                     className={
-                      dep.status === "approved"
+                      dep.status === "approved" || dep.status === "confirmed"
                         ? "bg-green-500/20 text-green-400"
                         : dep.status === "pending"
                           ? "bg-yellow-500/20 text-yellow-400"
                           : "bg-red-500/20 text-red-400"
                     }
                   >
-                    {dep.status === "approved" ? t('wallet.statusApproved') :
+                    {dep.status === "approved" || dep.status === "confirmed" ? t('wallet.statusApproved') :
                       dep.status === "pending" ? t('common.pending') :
                         t('wallet.statusRejected')}
                   </Badge>

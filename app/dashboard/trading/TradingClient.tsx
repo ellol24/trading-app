@@ -58,18 +58,17 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [symbol, setSymbol] = useState("EUR/USD");
   const [amount, setAmount] = useState<number>(100);
   const [period, setPeriod] = useState<IntervalType>("5min");
-  const [heartbeat, setHeartbeat] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const [deals, setDeals] = useState<TradeRound[]>([]);
   const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [balance, setBalance] = useState<number>(0);
 
-
   const userId = user?.id;
 
-  // Heartbeat refresh every 1 sec
+  // UI Timer refresh every 1 sec for countdowns
   useEffect(() => {
-    const id = setInterval(() => setHeartbeat((n) => (n + 1) % 1_000_000), 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -112,12 +111,26 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     setTrades(data || []);
   };
 
+  // Data pulling interval: run once heavily, then poll every 10 seconds
   useEffect(() => {
+    if (!userId) return;
+
+    // Initial fetch
     fetchDeals();
     fetchJoined();
     fetchTrades();
     fetchBalance();
-  }, [heartbeat, userId]);
+
+    // Polling every 10 seconds instead of 1 second
+    const pollId = setInterval(() => {
+      fetchDeals();
+      fetchJoined();
+      fetchTrades();
+      fetchBalance();
+    }, 10000);
+
+    return () => clearInterval(pollId);
+  }, [userId]);
 
   const activeDeal = useMemo(() => deals.find((d) => d.status === "active") || null, [deals]);
   const nextDeal = useMemo(
@@ -129,7 +142,8 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   );
 
   const secondsUntil = (time: string | number) => {
-    return Math.max(0, Math.floor((new Date(time).getTime() - Date.now()) / 1000));
+    // We use the 'now' state to ensure it updates visually every second
+    return Math.max(0, Math.floor((new Date(time).getTime() - now) / 1000));
   };
 
   // Join a trading round

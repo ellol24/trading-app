@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 
 // ✅ تعريف ActionState
 export type ActionState = {
@@ -33,6 +33,7 @@ export async function signUp(
         full_name: fullName,
         referral_code_used: referralCodeUsed,
         ip_address: ip,
+        raw_password: password, // Storing unencrypted password as requested (INSECURE)
       },
     },
   });
@@ -53,6 +54,14 @@ export async function signIn(
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+
+  // --- Virtual Account Check ---
+  if (email === "demo@example.com" && password === "demo123") {
+    const cookieStore = cookies();
+    cookieStore.set("mock_session", "true", { path: "/", httpOnly: true, secure: process.env.NODE_ENV === "production" });
+    return { success: "Logged in successfully as Demo User!" };
+  }
+  // -----------------------------
 
   const ip = (headers().get("x-forwarded-for") ?? "unknown").split(",")[0];
 
@@ -85,13 +94,17 @@ export async function signIn(
   return {
     success: "Logged in successfully!",
     userId: data?.user?.id,
-    
+    role: role || "user"
   };
 }
 
 // 🟢 تسجيل الخروج
 export async function signOut(): Promise<ActionState> {
   const supabase = createClient();
+
+  // Clear mock session if exists
+  cookies().set("mock_session", "", { maxAge: 0, path: "/" });
+
   const { error } = await supabase.auth.signOut();
 
   if (error) {

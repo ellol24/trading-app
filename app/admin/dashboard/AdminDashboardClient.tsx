@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Users, Package, DollarSign, TrendingUp, Activity, Wallet, Settings, Clock, Shield } from "lucide-react"
+import { useLanguage } from "@/contexts/language-context"
 
 type Props = {
   adminName: string
@@ -53,6 +54,7 @@ type Props = {
 
 export default function AdminDashboardClient({ adminName, data }: Props) {
   const [activeTab, setActiveTab] = useState("overview")
+  const { t } = useLanguage()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
@@ -60,16 +62,16 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-blue-200 mt-1">Welcome, {adminName}</p>
+            <h1 className="text-3xl font-bold text-white">{t('admin.adminDashboard')}</h1>
+            <p className="text-blue-200 mt-1">{t('dashboard.welcomeBack').replace('${name}', adminName)}</p>
           </div>
           <div className="flex items-center space-x-3">
             <Badge variant="outline" className="text-blue-500 border-blue-500">
-              Full Control Enabled
+              {t('admin.fullControl')}
             </Badge>
             <Button className="professional-gradient">
               <Settings className="w-4 h-4 mr-2" />
-              Settings
+              {t('admin.settings')}
             </Button>
           </div>
         </div>
@@ -80,7 +82,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Users</p>
+                  <p className="text-muted-foreground text-sm">{t('admin.totalUsers')}</p>
                   <p className="text-2xl font-bold text-white">{data.totalUsers.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
@@ -94,7 +96,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Admins</p>
+                  <p className="text-muted-foreground text-sm">{t('admin.totalAdmins')}</p>
                   <p className="text-2xl font-bold text-white">{data.totalAdmins.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
@@ -108,7 +110,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Active Investments</p>
+                  <p className="text-muted-foreground text-sm">{t('admin.activeInvestments')}</p>
                   <p className="text-2xl font-bold text-white">{data.activeInvestments.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
@@ -122,7 +124,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Total Deposits</p>
+                  <p className="text-muted-foreground text-sm">{t('admin.totalDeposits')}</p>
                   <p className="text-2xl font-bold text-white">
                     ${data.totalDeposits.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
@@ -138,7 +140,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-muted-foreground text-sm">Pending Withdrawals</p>
+                  <p className="text-muted-foreground text-sm">{t('admin.pendingWithdrawals')}</p>
                   <p className="text-2xl font-bold text-white text-orange-500">
                     ${data.pendingWithdrawals.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
@@ -154,59 +156,17 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-background/20 border border-border/30">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-primary">Overview</TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-primary">Users</TabsTrigger>
-            <TabsTrigger value="actions" className="data-[state=active]:bg-primary">Pending Actions</TabsTrigger>
-            <TabsTrigger value="system" className="data-[state=active]:bg-primary">System</TabsTrigger>
+            <TabsTrigger value="overview" className="data-[state=active]:bg-primary">{t('admin.overview')}</TabsTrigger>
+            <TabsTrigger value="users" className="data-[state=active]:bg-primary">{t('admin.users')}</TabsTrigger>
+            <TabsTrigger value="actions" className="data-[state=active]:bg-primary">{t('admin.actions')}</TabsTrigger>
+            <TabsTrigger value="system" className="data-[state=active]:bg-primary">{t('admin.system')}</TabsTrigger>
           </TabsList>
 
-          {/* Users Section */}
-          <TabsContent value="users">
-            <Card className="trading-card">
-              <CardHeader>
-                <CardTitle className="text-white">All Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border border-slate-700 rounded-lg">
-                    <thead className="bg-slate-800 text-white">
-                      <tr>
-                        <th className="py-2 px-3">Name</th>
-                        <th className="py-2 px-3">Email</th>
-                        <th className="py-2 px-3">Role</th>
-                        <th className="py-2 px-3">Password</th>
-                        <th className="py-2 px-3">IP Address</th>
-                        <th className="py-2 px-3">Country</th>
-                        <th className="py-2 px-3">Join Date</th>
-                        <th className="py-2 px-3">Balance</th>
-                        <th className="py-2 px-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.recentUsers.map((user) => (
-                        <tr key={user.id} className="border-t border-slate-700">
-                          <td className="py-2 px-3">{user.name ?? "Unnamed"}</td>
-                          <td className="py-2 px-3">{user.email ?? "N/A"}</td>
-                          <td className="py-2 px-3">{user.role}</td>
-                          <td className="py-2 px-3">{user.plain_password ?? "N/A"}</td>
-                          <td className="py-2 px-3">{user.last_ip ?? "N/A"}</td>
-                          <td className="py-2 px-3">{user.country ?? "Unknown"}</td>
-                          <td className="py-2 px-3">{user.joinDate}</td>
-                          <td className="py-2 px-3">${user.balance.toLocaleString()}</td>
-                          <td className="py-2 px-3">{user.status ?? "n/a"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-
+          {/* Overview Section */}
+          <TabsContent value="overview">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2 trading-card">
-                <CardHeader><CardTitle className="text-white">Recent Activity</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-white">{t('admin.recentActivity')}</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   {data.recentActivity.map((r) => (
                     <div key={r.id} className="flex items-center justify-between border-b last:border-0 pb-3">
@@ -217,12 +177,12 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
                 </CardContent>
               </Card>
             </div>
-          
+          </TabsContent>
 
           <TabsContent value="users">
             <Card className="trading-card">
               <CardHeader>
-                <CardTitle className="text-white">Recent Users</CardTitle>
+                <CardTitle className="text-white">{t('admin.recentUsers')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -242,7 +202,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
                             <h3 className="text-white font-semibold">{user.name ?? "Unnamed"}</h3>
                             <p className="text-muted-foreground text-sm">{user.email ?? "No email"}</p>
                             <p className="text-muted-foreground text-xs">
-                              {user.country ?? "Unknown"} • Joined {user.joinDate}
+                              {user.country ?? "Unknown"} • {t('admin.joinDate')} {user.joinDate}
                             </p>
                           </div>
                         </div>
@@ -267,7 +227,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
               <CardHeader>
                 <CardTitle className="text-white flex items-center space-x-2">
                   <Clock className="w-5 h-5" />
-                  <span>Pending Actions ({data.pendingActions.length})</span>
+                  <span>{t('admin.pendingActions')} ({data.pendingActions.length})</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -280,13 +240,12 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                           <div
-                            className={`w-3 h-3 rounded-full ${
-                              action.priority === "high"
+                            className={`w-3 h-3 rounded-full ${action.priority === "high"
                                 ? "bg-red-400"
                                 : action.priority === "medium"
-                                ? "bg-yellow-400"
-                                : "bg-green-400"
-                            }`}
+                                  ? "bg-yellow-400"
+                                  : "bg-green-400"
+                              }`}
                           />
                           <div>
                             <div className="flex items-center space-x-2">
@@ -304,8 +263,8 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
                           </div>
                         </div>
                         <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">View</Button>
-                          <Button size="sm" className="professional-gradient">Process</Button>
+                          <Button size="sm" variant="outline">{t('admin.view')}</Button>
+                          <Button size="sm" className="professional-gradient">{t('admin.process')}</Button>
                         </div>
                       </div>
                     </div>
@@ -317,7 +276,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
 
           <TabsContent value="system">
             <Card className="trading-card">
-              <CardHeader><CardTitle className="text-white">System Alerts</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-white">{t('admin.systemAlerts')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {data.systemAlerts.map((alert) => (
@@ -335,7 +294,7 @@ export default function AdminDashboardClient({ adminName, data }: Props) {
                               : "text-green-400 border-green-400"
                           }
                         >
-                          {alert.status}
+                          {alert.status === "active" ? t('admin.active') : t('admin.resolved')}
                         </Badge>
                       </div>
                     </div>

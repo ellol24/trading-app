@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY!;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.xspy-trader.com";
-
 export async function POST(req: Request) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.xspy-trader.com";
+
+    if (!supabaseUrl || !supabaseKey || !NOWPAYMENTS_API_KEY) {
+      console.error("Missing env vars for payment-create");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { amount, currency, user_id } = await req.json();
 
     if (!amount || !currency || !user_id) {

@@ -1,9 +1,11 @@
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import DashboardClient from "@/components/dashboard/dashboard-client";
+import { cookies } from "next/headers";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage() {
-  // إذا لم يتم إعداد Supabase
+  // If Supabase is not configured
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -16,7 +18,7 @@ export default async function DashboardPage() {
 
   const supabase = createClient();
 
-  // ✅ جلب المستخدم الحالي
+  // Get current authenticated user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -25,18 +27,21 @@ export default async function DashboardPage() {
     redirect("/auth/login");
   }
 
-  // ✅ جلب البيانات من user_profiles
+  let targetUserId = user.id;
+
+
+  // Fetch data for the target user (either themselves or the impersonated user)
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("full_name, balance, total_referrals, total_trades")
-    .eq("uid", user.id)
+    .eq("uid", targetUserId)
     .single();
 
   if (profileError) {
     console.error("Error fetching profile:", profileError.message);
   }
 
-  // إذا الاسم غير موجود في profile خذه من metadata أو من الإيميل
+  // Fallback for name
   const userName =
     profile?.full_name ||
     user.user_metadata?.full_name ||
@@ -44,12 +49,15 @@ export default async function DashboardPage() {
     "Trader";
 
   return (
-    <DashboardClient
-      userName={userName}
-      userId={user.id}
-      balance={profile?.balance ?? 0}
-      totalReferrals={profile?.total_referrals ?? 0}
-      totalTrades={profile?.total_trades ?? 0}
-    />
+    <>
+
+      <DashboardClient
+        userName={userName}
+        userId={targetUserId} // Pass the impersonated ID here
+        balance={profile?.balance ?? 0}
+        totalReferrals={profile?.total_referrals ?? 0}
+        totalTrades={profile?.total_trades ?? 0}
+      />
+    </>
   );
 }

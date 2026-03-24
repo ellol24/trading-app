@@ -400,8 +400,19 @@ export interface Translation {
     toggleBan: string
     deleteUser: string
     exportData: string
-    exportSuccess: string
-    exportError: string
+    exportSuccess: string;
+    exportError: string;
+    // Sidebar
+    dashboard: string;
+    // packageManagement already exists
+    // tradingControls already exists
+    withdrawals: string;
+    withdrawal: string;
+    // walletManagement already exists
+    deposit: string;
+    // platformControls already exists
+    logout: string;
+    adminPanel: string;
     passwordUpdated: string
     balanceUpdated: string
     roleUpdated: string
@@ -887,7 +898,67 @@ export const en: Translation = {
     totalUsers: "Total Users",
     activeUsers: "Active Users",
     totalDeposits: "Total Deposits",
-    platformRevenue: "Platform Revenue"
+    platformRevenue: "Platform Revenue",
+    totalAdmins: "Total Admins",
+    activeInvestments: "Active Investments",
+    totalWithdrawals: "Total Withdrawals",
+    pendingWithdrawals: "Pending Withdrawals",
+    monthlyGrowth: "Monthly Growth",
+    overview: "Overview",
+    users: "Users",
+    actions: "Actions",
+    system: "System",
+    recentUsers: "Recent Users",
+    recentActivity: "Recent Activity",
+    name: "Name",
+    email: "Email",
+    role: "Role",
+    ipAddress: "IP Address",
+    country: "Country",
+    joinDate: "Join Date",
+    balance: "Balance",
+    status: "Status",
+    actions_th: "Actions",
+    manageUser: "Manage User",
+    loginAsUser: "Login as User",
+    addBalance: "Add Balance",
+    changePassword: "Change Password",
+    toggleRole: "Toggle Role",
+    toggleBan: "Toggle Ban",
+    deleteUser: "Delete User",
+    exportData: "Export Data",
+    exportSuccess: "Exported data successfully",
+    exportError: "Failed to export data",
+    // Sidebar
+    dashboard: "Dashboard",
+    // packageManagement
+    // tradingControls
+    withdrawals: "Withdrawals",
+    withdrawal: "Withdrawal",
+    // walletManagement
+    deposit: "Deposit",
+    // platformControls
+    logout: "Logout",
+    adminPanel: "Admin Panel",
+    passwordUpdated: "Password updated successfully!",
+    balanceUpdated: "Balance updated successfully!",
+    roleUpdated: "Role updated successfully!",
+    statusUpdated: "Status updated successfully!",
+    userDeleted: "User deleted successfully!",
+    confirmDelete: "Are you sure you want to delete this user? This action is irreversible.",
+    searchUser: "Search user...",
+    allUsers: "All Users",
+    view: "View",
+    process: "Process",
+    priority: "Priority",
+    method: "Method",
+    type: "Type",
+    message: "Message",
+    timestamp: "Timestamp",
+    active: "Active",
+    resolved: "Resolved",
+    fullControl: "Full Control Enabled",
+    settings: "Settings"
   },
 
   // Portfolio
@@ -1352,6 +1423,7 @@ export const ar: Translation = {
     pendingActions: "الإجراءات المعلقة",
     systemAlerts: "تنبيهات النظام",
     totalUsers: "إجمالي المستخدمين",
+    activeUsers: "المستخدمين النشطين",
     totalAdmins: "إجمالي المدراء",
     activeInvestments: "الاستثمارات النشطة",
     totalDeposits: "إجمالي الودائع",
@@ -1383,7 +1455,18 @@ export const ar: Translation = {
     deleteUser: "حذف المستخدم",
     exportData: "تصدير البيانات",
     exportSuccess: "تم تصدير البيانات بنجاح",
-    exportError: "فشل التصدير",
+    exportError: "فشل تصدير البيانات",
+    // Sidebar
+    dashboard: "لوحة التحكم",
+    // packageManagement
+    // tradingControls
+    withdrawals: "طلبات السحب",
+    withdrawal: "سحب",
+    // walletManagement
+    deposit: "إيداع",
+    // platformControls
+    logout: "تسجيل الخروج",
+    adminPanel: "لوحة المسؤول",
     passwordUpdated: "تم تحديث كلمة المرور بنجاح!",
     balanceUpdated: "تم تحديث الرصيد بنجاح!",
     roleUpdated: "تم تحديث الدور بنجاح!",
@@ -1863,6 +1946,7 @@ export const fr: Translation = {
     pendingActions: "Actions en attente",
     systemAlerts: "Alertes système",
     totalUsers: "Total des utilisateurs",
+    activeUsers: "Utilisateurs Actifs",
     totalAdmins: "Total Admins",
     activeInvestments: "Investissements Actifs",
     totalDeposits: "Total des dépôts",
@@ -1893,8 +1977,19 @@ export const fr: Translation = {
     toggleBan: "Bannir/Débannir",
     deleteUser: "Supprimer l'utilisateur",
     exportData: "Exporter les données",
-    exportSuccess: "Données exportées avec succès",
-    exportError: "Échec de l'exportation",
+    exportSuccess: "Data exported successfully",
+    exportError: "Failed to export data",
+    // Sidebar
+    dashboard: "Tableau de bord",
+    // packageManagement
+    // tradingControls
+    withdrawals: "Retraits",
+    withdrawal: "Retrait",
+    // walletManagement
+    deposit: "Dépôt",
+    // platformControls
+    logout: "Logout",
+    adminPanel: "Admin Panel",
     passwordUpdated: "Mot de passe mis à jour avec succès !",
     balanceUpdated: "Solde mis à jour avec succès !",
     roleUpdated: "Rôle mis à jour avec succès !",
@@ -2406,6 +2501,17 @@ export const de: Translation = {
     exportData: "Daten exportieren",
     exportSuccess: "Daten erfolgreich exportiert",
     exportError: "Export fehlgeschlagen",
+    // Sidebar
+    dashboard: "Instrumententafel",
+    // packageManagement
+    // tradingControls
+    withdrawals: "Auszahlungen",
+    withdrawal: "Auszahlung",
+    // walletManagement
+    deposit: "Einzahlung",
+    // platformControls
+    logout: "Ausloggen",
+    adminPanel: "Admin-Panel",
     passwordUpdated: "Passwort erfolgreich aktualisiert!",
     balanceUpdated: "Guthaben erfolgreich aktualisiert!",
     roleUpdated: "Rolle erfolgreich aktualisiert!",

@@ -15,11 +15,13 @@ import { Loader2, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/lib/auth-actions";
 
+import { useLanguage } from "@/contexts/language-context";
+
 type Props = {
   referralCode?: string;
 };
 
-function SubmitButton({ pending }: { pending: boolean }) {
+function SubmitButton({ pending, t }: { pending: boolean, t: (key: string) => string }) {
   return (
     <Button
       type="submit"
@@ -29,10 +31,10 @@ function SubmitButton({ pending }: { pending: boolean }) {
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Creating Account...
+          {t('auth.creatingAccount')}
         </>
       ) : (
-        "Create Account"
+        t('auth.createAccount')
       )}
     </Button>
   );
@@ -42,11 +44,12 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
   const [referralCode, setReferralCode] = useState(referralCodeFromUrl || "");
+  const { t } = useLanguage();
 
   async function handleSubmit(formData: FormData) {
     // ✅ تحقق أن كود الإحالة موجود
     if (!referralCode) {
-      setState({ error: "Referral code is required to register." });
+      setState({ error: t('auth.referralRequired') });
       return;
     }
 
@@ -60,9 +63,9 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
   return (
     <Card className="w-full max-w-md trading-card">
       <CardHeader className="space-y-2 text-center">
-        <CardTitle className="text-3xl font-bold text-white">Get Started</CardTitle>
+        <CardTitle className="text-3xl font-bold text-white">{t('auth.getStarted')}</CardTitle>
         <CardDescription className="text-slate-300">
-          Create your trading account today
+          {t('auth.createAccountSubtitle')}
         </CardDescription>
       </CardHeader>
 
@@ -82,7 +85,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
 
           <div className="space-y-2">
             <Label htmlFor="fullName" className="text-slate-200 font-medium">
-              User Name
+              {t('auth.username')}
             </Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -90,7 +93,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="fullName"
                 name="fullName"
                 type="text"
-                placeholder="Please enter your name"
+                placeholder={t('auth.enterName')}
                 required
                 className="professional-input pl-10 h-12"
               />
@@ -99,7 +102,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
 
           <div className="space-y-2">
             <Label htmlFor="email" className="text-slate-200 font-medium">
-              Email Address
+              {t('auth.emailAddress')}
             </Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -107,7 +110,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Please enter in the email"
+                placeholder={t('auth.enterEmail')}
                 required
                 className="professional-input pl-10 h-12"
               />
@@ -116,7 +119,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
 
           <div className="space-y-2">
             <Label htmlFor="password" className="text-slate-200 font-medium">
-              Password
+              {t('auth.password')}
             </Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -124,7 +127,7 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Please enter password (Minimum 8 characters)"
+                placeholder={t('auth.enterPassword')}
                 required
                 minLength={8}
                 className="professional-input pl-10 h-12"
@@ -135,13 +138,13 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
           {/* Referral Code (إجباري) */}
           <div className="space-y-2">
             <Label htmlFor="referralCode" className="text-slate-200 font-medium">
-              Referral Code
+              {t('auth.inviteCode')}
             </Label>
             <Input
               id="referralCode"
               name="referralCode"
               type="text"
-              placeholder="Please enter the invitation code"
+              placeholder={t('auth.enterInviteCode')}
               value={referralCode}
               onChange={(e) => setReferralCode(e.target.value)}
               readOnly={!!referralCodeFromUrl} // إذا جاي من الرابط → لا يتعدل
@@ -151,27 +154,27 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
           </div>
 
           <div className="text-xs text-slate-400 leading-relaxed">
-            By creating an account, you agree to our{" "}
+            {t('auth.agreeTermsStart')}{" "}
             <Link href="/terms" className="text-blue-400 hover:text-blue-300">
-              Terms of Service
+              {t('auth.termsOfService')}
             </Link>{" "}
             and{" "}
             <Link href="/privacy" className="text-blue-400 hover:text-blue-300">
-              Privacy Policy
+              {t('auth.privacyPolicy')}
             </Link>
             .
           </div>
 
-          <SubmitButton pending={isPending} />
+          <SubmitButton pending={isPending} t={t} />
         </form>
 
         <div className="text-center text-slate-400">
-          Already have an account?{" "}
+          {t('auth.alreadyHaveAccount')}{" "}
           <Link
             href="/auth/login"
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
-            Sign In
+            {t('auth.signIn')}
           </Link>
         </div>
       </CardContent>
