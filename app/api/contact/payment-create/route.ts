@@ -5,78 +5,96 @@ export async function POST(req: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const NOWPAYMENTS_API_KEY = process.env.NOWPAYMENTS_API_KEY;
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.xspy-trader.com";
+    const COINBASE_API_KEY = process.env.COINBASE_COMMERCE_API_KEY;
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://xspy-trader.com";
 
-    if (!supabaseUrl || !supabaseKey || !NOWPAYMENTS_API_KEY) {
-      console.error("Missing env vars for payment-create");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    if (!supabaseUrl || !supabaseKey || !COINBASE_API_KEY) {
+      console.error("Missing env vars for payment-create (Ensure COINBASE_COMMERCE_API_KEY is set)");
+      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const { amount, user_id } = await req.json();
 
-    const { amount, currency, user_id } = await req.json();
-
-    if (!amount || !currency || !user_id) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!amount || !user_id) {
+      return NextResponse.json({ error: "Missing amount or user ID" }, { status: 400 });
     }
 
-    console.log("🟦 Creating NOWPayments invoice for:", { amount, currency, user_id });
+    console.log("🟦 Creating Coinbase Commerce charge for:", { amount, user_id });
 
-    const response = await fetch("https://api.nowpayments.io/v1/invoice", {
-      method: "POST",
-      headers: {
-        "x-api-key": NOWPAYMENTS_API_KEY,
-        "Content-Type": "application/json",
+    // Step 1: Pre-generate a deposit ID in our database
+    const tempDepositId = `dep_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    
+    // Step 2: Create the Charge with Coinbase Commerce
+    const payload = {
+      name: "Account Deposit",
+      description: "Fund your XSPY Trading Account",
+      pricing_type: "fixed_price",
+      local_price: {
+        amount: String(amount),
+        currency: "USD",
       },
-      body: JSON.stringify({
-        price_amount: Number(amount),
-        price_currency: "usd",
-        pay_currency: currency.toLowerCase(), // usdttrc20 or usdtbsc
-        order_id: `${user_id}-${Date.now()}`,
-        order_description: "Deposit to XSPY Account",
-        ipn_callback_url: `${BASE_URL}/api/contact/payment-webhook`,
-        success_url: `${BASE_URL}/dashboard/deposit`,
-        cancel_url: `${BASE_URL}/dashboard/deposit`,
-      }),
+      metadata: {
+        customer_id: user_id,
+        internal_deposit_id: tempDepositId,
+      },
+      redirect_url: `${BASE_URL}/dashboard/deposit?success=true`,
+      cancel_url: `${BASE_URL}/dashboard/deposit?canceled=true`,
+    };
+
+    const response = await fetch("https://api.commerce.coinbase.com/charges", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CC-Api-Key": COINBASE_API_KEY,
+            "X-CC-Version": "2018-03-22",
+        },
+        body: JSON.stringify(payload),
     });
 
     const data = await response.json();
-    console.log("🟩 NOWPayments Response:", data);
 
-    // Handle known errors
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          error: "Payment creation failed",
-          details: data,
-        },
-        { status: response.status }
-      );
+    if (!response.ok || !data.data?.hosted_url) {
+      console.error("❌ Coinbase Commerce Error:", data);
+      return NextResponse.json({ error: "Failed to initialize Coinbase checkout" }, { status: 500 });
     }
 
-    // Missing invoice_url
-    if (!data.invoice_url) {
-      return NextResponse.json(
-        { error: "Missing invoice URL from NOWPayments", details: data },
-        { status: 400 }
-      );
-    }
+    // Step 3: Insert Pending Deposit into Supabase
+    const checkoutId = data.data.id;
+    const hostedUrl = data.data.hosted_url;
 
-    // Save deposit in database
-    const { error } = await supabase.from("deposits").insert({
+    const { error: insertError } = await supabase.from("deposits").insert({
+      id: tempDepositId,     // Ensure your schema allows uuid OR custom IDs. If not, omit this and rely on transaction_id.
       user_id,
-      amount,
+      amount: Number(amount),
       status: "pending",
+      transaction_id: checkoutId,
+      network_label: "Coinbase Commerce",
+      currency: "USD",
       created_at: new Date().toISOString(),
     });
 
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-      return NextResponse.json({ error: "Database save failed" }, { status: 500 });
+    if (insertError) {
+      // If the 'id' column strictly requires UUID, we fallback to dropping the 'id' param and letting the DB generate it
+      console.error("❌ DB Insert warning with custom ID, retrying safely:", insertError.message);
+      
+      const { error: retryError } = await supabase.from("deposits").insert({
+        user_id,
+        amount: Number(amount),
+        status: "pending",
+        transaction_id: checkoutId,
+        network_label: "Coinbase Checkout",
+        currency: "USD",
+        created_at: new Date().toISOString(),
+      });
+
+      if (retryError) {
+         return NextResponse.json({ error: "Database save failed" }, { status: 500 });
+      }
     }
 
-    return NextResponse.json({ success: true, invoice_url: data.invoice_url });
+    // Return the hosted URL to the frontend for redirection
+    return NextResponse.json({ success: true, invoice_url: hostedUrl });
   } catch (err: any) {
     console.error("🔥 Internal error:", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
