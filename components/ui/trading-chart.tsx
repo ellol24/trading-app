@@ -25,7 +25,8 @@ function ForexChart({ from, to, interval = "5min" }: Props) {
     // Clear previous chart on symbol/interval change to prevent duplicates
     container.current.innerHTML = "";
 
-    const symbol = `FX:${from}${to}`;
+    // OANDA provides free embeds for both regular Forex pairs and Metals (like XAUUSD)
+    const symbol = `OANDA:${from}${to}`;
     const tvInterval = intervalMap[interval] || "5";
 
     const script = document.createElement("script");
