@@ -19,7 +19,15 @@ import { supabase } from "@/lib/supabase/client";
 
 import { useLanguage } from "@/contexts/language-context";
 
+const SUPPORTED_COINS = [
+  { code: "USDT_TRX", name: "USDT (TRC20)" },
+  { code: "USDT_BSC", name: "USDT (BEP20)" },
+  { code: "BTC", name: "Bitcoin (BTC)" },
+  { code: "ETH", name: "Ethereum (ETH)" },
+];
+
 export default function DepositClient({ user }: any) {
+  const [coin, setCoin] = useState("USDT_TRX");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
@@ -80,6 +88,7 @@ export default function DepositClient({ user }: any) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
+          currency: coin,
           user_id: user.id,
         }),
       });
@@ -132,7 +141,21 @@ export default function DepositClient({ user }: any) {
             <CardTitle className="text-white">{t('wallet.depositInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-
+            <div className="space-y-2">
+              <Label className="text-white">{t('wallet.selectCurrency')}</Label>
+              <Select value={coin} onValueChange={setCoin}>
+                <SelectTrigger className="h-12 bg-slate-700 text-white border-slate-600">
+                  <SelectValue placeholder={t('wallet.chooseCoin')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_COINS.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-2">
               <Label className="text-white">
