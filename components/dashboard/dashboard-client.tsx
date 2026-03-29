@@ -81,7 +81,7 @@ type DashboardClientProps = {
 export default function DashboardClient({
   userName,
   userId,
-  balance,
+  balance: initialBalance,
   totalReferrals,
   totalTrades,
 }: DashboardClientProps) {
@@ -92,6 +92,7 @@ export default function DashboardClient({
   const [packages, setPackages] = useState<InvestmentPackage[]>([]);
   const [userPackages, setUserPackages] = useState<UserPackagePurchase[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [liveBalance, setLiveBalance] = useState<number>(initialBalance);
   const [loading, setLoading] = useState(true);
 
   // ------------------ Fetch Data ------------------
@@ -102,7 +103,10 @@ export default function DashboardClient({
         .select("balance, total_referrals, total_trades")
         .eq("uid", userId)
         .single();
-      if (profileData) setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+        setLiveBalance(Number(profileData.balance) || 0);
+      }
 
       const { data: walletsData } = await supabase
         .from("user_wallets")
@@ -155,22 +159,34 @@ export default function DashboardClient({
     if (typeof window === "undefined") return;
     if (!supabase || !supabase.channel) return;
 
-    let channel: any = null;
+    let tradesChannel: any = null;
+    let balanceChannel: any = null;
     try {
-      channel = supabase
-        .channel("trades_changes")
+      // Refresh trades list on new trade insert
+      tradesChannel = supabase
+        .channel(`dashboard-trades-${userId}`)
         .on(
           "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "trades",
-            filter: `user_id=eq.${userId}`,
-          },
+          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
           () => {
             fetchUserData().catch((e) =>
               console.error("[Dashboard] fetchUserData error", e)
             );
+          }
+        )
+        .subscribe();
+
+      // Live balance: instant update when admin approves deposit / trade resolves
+      balanceChannel = supabase
+        .channel(`dashboard-balance-${userId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "user_profiles", filter: `uid=eq.${userId}` },
+          (payload) => {
+            if (payload.new?.balance !== undefined) {
+              setLiveBalance(Number(payload.new.balance));
+              setProfile((prev) => prev ? { ...prev, balance: Number(payload.new.balance) } : prev);
+            }
           }
         )
         .subscribe();
@@ -180,7 +196,8 @@ export default function DashboardClient({
 
     return () => {
       try {
-        if (channel) supabase.removeChannel(channel);
+        if (tradesChannel) supabase.removeChannel(tradesChannel);
+        if (balanceChannel) supabase.removeChannel(balanceChannel);
       } catch (e) {
         console.warn("[Dashboard] removeChannel failed:", e);
       }
@@ -214,13 +231,17 @@ export default function DashboardClient({
   }, [userId]);
 
   // ------------------ Derived Values ------------------
-  const totalBalance = profile?.balance ?? balance;
+  // Use liveBalance (updated by realtime) as primary source; fallback to profile or initial prop
+  const totalBalance = liveBalance || profile?.balance || initialBalance;
   const todayProfit = wallets.reduce(
     (sum, w) => sum + (w.total_profit ?? 0),
     0
   );
   const todayProfitPercent =
     totalBalance > 0 ? (todayProfit / totalBalance) * 100 : 0;
+
+  // Onboarding banner: show for users with zero balance and no trades
+  const showOnboarding = !loading && totalBalance === 0 && totalTradesCount === 0;
 
   // ------------------ Loading State ------------------
   if (loading) {
@@ -262,6 +283,28 @@ export default function DashboardClient({
             {t('dashboard.overviewSubtitle')}
           </p>
         </div>
+
+        {/* Onboarding Banner — shown only to new users */}
+        {showOnboarding && (
+          <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/40 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h2 className="text-white font-bold text-xl mb-1">🚀 Welcome to XSpy Trader!</h2>
+              <p className="text-blue-200 text-sm">Get started by making your first deposit. Funds appear instantly after admin approval.</p>
+            </div>
+            <div className="flex gap-3 shrink-0">
+              <Link href="/dashboard/deposit">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <CreditCard className="w-4 h-4 mr-2" /> Make a Deposit
+                </Button>
+              </Link>
+              <Link href="/dashboard/trading">
+                <Button variant="outline" className="border-slate-500 text-slate-300 bg-transparent hover:bg-slate-700">
+                  <TrendingUp className="w-4 h-4 mr-2" /> Start Trading
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div

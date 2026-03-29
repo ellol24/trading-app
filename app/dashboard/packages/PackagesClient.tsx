@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DollarSign, Clock, Package, PiggyBank, Wallet, Info } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
+import { DollarSign, Clock, Package, PiggyBank, Wallet, Info, TrendingUp, Calculator } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
@@ -343,15 +344,28 @@ export default function PackagesClient({ userId }: { userId: string }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {packages.map((pkg) => {
                   const amt = amounts[pkg.id] ?? pkg.min_investment
+                  const min = Number(pkg.min_investment ?? 0)
+                  const max = Number(pkg.max_investment ?? min)
+                  const roiDaily = Number(pkg.roi_daily_percentage ?? 0)
+                  const durationDays = Number(pkg.duration_days ?? 0)
+                  const projectedProfit = Number(((amt * (roiDaily / 100)) * durationDays).toFixed(2))
+                  const totalReturn = Number((amt + projectedProfit).toFixed(2))
                   return (
                     <Card key={pkg.id} className="trading-card" translate="no" data-react-protected>
                       <CardContent className="p-0">
                         <div className="relative">
-                          <img
-                            src={pkg.image_url || "/placeholder.svg"}
-                            alt={pkg.title ?? "package"}
-                            className="w-full h-44 object-cover rounded-t-lg"
-                          />
+                          {pkg.image_url ? (
+                            <img
+                              src={pkg.image_url}
+                              alt={pkg.title ?? "package"}
+                              className="w-full h-44 object-cover rounded-t-lg"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className="w-full h-44 rounded-t-lg bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
+                              <TrendingUp className="w-16 h-16 text-white/30" />
+                            </div>
+                          )}
                           <div className="absolute top-4 right-4">
                             <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
                               {pkg.roi_daily_percentage}{t('packages.percentDaily')}
@@ -382,21 +396,59 @@ export default function PackagesClient({ userId }: { userId: string }) {
                             </div>
                           </div>
 
-                          <div className="space-y-2">
+                          {/* Amount Input + Slider */}
+                          <div className="space-y-3">
                             <Label htmlFor={`amount-${pkg.id}`} className="text-muted-foreground">
                               {t('common.amount')}
                             </Label>
                             <Input
                               id={`amount-${pkg.id}`}
                               type="number"
-                              min={pkg.min_investment}
-                              max={pkg.max_investment}
+                              min={min}
+                              max={max}
                               value={amt}
-                              onChange={(e) =>
-                                setAmounts((prev) => ({ ...prev, [pkg.id]: Number(e.target.value || 0) }))
-                              }
+                              onChange={(e) => {
+                                const v = Math.min(max, Math.max(min, Number(e.target.value || min)))
+                                setAmounts((prev) => ({ ...prev, [pkg.id]: v }))
+                              }}
                               className="bg-background/20 text-white border-slate-700"
                             />
+                            {max > min && (
+                              <Slider
+                                min={min}
+                                max={max}
+                                step={Math.max(1, Math.round((max - min) / 100))}
+                                value={[amt]}
+                                onValueChange={([v]) => setAmounts((prev) => ({ ...prev, [pkg.id]: v }))}
+                                className="w-full"
+                              />
+                            )}
+                            <div className="flex justify-between text-xs text-slate-500">
+                              <span>Min: {formatUSD(min)}</span>
+                              <span>Max: {formatUSD(max)}</span>
+                            </div>
+                          </div>
+
+                          {/* Profit Calculator */}
+                          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
+                            <div className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
+                              <Calculator className="w-3.5 h-3.5" />
+                              Profit Calculator
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-slate-400 text-xs">Daily profit</span>
+                                <span className="text-white text-xs font-medium">{formatUSD((amt * roiDaily) / 100)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400 text-xs">Total profit</span>
+                                <span className="text-green-400 text-xs font-medium">+{formatUSD(projectedProfit)}</span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-1 border-t border-green-500/20">
+                              <span className="text-slate-300 text-xs">You receive after {durationDays}d</span>
+                              <span className="text-green-400 font-bold text-sm">{formatUSD(totalReturn)}</span>
+                            </div>
                           </div>
 
                           <Button
