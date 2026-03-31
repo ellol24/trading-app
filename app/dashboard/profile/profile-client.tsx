@@ -320,29 +320,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   <span className="text-muted-foreground">{t('common.status')}</span>
                   <Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">KYC Status</span>
-                  <Badge className={kycStatus === "verified" ? "bg-green-600 text-white" : "bg-yellow-600 text-white"}>
-                    {kycStatus === "verified"
-                      ? <><CheckCircle className="w-3 h-3 mr-1 inline" /> Verified</>
-                      : <><AlertCircle className="w-3 h-3 mr-1 inline" /> Unverified</>}
-                  </Badge>
-                </div>
-                {kycStatus !== "verified" && (
-                  <Button
-                    size="sm"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs"
-                    onClick={handleStartKYC}
-                  >
-                    Complete KYC
-                  </Button>
-                )}
-                <div className="pt-4 border-t border-slate-700">
-                  <p className="text-muted-foreground text-sm">{t('profile.lastLogin')}</p>
-                  <p className="text-white text-sm">
-                    {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Never"}
-                  </p>
-                </div>
+
               </CardContent>
             </Card>
           </div>
