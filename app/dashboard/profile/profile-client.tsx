@@ -45,7 +45,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const [activityTrades, setActivityTrades] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [kycStatus, setKycStatus] = useState<string>(profile?.kyc_status ?? "not_verified");
-  const [balance, setBalance] = useState<number>(0);
+  const [balance, setBalance] = useState<number>(profile?.balance || 0);
 
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -335,9 +335,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
                   <Shield className="w-4 h-4" /> {t('profile.security')}
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <Bell className="w-4 h-4" /> {t('profile.notifications')}
-                </TabsTrigger>
+
                 <TabsTrigger value="activity" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
                   <Activity className="w-4 h-4" /> Activity
                 </TabsTrigger>
@@ -437,26 +435,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 </Card>
               </TabsContent>
 
-              {/* Notifications Tab */}
-              <TabsContent value="notifications" translate="no">
-                <Card className="trading-card" translate="no" data-react-protected>
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Bell className="w-5 h-5 mr-2" />{t('profile.notifications')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {(Object.entries(prefs) as [string, any][])
-                      .filter(([key]) => key !== "risk_tolerance")
-                      .map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700">
-                          <div>
-                            <h3 className="text-white font-medium">{prefLabels[key] || key.replace(/_/g, " ")}</h3>
-                          </div>
-                          <Switch checked={Boolean(value)} onCheckedChange={(checked) => updatePreference(key, checked)} />
-                        </div>
-                      ))}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+
 
               {/* Activity Tab */}
               <TabsContent value="activity" translate="no">
