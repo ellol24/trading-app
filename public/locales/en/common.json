@@ -1,0 +1,25 @@
+{
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Log in to your account",
+      "email": "Email Address",
+      "password": "Password",
+      "button": "Log In",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create one"
+    },
+    "register": {
+      "title": "Create Your Account",
+      "subtitle": "Join our platform to get started",
+      "name": "Full Name",
+      "email": "Email Address",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "button": "Create Account",
+      "haveAccount": "Already have an account?",
+      "loginInstead": "Log in"
+    }
+  }
+}

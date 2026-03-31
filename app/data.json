@@ -1,0 +1,17 @@
+{
+  "users": [
+    1482867645,
+    6888766058,
+    "6888766058"
+  ],
+  "history": {
+    "6888766058": [
+      "[2025-12-16 22:43] 📊 Trading Result\n\n⏱ Duration: 30 seconds\n💵 Amount: $50.00\n📈 Profit: $1.00\n✅ Final Balance: $51.00",
+      "[2025-12-16 22:43] 💼 Investment Result\n\n💵 Amount: $70.00\n📅 Daily Profit: $1.75\n📈 Total Profit: $78.75\n✅ Final Balance: $148.75"
+    ]
+  },
+  "stats": {
+    "trades": 0,
+    "invests": 0
+  }
+}
