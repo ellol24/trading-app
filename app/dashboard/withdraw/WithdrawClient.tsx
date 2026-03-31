@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   DollarSign, Shield, Wallet, Lock, AlertCircle,
-  CheckCircle2, Plus, Loader2, Trash2, Clock,
+  CheckCircle2, Plus, Loader2, Trash2, Clock, UserCheck, ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
 
@@ -40,6 +41,27 @@ type WithdrawalRequest = {
   withdrawal_wallets?: WithdrawalWallet | null;
 };
 
+// ─── Profile completeness check ─────────────────────────────────────────────
+function isProfileComplete(profile: any): boolean {
+  if (!profile) return false;
+  return !!(profile.first_name?.trim() && profile.last_name?.trim() &&
+            profile.phone?.trim() && profile.country?.trim());
+}
+
+// ─── 24-hour wallet freeze check ─────────────────────────────────────────────
+function getWalletFreezeInfo(wallet: WithdrawalWallet | undefined): { frozen: boolean; remainingMs: number; remainingLabel: string } {
+  if (!wallet) return { frozen: false, remainingMs: 0, remainingLabel: "" };
+  const createdAt = new Date(wallet.created_at).getTime();
+  const now = Date.now();
+  const elapsed = now - createdAt;
+  const freezeMs = 24 * 60 * 60 * 1000; // 24 hours
+  if (elapsed >= freezeMs) return { frozen: false, remainingMs: 0, remainingLabel: "" };
+  const remainingMs = freezeMs - elapsed;
+  const hrs  = Math.floor(remainingMs / (1000 * 60 * 60));
+  const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  return { frozen: true, remainingMs, remainingLabel: `${hrs}h ${mins}m` };
+}
+
 export default function WithdrawClient({ user, profile }: Props) {
   const { t } = useLanguage();
   const [wallets, setWallets]                 = useState<WithdrawalWallet[]>([]);
@@ -54,10 +76,17 @@ export default function WithdrawClient({ user, profile }: Props) {
   const [minWithdrawAmount, setMinWithdrawAmount] = useState<number>(21);
   const [liveBalance, setLiveBalance]         = useState<number>(profile?.balance ?? 0);
   const [nextWithdrawTime, setNextWithdrawTime] = useState<string | null>(null);
+  const [, forceRender]                       = useState<number>(0); // for freeze countdown
 
   const [newWallet, setNewWallet] = useState<{
     asset: WithdrawalWallet["asset"] | ""; address: string; label: string;
   }>({ asset: "", address: "", label: "" });
+
+  // Tick every minute so freeze countdown refreshes
+  useEffect(() => {
+    const timer = setInterval(() => forceRender(n => n + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ─── Initial data load ───────────────────────────────────────────────────
   useEffect(() => {
@@ -129,9 +158,12 @@ export default function WithdrawClient({ user, profile }: Props) {
   }, [user?.id, loadWithdrawals]);
 
   // ─── Computed values ─────────────────────────────────────────────────────
-  const selectedWallet = useMemo(() => wallets.find((w) => w.id === selectedWalletId), [wallets, selectedWalletId]);
-  const fee = amount ? Math.max(0, Number(amount) * (feePercentage / 100)) : 0;
-  const net = amount ? Math.max(0, Number(amount) - fee) : 0;
+  const selectedWallet    = useMemo(() => wallets.find((w) => w.id === selectedWalletId), [wallets, selectedWalletId]);
+  const fee               = amount ? Math.max(0, Number(amount) * (feePercentage / 100)) : 0;
+  const net               = amount ? Math.max(0, Number(amount) - fee) : 0;
+  const profileComplete   = isProfileComplete(profile);
+  const freezeInfo        = getWalletFreezeInfo(selectedWallet);
+  const canSubmit         = withdrawEnabled && profileComplete && !freezeInfo.frozen && !!selectedWallet && !!amount && Number(amount) >= minWithdrawAmount && !isSubmitting;
 
   const startOfTodayISO = () => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString();
@@ -266,7 +298,7 @@ export default function WithdrawClient({ user, profile }: Props) {
           </Badge>
         </div>
 
-        {/* Disabled banner */}
+        {/* Admin disabled banner */}
         {!withdrawEnabled && (
           <Alert className="bg-red-600/20 border-red-600/40 text-red-300">
             <AlertCircle className="h-5 w-5" />
@@ -275,9 +307,36 @@ export default function WithdrawClient({ user, profile }: Props) {
           </Alert>
         )}
 
-        {/* Next withdrawal time */}
+        {/* Profile incomplete banner */}
+        {!profileComplete && (
+          <Alert className="bg-orange-600/20 border-orange-500/50 text-orange-200">
+            <UserCheck className="h-5 w-5 text-orange-400" />
+            <AlertTitle className="text-orange-300 font-semibold">Profile Incomplete — Withdrawals Locked</AlertTitle>
+            <AlertDescription className="text-orange-200 mt-1">
+              To protect your funds, you must complete your profile before withdrawing.
+              Please fill in your <strong>First Name, Last Name, Phone Number, and Country</strong>.
+              <Link href="/dashboard/profile" className="inline-flex items-center gap-1 ml-2 text-orange-300 underline underline-offset-2 hover:text-orange-100 font-medium">
+                Go to Profile <ExternalLink className="w-3 h-3" />
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Wallet 24-hour security freeze banner */}
+        {freezeInfo.frozen && (
+          <Alert className="bg-blue-700/20 border-blue-500/40 text-blue-200">
+            <Shield className="h-5 w-5 text-blue-400" />
+            <AlertTitle className="text-blue-300 font-semibold">Security Freeze Active — {freezeInfo.remainingLabel} Remaining</AlertTitle>
+            <AlertDescription className="text-blue-200">
+              For your security, withdrawals are suspended for <strong>24 hours</strong> after a new withdrawal address is added.
+              This prevents unauthorised fund transfers if your account is compromised. Please wait or select an older wallet.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Daily limit banner */}
         {nextWithdrawTime && (
-          <Alert className="bg-blue-600/10 border-blue-600/30 text-blue-300">
+          <Alert className="bg-slate-600/20 border-slate-500/40 text-slate-300">
             <Clock className="h-4 w-4" />
             <AlertTitle>Daily limit reached</AlertTitle>
             <AlertDescription>You can submit your next withdrawal after: <strong>{nextWithdrawTime}</strong></AlertDescription>
@@ -381,15 +440,19 @@ export default function WithdrawClient({ user, profile }: Props) {
                     </div>
 
                     <Button
-                      className="w-full h-14 text-lg font-semibold professional-gradient"
+                      className="w-full h-14 text-lg font-semibold professional-gradient disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={submitWithdrawal}
-                      disabled={!withdrawEnabled || !selectedWallet || !amount || Number(amount) < minWithdrawAmount || isSubmitting}
+                      disabled={!canSubmit}
                     >
                       {isSubmitting
                         ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />{t("common.submitting")}</>
                         : !withdrawEnabled
                           ? t("wallet.withdrawalsDisabledTitle")
-                          : t("wallet.submitRequest")}
+                          : !profileComplete
+                            ? <><UserCheck className="mr-2 h-5 w-5" /> Complete Your Profile to Withdraw</>
+                            : freezeInfo.frozen
+                              ? <><Clock className="mr-2 h-5 w-5" /> Security Freeze — {freezeInfo.remainingLabel} Remaining</>
+                              : t("wallet.submitRequest")}
                     </Button>
                   </CardContent>
                 </Card>
