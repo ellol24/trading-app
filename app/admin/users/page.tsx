@@ -87,6 +87,24 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers();
+
+    const channel = supabase
+      .channel("admin-users")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_profiles" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            toast.success("New User Registration");
+          }
+          fetchUsers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const updateUser = async (uid: string, updates: Partial<UserProfile>) => {

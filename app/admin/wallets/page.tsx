@@ -69,6 +69,7 @@ export default function AdminWalletsPage() {
     const { data, error } = await supabase.from("deposit_wallets").update({ visible: !wallet.visible }).eq("id", id).select().single()
     if (!error && data) {
       setWallets(prev => prev.map(w => w.id === id ? (data as PlatformWallet) : w))
+      toast({ title: "Visibility Updated", description: "The wallet's visibility has been changed." })
     }
   }
 

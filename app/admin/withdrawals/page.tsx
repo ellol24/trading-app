@@ -96,6 +96,29 @@ export default function AdminWithdrawalsPage() {
 
   useEffect(() => {
     fetchWithdrawals()
+
+    const channel = supabase
+      .channel("admin-withdrawals")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "withdrawals" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            toast({
+              title: "New Withdrawal Request",
+              description: "A user has requested a new withdrawal.",
+            });
+            fetchWithdrawals();
+          } else {
+            fetchWithdrawals();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [])
 
   const filtered = useMemo(() => {
@@ -133,10 +156,10 @@ export default function AdminWithdrawalsPage() {
       action === "approve"
         ? "approved"
         : action === "processing"
-        ? "processing"
-        : action === "paid"
-        ? "paid"
-        : "rejected"
+          ? "processing"
+          : action === "paid"
+            ? "paid"
+            : "rejected"
 
     const { error } = await supabase
       .from("withdrawals")
@@ -266,8 +289,8 @@ export default function AdminWithdrawalsPage() {
                       w.kycStatus === "approved"
                         ? "text-green-600 border-green-600"
                         : w.kycStatus === "pending"
-                        ? "text-yellow-600 border-yellow-600"
-                        : "text-red-600 border-red-600"
+                          ? "text-yellow-600 border-yellow-600"
+                          : "text-red-600 border-red-600"
                     }
                   >
                     KYC {w.kycStatus}

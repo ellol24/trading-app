@@ -98,8 +98,21 @@ export default function AdminTradingControlsPage() {
   useEffect(() => {
     fetchRounds();
     fetchTradingLimits();
-    const id = setInterval(fetchRounds, 3000);
-    return () => clearInterval(id);
+
+    const channel = supabase
+      .channel("admin-trade-rounds")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trade_rounds" },
+        (payload) => {
+          fetchRounds();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // إنشاء جولة

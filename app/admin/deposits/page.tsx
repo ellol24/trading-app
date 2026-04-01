@@ -64,6 +64,30 @@ export default function AdminDepositsPage() {
 
   useEffect(() => {
     fetchDeposits();
+
+    const channel = supabase
+      .channel("admin-deposits")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deposits" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            toast({
+              title: "New Deposit Alert",
+              description: "A new deposit request has just arrived.",
+            });
+            fetchDeposits();
+          } else {
+            // Re-fetch on updates or deletes
+            fetchDeposits();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -257,7 +281,7 @@ export default function AdminDepositsPage() {
                         <div className="text-2xl font-bold text-emerald-400">${Number(d.amount).toFixed(2)}</div>
                         <div className="text-xs text-slate-500">{new Date(d.created_at).toLocaleString()}</div>
                       </div>
-                      
+
                       <div className="w-24 flex justify-end">
                         {statusBadge(d.status)}
                       </div>
@@ -293,7 +317,7 @@ export default function AdminDepositsPage() {
                   )}
                 </div>
               ))}
-              
+
               {filtered.length === 0 && (
                 <div className="p-8 text-center text-slate-500">
                   No deposits match your search criteria.

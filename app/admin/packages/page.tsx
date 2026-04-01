@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase/client";
 // هنا أستخدم أصغر كمية ممكنة من المكونات الافتراضية
 import { Plus, Edit, Trash2, Percent, Calendar, Coins, Users, DollarSign, TrendingUp, Package } from "lucide-react";
 
+import { useToast } from "@/hooks/use-toast";
+
 type DBPackage = {
   id: string;
   title: string;
@@ -58,6 +60,8 @@ export default function AdminPackagesPage() {
     totalPurchases: 0,
     totalRevenue: 0,
   });
+
+  const { toast } = useToast();
 
   // نموذج محلي للمودال
   const [form, setForm] = useState({
@@ -173,7 +177,7 @@ export default function AdminPackagesPage() {
 
   async function save() {
     if (!form.title) {
-      alert("الاسم مطلوب");
+      toast({ title: "Name Required", description: "الاسم مطلوب", variant: "destructive" });
       return;
     }
     setProcessing(true);
@@ -206,7 +210,7 @@ export default function AdminPackagesPage() {
       setOpen(false);
     } catch (err: any) {
       console.error("save error", err);
-      alert(err?.message || "حدث خطأ أثناء الحفظ");
+      toast({ title: "Error", description: err?.message || "حدث خطأ أثناء الحفظ", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -221,7 +225,7 @@ export default function AdminPackagesPage() {
       await loadData();
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "خطأ في الحذف");
+      toast({ title: "Error", description: err?.message || "خطأ في الحذف", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -238,7 +242,7 @@ export default function AdminPackagesPage() {
       await loadData();
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "خطأ في تغيير الحالة");
+      toast({ title: "Error", description: err?.message || "خطأ في تغيير الحالة", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -259,7 +263,7 @@ export default function AdminPackagesPage() {
       }
     } catch (err) {
       console.error("upload image error", err);
-      alert("فشل رفع الصورة");
+      toast({ title: "Upload Failed", description: "فشل رفع الصورة", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
