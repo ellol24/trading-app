@@ -27,5 +27,10 @@
   "profile": "Profil",
   "balance": "Solde",
   "activityTab": "Activité",
-  "statusPending": "En attente"
+  "statusPending": "En attente",
+  "waitingVerification": "En attente — Complétez le profil",
+  "confirmPasswordChange": "Confirmer le changement de mot de passe",
+  "confirmPasswordChangeDesc": "Voulez-vous vraiment changer votre mot de passe ? Vous devrez utiliser le nouveau mot de passe lors de vos prochaines connexions.",
+  "passwordUpdated": "Mot de passe mis à jour",
+  "passwordUpdatedDesc": "Votre mot de passe a été changé avec succès."
 }

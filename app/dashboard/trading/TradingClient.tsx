@@ -141,69 +141,19 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     fetchBalance();
   }, [userId]);
 
-  // ─── Real-time subscriptions ──────────────────────────────────────────────
+  // ─── Polling fallback (WebSocket channels may be RLS-blocked for user pages) ─
   useEffect(() => {
     if (!userId) return;
 
-    // Subscribe to trade_rounds changes (new rounds, status updates)
-    const roundsChannel = supabase
-      .channel(`trading-rounds-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "trade_rounds" }, () => {
-        fetchDeals();
-      })
-      .subscribe();
+    // Poll every 5 seconds — fast enough to feel live without hammering the DB
+    const interval = setInterval(() => {
+      fetchDeals();
+      fetchTrades();
+      fetchBalance();
+      fetchJoined();
+    }, 5000);
 
-    // Subscribe to user's trades changes
-    const tradesChannel = supabase
-      .channel(`trading-trades-${userId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "trades", filter: `user_id=eq.${userId}` },
-        () => {
-          fetchTrades();
-          fetchBalance();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to balance changes
-    const balanceChannel = supabase
-      .channel(`trading-balance-${userId}`)
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "user_profiles", filter: `uid=eq.${userId}` },
-        (payload) => {
-          if (payload.new?.balance !== undefined) {
-            setBalance(Number(payload.new.balance));
-          }
-          if (payload.new?.min_trade_amount !== undefined) {
-            setMinTradeAmount(Number(payload.new.min_trade_amount));
-          }
-          if (payload.new?.suggested_trade_amounts) {
-            try {
-              const parsed = typeof payload.new.suggested_trade_amounts === 'string'
-                ? JSON.parse(payload.new.suggested_trade_amounts)
-                : payload.new.suggested_trade_amounts;
-              if (Array.isArray(parsed)) setQuickAmounts(parsed);
-            } catch (e) { }
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to user_rounds changes
-    const userRoundsChannel = supabase
-      .channel(`trading-user-rounds-${userId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "user_rounds", filter: `user_id=eq.${userId}` },
-        () => { fetchJoined(); }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(roundsChannel);
-      supabase.removeChannel(tradesChannel);
-      supabase.removeChannel(balanceChannel);
-      supabase.removeChannel(userRoundsChannel);
-    };
+    return () => clearInterval(interval);
   }, [userId]);
 
   const activeDeal = useMemo(() => deals.find((d) => d.status === "active") || null, [deals]);

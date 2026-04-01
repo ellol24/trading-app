@@ -19,7 +19,8 @@
   "memberSince": "عضو منذ",
   "accountOverview": "نظرة عامة على الحساب",
   "lastLogin": "آخر تسجيل دخول",
-  "verifiedAccount": "حساب موثق",
+  "verifiedAccount": "تم التحقق",
+  "waitingVerification": "بانتظار — أكمل الملف الشخصي",
   "unverifiedAccount": "حساب غير موثق",
   "city": "المدينة",
   "zipCode": "الرمز البريدي",
@@ -27,5 +28,9 @@
   "profile": "الملف الشخصي",
   "balance": "الرصيد",
   "activityTab": "النشاط",
-  "statusPending": "قيد الانتظار"
+  "statusPending": "قيد الانتظار",
+  "confirmPasswordChange": "تأكيد تغيير كلمة المرور",
+  "confirmPasswordChangeDesc": "هل أنت متأكد من رغبتك في تغيير كلمة المرور؟ ستحتاج إلى استخدام كلمة المرور الجديدة في جميع عمليات تسجيل الدخول المستقبلية.",
+  "passwordUpdated": "تم تحديث كلمة المرور",
+  "passwordUpdatedDesc": "تم تغيير كلمة المرور بنجاح."
 }

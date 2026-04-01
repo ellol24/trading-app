@@ -19,7 +19,8 @@
   "memberSince": "Member Since",
   "accountOverview": "Account Overview",
   "lastLogin": "Last Login",
-  "verifiedAccount": "Verified Account",
+  "verifiedAccount": "Verified",
+  "waitingVerification": "Waiting — Complete Profile",
   "unverifiedAccount": "Unverified Account",
   "city": "City",
   "zipCode": "Zip Code",
@@ -27,5 +28,9 @@
   "profile": "Profile",
   "balance": "Balance",
   "activityTab": "Activity",
-  "statusPending": "pending"
+  "statusPending": "pending",
+  "confirmPasswordChange": "Confirm Password Change",
+  "confirmPasswordChangeDesc": "Are you sure you want to change your password? You will need the new password for all future logins.",
+  "passwordUpdated": "Password Updated",
+  "passwordUpdatedDesc": "Your password has been changed successfully."
 }

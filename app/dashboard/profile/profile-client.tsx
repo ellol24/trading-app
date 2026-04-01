@@ -15,6 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/language-context";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from "@/components/ui/dialog";
+import {
   Mail, CheckCircle, LogOut, User, Shield, Bell,
   Activity, Edit, Save, X, Eye, EyeOff,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, AlertCircle,
@@ -38,6 +41,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   // Activity state
   const [activityDeposits, setActivityDeposits] = useState<any[]>([]);
@@ -131,7 +135,8 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     setActivityLoading(true);
     try {
       const [depRes, wdRes, tradeRes, profRes] = await Promise.all([
-        supabase.from("deposits").select("id, amount, status, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
+        // FIX: deposits uses 'uid' not 'user_id'
+        supabase.from("deposits").select("id, amount, status, created_at").eq("uid", user.id).order("created_at", { ascending: false }).limit(8),
         supabase.from("withdrawals").select("id, amount, status, created_at, net_amount").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
         supabase.from("trades").select("id, asset, type, amount, result, profit_loss, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
         supabase.from("user_profiles").select("balance, kyc_status").eq("uid", user.id).single(),
@@ -150,21 +155,12 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
   useEffect(() => { fetchActivity(); }, [fetchActivity]);
 
-  // Real-time: listen for balance/kyc changes
+  // Polling every 5s for activity data (WebSocket RLS may block user-scoped channels)
   useEffect(() => {
     if (!user) return;
-    const ch = supabase
-      .channel(`profile-realtime-${user.id}`)
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "user_profiles", filter: `uid=eq.${user.id}` },
-        (payload) => {
-          if (payload.new?.balance !== undefined) setBalance(Number(payload.new.balance));
-          if (payload.new?.kyc_status !== undefined) setKycStatus(payload.new.kyc_status);
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [user]);
+    const interval = setInterval(() => fetchActivity(), 5000);
+    return () => clearInterval(interval);
+  }, [user, fetchActivity]);
 
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -219,11 +215,17 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       toast({ title: "Missing field", description: "Please enter a new password.", variant: "destructive" });
       return;
     }
+    // Show confirm dialog instead of immediately updating
+    setShowPasswordConfirm(true);
+  };
+
+  const confirmChangePassword = async () => {
+    setShowPasswordConfirm(false);
     setIsPasswordSaving(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast({ title: "Password updated", description: "Your password has been changed successfully." });
+      toast({ title: t('profile.passwordUpdated') || "Password updated", description: t('profile.passwordUpdatedDesc') || "Your password has been changed successfully." });
       setCurrentPassword("");
       setNewPassword("");
     } catch (err: any) {
@@ -280,9 +282,15 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <h1 className="text-2xl font-bold text-white">{profileData.firstName} {profileData.lastName}</h1>
               <p className="text-blue-200 flex items-center"><Mail className="w-4 h-4 mr-2" />{profileData.email}</p>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
+                <Badge variant="outline" className={[
+                  !!(profileData.firstName?.trim() && profileData.lastName?.trim() && profileData.phone?.trim() && profileData.country?.trim())
+                    ? "text-green-400 border-green-400 bg-green-400/10"
+                    : "text-yellow-400 border-yellow-400 bg-yellow-400/10"
+                ].join(" ")}>
                   <CheckCircle className="w-3 h-3 mr-1" />
-                  {user?.email_confirmed_at ? t('profile.verifiedAccount') : t('profile.unverifiedAccount')}
+                  {!!(profileData.firstName?.trim() && profileData.lastName?.trim() && profileData.phone?.trim() && profileData.country?.trim())
+                    ? t('profile.verifiedAccount')
+                    : t('profile.waitingVerification') || t('common.pendingVerification')}
                 </Badge>
                 <Badge variant="outline" className="text-blue-400 border-blue-400 bg-blue-400/10">
                   {t("profile.balance")}: ${balance.toFixed(2)}
@@ -434,6 +442,22 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {/* Password confirm dialog */}
+              <Dialog open={showPasswordConfirm} onOpenChange={setShowPasswordConfirm}>
+                <DialogContent className="bg-slate-900 border-slate-700">
+                  <DialogHeader>
+                    <DialogTitle className="text-white">{t('profile.confirmPasswordChange') || "Confirm Password Change"}</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      {t('profile.confirmPasswordChangeDesc') || "Are you sure you want to change your password? You will need to use the new password for all future logins."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent" onClick={() => setShowPasswordConfirm(false)}>{t('common.cancel')}</Button>
+                    <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmChangePassword}>{t('profile.updatePassword')}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
 
 

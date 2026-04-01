@@ -27,5 +27,10 @@
   "profile": "Profil",
   "balance": "Guthaben",
   "activityTab": "Aktivität",
-  "statusPending": "Ausstehend"
+  "statusPending": "Ausstehend",
+  "waitingVerification": "Wartend — Profil vervollständigen",
+  "confirmPasswordChange": "Passwortänderung bestätigen",
+  "confirmPasswordChangeDesc": "Möchten Sie Ihr Passwort wirklich ändern? Sie benötigen das neue Passwort für alle zukünftigen Anmeldungen.",
+  "passwordUpdated": "Passwort aktualisiert",
+  "passwordUpdatedDesc": "Ihr Passwort wurde erfolgreich geändert."
 }
