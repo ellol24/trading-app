@@ -114,7 +114,7 @@ export default function WithdrawClient({ user, profile }: Props) {
   const loadWithdrawals = useCallback(async () => {
     const { data, error } = await supabase
       .from("withdrawals")
-      .select("*, withdrawal_wallets(*)")
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) toast.error(`❌ ${t("wallet.historyLoadError")}`);
@@ -556,7 +556,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                       {statusBadge(r.status)}
                     </div>
                     <p className="text-muted-foreground text-xs">
-                      {r.withdrawal_wallets?.label || r.withdrawal_wallets?.asset || "—"} •{" "}
+                      {(wallets.find(w => w.id === r.wallet_id)?.label || wallets.find(w => w.id === r.wallet_id)?.asset) || "—"} •{" "}
                       {new Date(r.created_at).toLocaleString()}
                     </p>
                     <p className="text-muted-foreground text-xs">Net: ${Number(r.net_amount).toFixed(2)}</p>
