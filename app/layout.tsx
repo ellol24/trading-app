@@ -1,11 +1,11 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Tajawal } from "next/font/google";
 import "./globals.css";
 import ClientProviders from "@/components/ClientProviders";
 import { BRAND_NAME, BRAND_DESCRIPTION } from "@/lib/brand";
 
-const inter = Inter({ subsets: ["latin"] });
+const tajawal = Tajawal({ subsets: ["latin", "arabic"], weight: ["400", "500", "700", "900"] });
 
 export const metadata: Metadata = {
   title: `${BRAND_NAME} - Professional Trading Platform`,
@@ -22,7 +22,7 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className={inter.className}>
+      <body className={tajawal.className}>
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>

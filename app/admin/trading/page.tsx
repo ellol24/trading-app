@@ -44,6 +44,39 @@ export default function AdminTradingControlsPage() {
     Record<string, Outcome>
   >({});
 
+  // Global trading limits
+  const [minTradeAmount, setMinTradeAmount] = useState<number>(1);
+  const [suggestedAmounts, setSuggestedAmounts] = useState<string>("10, 25, 50, 100, 250, 500");
+  const [savingLimits, setSavingLimits] = useState(false);
+
+  const fetchTradingLimits = async () => {
+    const { data } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "trading_limits")
+      .maybeSingle();
+    if (data?.value) {
+      const v = data.value as any;
+      setMinTradeAmount(Number(v.min_trade_amount) || 1);
+      setSuggestedAmounts(Array.isArray(v.suggested_amounts) ? v.suggested_amounts.join(", ") : "10, 25, 50, 100, 250, 500");
+    }
+  };
+
+  const saveTradingLimits = async () => {
+    setSavingLimits(true);
+    const parsedAmounts = suggestedAmounts.split(",").map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
+    const value = { min_trade_amount: minTradeAmount, suggested_amounts: parsedAmounts };
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert({ key: "trading_limits", value }, { onConflict: "key" });
+    setSavingLimits(false);
+    if (error) {
+      toast({ title: "Error saving limits", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "✅ Trading limits saved", description: "All users will see updated limits instantly." });
+    }
+  };
+
   // جلب الجولات
   const fetchRounds = async () => {
     const { data, error } = await supabase
@@ -64,6 +97,7 @@ export default function AdminTradingControlsPage() {
 
   useEffect(() => {
     fetchRounds();
+    fetchTradingLimits();
     const id = setInterval(fetchRounds, 3000);
     return () => clearInterval(id);
   }, []);
@@ -135,6 +169,8 @@ export default function AdminTradingControlsPage() {
       return;
     }
 
+    const finalOutcome = outcome as "win" | "lose";
+
     // ✅ تحديد الفوز بناءً على اتجاه الأدمن
     const isAdminBuy = round.admin_direction === "buy";
 
@@ -178,14 +214,11 @@ export default function AdminTradingControlsPage() {
       const userSell = trade.type === "PUT" || trade.type === "SELL";
 
       if (
-        (isAdminBuy && userBuy && outcome === "win") ||
-        (!isAdminBuy && userSell && outcome === "win")
+        (isAdminBuy && userBuy && finalOutcome === "win") ||
+        (!isAdminBuy && userSell && finalOutcome === "win")
       ) {
         result = "win";
         profit = trade.amount * (trade.roi_percentage / 100);
-      } else if (outcome === "draw") {
-        result = "draw";
-        profit = 0;
       } else {
         result = "lose";
         profit = -trade.amount;
@@ -307,6 +340,50 @@ export default function AdminTradingControlsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
+
+        {/* 🎛️ Global Trading Configuration */}
+        <Card className="bg-slate-800/60 border-blue-500/30 shadow-xl shadow-blue-900/20">
+          <CardHeader>
+            <CardTitle className="text-lg md:text-xl text-white flex items-center gap-2">
+              🎛️ Global Trading Configuration
+            </CardTitle>
+            <p className="text-sm text-slate-400">Set the minimum entry amount and suggested quick-amounts for all users on the trading page.</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label className="text-white font-semibold">Minimum Entry Amount ($)</Label>
+              <Input
+                type="number"
+                min={0.1}
+                step={0.1}
+                className="bg-slate-900 border-slate-700 text-white text-lg"
+                value={minTradeAmount}
+                onChange={(e) => setMinTradeAmount(Number(e.target.value))}
+              />
+              <p className="text-xs text-slate-500">Users cannot trade below this amount.</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white font-semibold">Suggested Quick Amounts (comma-separated)</Label>
+              <Input
+                className="bg-slate-900 border-slate-700 text-white"
+                placeholder="10, 25, 50, 100, 250, 500"
+                value={suggestedAmounts}
+                onChange={(e) => setSuggestedAmounts(e.target.value)}
+              />
+              <p className="text-xs text-slate-500">These appear as quick-select buttons on the trading page.</p>
+            </div>
+            <div className="md:col-span-2 flex justify-end">
+              <Button
+                onClick={saveTradingLimits}
+                disabled={savingLimits}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-2 shadow-lg shadow-blue-600/20"
+              >
+                {savingLimits ? "Saving..." : "💾 Save Trading Limits"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* إنشاء جولة جديدة */}
         <Card>
           <CardHeader>

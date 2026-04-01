@@ -318,7 +318,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('common.status')}</span>
-                  <Badge className="bg-green-600 text-white">{profile?.status || t("common.status_active")}</Badge>
+                  <Badge className="bg-green-600 text-white">{profile?.status === 'active' ? t("common.status_active") : profile?.status === 'pending' ? t("common.pending") : profile?.status || t("common.status_active")}</Badge>
                 </div>
 
               </CardContent>
@@ -498,7 +498,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                             <div className="text-right">
                               <p className="text-white text-sm">${tr.amount}</p>
                               <Badge className={`text-xs ${tr.result === "win" ? "bg-green-500/20 text-green-400" : tr.result === "lose" ? "bg-red-500/20 text-red-400" : "bg-slate-500/20 text-slate-400"}`}>
-                                {tr.result || t("common.pending")}
+                                {tr.result === "pending" || !tr.result ? t("common.pending") : tr.result}
                               </Badge>
                             </div>
                           </div>

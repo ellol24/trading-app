@@ -103,5 +103,6 @@
   "statusBadgePending": "⏳ قيد الانتظار",
   "statusBadgeRejected": "❌ مرفوض",
   "secureAndManual": "آمن ويدوي",
-  "selectWalletStep": "1. اختيار المحفظة وإدخال المبلغ"
+  "selectWalletStep": "1. اختيار المحفظة وإدخال المبلغ",
+  "insufficientBalanceWithAvailable": "الرصيد غير كافٍ (المتاح: ${balance})"
 }

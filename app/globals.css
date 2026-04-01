@@ -94,10 +94,7 @@ body[style*="position: relative"] * {
   background-color: transparent !important;
 }
 
-/* حماية من font changes غير مرغوب فيها */
-* {
-  font-family: var(--font-sans) !important;
-}
+/* Font rendering - Tajawal handles both Latin and Arabic */
 
 /* حماية خاصة للعناصر المالية */
 [data-price-element] {
@@ -169,10 +166,7 @@ body.goog-te-hl-active * {
   background-color: transparent !important;
 }
 
-/* حماية من font changes غير مرغوب فيها */
-* {
-  font-family: var(--font-sans) !important;
-}
+
 
 :root {
   --background: oklch(1 0 0);

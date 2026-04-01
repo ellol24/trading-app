@@ -41,5 +41,7 @@
   "totalProfit": "Total profit",
   "youReceiveAfter": "You receive after {n}d",
   "minLabel": "Min:",
-  "maxLabel": "Max:"
+  "maxLabel": "Max:",
+  "alreadyActiveTitle": "Package Already Active",
+  "alreadyActiveDesc": "You already have an active investment with this package. Please wait for it to expire."
 }

@@ -205,7 +205,7 @@ export default function WithdrawClient({ user, profile }: Props) {
 
       const currentBalance = Number(profileRow.balance || 0);
       if (currentBalance < amt) {
-        toast.error(`⚠️ ${t("wallet.insufficientBalance")} (Available: $${currentBalance.toFixed(2)})`);
+        toast.error(`⚠️ ${t("wallet.insufficientBalanceWithAvailable").replace('{balance}', currentBalance.toFixed(2))}`);
         return;
       }
 

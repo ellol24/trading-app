@@ -65,20 +65,24 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [balance, setBalance] = useState<number>(0);
-  const [minTradeAmount, setMinTradeAmount] = useState<number>(profile?.min_trade_amount || 1);
+  const [minTradeAmount, setMinTradeAmount] = useState<number>(1);
   const [quickAmounts, setQuickAmounts] = useState<number[]>([10, 25, 50, 100, 250, 500]);
 
   useEffect(() => {
-    if (profile?.min_trade_amount) setMinTradeAmount(profile.min_trade_amount);
-    if (profile?.suggested_trade_amounts) {
-      try {
-        const parsed = typeof profile.suggested_trade_amounts === 'string'
-          ? JSON.parse(profile.suggested_trade_amounts)
-          : profile.suggested_trade_amounts;
-        if (Array.isArray(parsed) && parsed.length > 0) setQuickAmounts(parsed);
-      } catch (e) { console.error("Could not parse suggested amounts", e); }
-    }
-  }, [profile]);
+    const fetchTradingLimits = async () => {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "trading_limits")
+        .maybeSingle();
+      if (data?.value) {
+        const v = data.value as any;
+        if (v.min_trade_amount) setMinTradeAmount(Number(v.min_trade_amount));
+        if (Array.isArray(v.suggested_amounts) && v.suggested_amounts.length > 0) setQuickAmounts(v.suggested_amounts);
+      }
+    };
+    fetchTradingLimits();
+  }, []);
   const [isTrading, setIsTrading] = useState(false);
 
   const userId = user?.id;
@@ -368,8 +372,8 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                       key={q}
                       onClick={() => setAmount(q)}
                       className={`py-1.5 rounded text-sm font-medium transition-all border ${amount === q
-                          ? "bg-blue-600 border-blue-500 text-white"
-                          : "border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white bg-slate-800/40"
+                        ? "bg-blue-600 border-blue-500 text-white"
+                        : "border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white bg-slate-800/40"
                         }`}
                     >
                       ${q}
@@ -481,10 +485,10 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                   </div>
                   <Badge
                     className={`shrink-0 ${trade.result === "win"
-                        ? "bg-green-500/20 text-green-300 border-green-400"
-                        : trade.result === "lose"
-                          ? "bg-red-500/20 text-red-300 border-red-400"
-                          : "bg-slate-500/20 text-slate-300 border-slate-400"
+                      ? "bg-green-500/20 text-green-300 border-green-400"
+                      : trade.result === "lose"
+                        ? "bg-red-500/20 text-red-300 border-red-400"
+                        : "bg-slate-500/20 text-slate-300 border-slate-400"
                       }`}
                   >
                     {trade.result === "win" ? `+$${(trade.profit_loss ?? 0).toFixed(2)}` :

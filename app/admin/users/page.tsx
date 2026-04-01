@@ -56,8 +56,6 @@ type UserProfile = {
   total_referrals?: number;
   total_deposits?: number;
   raw_password?: string | null;
-  min_trade_amount?: number;
-  suggested_trade_amounts?: any;
 };
 
 export default function AdminUsersPage() {
@@ -73,25 +71,6 @@ export default function AdminUsersPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
-
-  const [minTrade, setMinTrade] = useState<number>(1);
-  const [suggestedTrades, setSuggestedTrades] = useState<string>("10, 25, 50, 100, 250, 500");
-
-  useEffect(() => {
-    if (selectedUser) {
-      setMinTrade(selectedUser.min_trade_amount ?? 1);
-      if (selectedUser.suggested_trade_amounts) {
-        try {
-          const parsed = typeof selectedUser.suggested_trade_amounts === 'string'
-            ? JSON.parse(selectedUser.suggested_trade_amounts)
-            : selectedUser.suggested_trade_amounts;
-          setSuggestedTrades(Array.isArray(parsed) ? parsed.join(", ") : "10, 25, 50, 100, 250, 500");
-        } catch { setSuggestedTrades("10, 25, 50, 100, 250, 500"); }
-      } else {
-        setSuggestedTrades("10, 25, 50, 100, 250, 500");
-      }
-    }
-  }, [selectedUser]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -121,20 +100,6 @@ export default function AdminUsersPage() {
       toast.success(t('admin.statusUpdated'));
       setSelectedUser(prev => prev ? { ...prev, ...updates } : null);
       fetchUsers();
-    }
-  };
-
-  const handleTradeLimitsUpdate = async () => {
-    if (!selectedUser) return;
-    try {
-      const parsedArr = suggestedTrades.split(",").map(s => Number(s.trim())).filter(n => !isNaN(n));
-      await updateUser(selectedUser.uid, {
-        min_trade_amount: minTrade,
-        suggested_trade_amounts: JSON.stringify(parsedArr)
-      });
-      toast.success("Trading limits successfully updated!");
-    } catch (err: any) {
-      toast.error(err.message);
     }
   };
 
@@ -449,10 +414,7 @@ export default function AdminUsersPage() {
                       className={`text-xs border-slate-700 ${selectedUser.status === 'banned' ? 'bg-red-900/20 text-red-400 border-red-500/30' : 'text-slate-400 hover:bg-slate-800'}`}
                       onClick={() =>
                         updateUser(selectedUser.uid, {
-                          status:
-                            selectedUser.status === "active"
-                              ? "banned"
-                              : "active",
+                          status: selectedUser.status === "active" ? "banned" : "active",
                         })
                       }
                     >
@@ -491,40 +453,10 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Trading Limits</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Min Trade Amount ($)</label>
-                      <Input
-                        type="number"
-                        className="bg-slate-950 border-slate-800 text-white focus:ring-emerald-500/50"
-                        value={minTrade}
-                        onChange={(e) => setMinTrade(Number(e.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Suggested Amounts (comma separated)</label>
-                      <Input
-                        className="bg-slate-950 border-slate-800 text-white focus:ring-emerald-500/50"
-                        placeholder="10, 25, 50, 100..."
-                        value={suggestedTrades}
-                        onChange={(e) => setSuggestedTrades(e.target.value)}
-                      />
-                    </div>
-                    <Button
-                      className="w-full bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
-                      onClick={handleTradeLimitsUpdate}
-                    >
-                      Save Trading Limits
-                    </Button>
-                  </div>
-                </div>
-
+                {/* Security */}
                 <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 space-y-3">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Security</h3>
 
-                  {/* Password Display in Dialog */}
                   <div className="bg-slate-950 p-2 rounded border border-slate-800 mb-2">
                     <label className="text-[10px] text-slate-500 uppercase mb-1 block">Current Password</label>
                     <div className="flex justify-between items-center">
@@ -564,7 +496,6 @@ export default function AdminUsersPage() {
                 <Trash2 className="w-4 h-4 mr-2" /> {t('admin.deleteUser')}
               </Button>
             </div>
-
           </DialogContent>
         </Dialog>
       )}

@@ -29,6 +29,7 @@
   "submittingRequest": "Submitting your withdrawal request...",
   "oneWithdrawalPerDay": "You can only request one withdrawal per day.",
   "insufficientBalance": "Insufficient balance for this withdrawal.",
+  "insufficientBalanceWithAvailable": "Insufficient balance (Available: ${balance})",
   "withdrawalSubmitted": "Withdrawal request submitted successfully!",
   "withdrawalFailed": "Failed to submit withdrawal.",
   "fillWalletDetails": "Please fill wallet asset and address.",

@@ -103,6 +103,17 @@ export default function PackagesClient({ userId }: { userId: string }) {
       return
     }
 
+    // Check if same package is already active
+    const isAlreadyActive = investments.some(inv => inv.package_id === pkg.id && inv.status === 'active');
+    if (isAlreadyActive) {
+      toast({
+        title: t('packages.alreadyActiveTitle') || "Package Already Active",
+        description: t('packages.alreadyActiveDesc') || "You already have an active investment with this package. Please wait for it to expire.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       // حجز المبلغ أولاً (ببساطة تخفيض الرصيد)
       const { error: balErr } = await supabase
