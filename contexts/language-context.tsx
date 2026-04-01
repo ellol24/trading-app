@@ -1,7 +1,57 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { translations, type Language, type Translation } from '@/lib/i18n'
+import type { Language } from '@/lib/i18n'
+
+// ─── Static locale imports ────────────────────────────────────────────────────
+// Imported statically so webpack can bundle them safely.
+import enNav from '../locales/en/nav.json'
+import enCommon from '../locales/en/common.json'
+import enAuth from '../locales/en/auth.json'
+import enDashboard from '../locales/en/dashboard.json'
+import enTrading from '../locales/en/trading.json'
+import enPackages from '../locales/en/packages.json'
+import enReferrals from '../locales/en/referrals.json'
+import enProfile from '../locales/en/profile.json'
+import enWallet from '../locales/en/wallet.json'
+
+import arNav from '../locales/ar/nav.json'
+import arCommon from '../locales/ar/common.json'
+import arAuth from '../locales/ar/auth.json'
+import arDashboard from '../locales/ar/dashboard.json'
+import arTrading from '../locales/ar/trading.json'
+import arPackages from '../locales/ar/packages.json'
+import arReferrals from '../locales/ar/referrals.json'
+import arProfile from '../locales/ar/profile.json'
+import arWallet from '../locales/ar/wallet.json'
+
+import frNav from '../locales/fr/nav.json'
+import frCommon from '../locales/fr/common.json'
+import frAuth from '../locales/fr/auth.json'
+import frDashboard from '../locales/fr/dashboard.json'
+import frTrading from '../locales/fr/trading.json'
+import frPackages from '../locales/fr/packages.json'
+import frReferrals from '../locales/fr/referrals.json'
+import frProfile from '../locales/fr/profile.json'
+import frWallet from '../locales/fr/wallet.json'
+
+import deNav from '../locales/de/nav.json'
+import deCommon from '../locales/de/common.json'
+import deAuth from '../locales/de/auth.json'
+import deDashboard from '../locales/de/dashboard.json'
+import deTrading from '../locales/de/trading.json'
+import dePackages from '../locales/de/packages.json'
+import deReferrals from '../locales/de/referrals.json'
+import deProfile from '../locales/de/profile.json'
+import deWallet from '../locales/de/wallet.json'
+
+// Build a merged translation object per locale
+const localeData: Record<string, Record<string, any>> = {
+  en: { nav: enNav, common: enCommon, auth: enAuth, dashboard: enDashboard, trading: enTrading, packages: enPackages, referrals: enReferrals, profile: enProfile, wallet: enWallet },
+  ar: { nav: arNav, common: arCommon, auth: arAuth, dashboard: arDashboard, trading: arTrading, packages: arPackages, referrals: arReferrals, profile: arProfile, wallet: arWallet },
+  fr: { nav: frNav, common: frCommon, auth: frAuth, dashboard: frDashboard, trading: frTrading, packages: frPackages, referrals: frReferrals, profile: frProfile, wallet: frWallet },
+  de: { nav: deNav, common: deCommon, auth: deAuth, dashboard: deDashboard, trading: deTrading, packages: dePackages, referrals: deReferrals, profile: deProfile, wallet: deWallet },
+}
 
 interface LanguageContextType {
   language: Language
@@ -18,7 +68,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language
-    if (savedLanguage && translations[savedLanguage]) {
+    if (savedLanguage && localeData[savedLanguage]) {
       setLanguage(savedLanguage)
     }
     setMounted(true)
@@ -27,10 +77,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return
     localStorage.setItem('language', language)
-
-    // Handle RTL - FORCE LTR as per request
-    // const isRTL = language === 'ar'
-    // document.documentElement.setAttribute('dir', isRTL ? 'rtl' : 'ltr')
     document.documentElement.setAttribute('dir', 'ltr')
     document.documentElement.setAttribute('lang', language)
   }, [language, mounted])
@@ -39,33 +85,41 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguage(lang)
   }
 
-  // ✅ t function implementation handling nested keys (e.g., 'profile.verifiedAccount')
+  // t() supports nested dot notation: e.g. t('profile.verifiedAccount')
   const t = (key: string): string => {
-    const keys = key.split('.');
-    let current: any = translations[language] || translations['en'];
-
-    for (const k of keys) {
+    const parts = key.split('.')
+    // parts[0] is namespace, rest is nested path within that namespace
+    const [ns, ...rest] = parts
+    const data = localeData[language] ?? localeData['en']
+    if (!data || !data[ns]) return key
+    let current: any = data[ns]
+    for (const k of rest) {
       if (current && typeof current === 'object' && k in current) {
-        current = current[k];
+        current = current[k]
       } else {
-        return key; // Return key if translation not found
+        // Fall back to English
+        const enData = localeData['en']?.[ns]
+        let fallback: any = enData
+        for (const fk of rest) {
+          if (fallback && typeof fallback === 'object' && fk in fallback) {
+            fallback = fallback[fk]
+          } else {
+            return key
+          }
+        }
+        return typeof fallback === 'string' ? fallback : key
       }
     }
-
-    return typeof current === 'string' ? current : key;
-  };
+    return typeof current === 'string' ? current : key
+  }
 
   const value: LanguageContextType = {
     language,
     setLanguage: handleSetLanguage,
     t,
-    isRTL: language === 'ar'
+    isRTL: language === 'ar',
   }
 
-  // Prevent hydration mismatch by rendering children only after mount, 
-  // OR just render them and accept initial flash. 
-  // Better to render immediately but attributes might be wrong for a split second.
-  // Ideally, we'd use a robust solution, but for now this works.
   return (
     <LanguageContext.Provider value={value}>
       <div key={language} dir="ltr">

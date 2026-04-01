@@ -94,12 +94,7 @@ function StatCard({ title, value, icon, color, isMoney = true }: {
   );
 }
 
-// Commission structure (hardcoded, always accurate)
-const COMMISSION_STRUCTURE = [
-  { level: 1, pct: "10%", emoji: "🥇", description: "Direct referrals you recruit" },
-  { level: 2, pct: "5%",  emoji: "🥈", description: "Referrals made by your direct referrals" },
-  { level: 3, pct: "2%",  emoji: "🥉", description: "3rd-degree network referrals" },
-];
+// Commission structure moved inside component for translations
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function ReferralsPage({
@@ -108,6 +103,13 @@ export default function ReferralsPage({
   const { t } = useLanguage();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+
+  // Commission structure
+  const COMMISSION_STRUCTURE = useMemo(() => [
+    { level: 1, pct: "10%", emoji: "🥇", description: t("referrals.directReferrals") },
+    { level: 2, pct: "5%", emoji: "🥈", description: t("referrals.secondDegreeReferrals") },
+    { level: 3, pct: "2%", emoji: "🥉", description: t("referrals.thirdDegreeReferrals") },
+  ], [t]);
 
   const referralLink = useMemo(() =>
     profile?.referral_code
@@ -139,7 +141,7 @@ export default function ReferralsPage({
 
   const shareVia = useCallback((platform: "whatsapp" | "telegram") => {
     if (!referralLink) return toast.error(t("referrals.referralLinkNotReady"));
-    const msg = encodeURIComponent(`Join me on XSpy Trader and start earning! ${referralLink}`);
+    const msg = encodeURIComponent(`${t("referrals.shareMessage") || "Join me on XSpy Trader and start earning!"} ${referralLink}`);
     const urls = {
       whatsapp: `https://wa.me/?text=${msg}`,
       telegram: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${msg}`,
@@ -194,7 +196,7 @@ export default function ReferralsPage({
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white">{t("referrals.referralProgram")}</h1>
-            <p className="text-blue-200 mt-1">Invite friends and earn on every trade, deposit & package</p>
+            <p className="text-blue-200 mt-1">{t("referrals.inviteSubtitle")}</p>
           </div>
           <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10 px-4 py-2">
             <Trophy className="w-4 h-4 mr-2" /> {t("referrals.threeLevelsCommission")}
@@ -236,7 +238,7 @@ export default function ReferralsPage({
                 size="sm"
               >
                 <MessageCircle className="w-4 h-4" />
-                Share on WhatsApp
+                {t("referrals.shareOnWhatsApp")}
               </Button>
               <Button
                 onClick={() => shareVia("telegram")}
@@ -244,11 +246,11 @@ export default function ReferralsPage({
                 size="sm"
               >
                 <Send className="w-4 h-4" />
-                Share on Telegram
+                {t("referrals.shareOnTelegram")}
               </Button>
               <Button onClick={copyLink} variant="outline" className="border-slate-600 text-slate-300 bg-transparent flex items-center gap-2" size="sm">
                 <Share className="w-4 h-4" />
-                Copy Link
+                {t("referrals.copyLinkBtn")}
               </Button>
             </div>
           </CardContent>
@@ -259,7 +261,7 @@ export default function ReferralsPage({
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-400" />
-              How It Works — Commission Structure
+              {t("referrals.howItWorksStructure")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -274,11 +276,11 @@ export default function ReferralsPage({
                     <p className="text-slate-400 text-sm">{lvl.description}</p>
                     <div className="pt-2 border-t border-slate-700 text-sm space-y-1">
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Your referrals</span>
+                        <span className="text-slate-400">{t("referrals.yourReferrals")}</span>
                         <span className="text-white font-medium">{levelData?.users ?? 0}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Earned</span>
+                        <span className="text-slate-400">{t("referrals.earned")}</span>
                         <span className="text-green-400 font-medium">${(levelData?.earnings ?? 0).toFixed(2)}</span>
                       </div>
                     </div>
@@ -295,34 +297,34 @@ export default function ReferralsPage({
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-yellow-400" />
-                Top Referrers Leaderboard
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                {t("referrals.topReferrersBoard")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {topReferrers.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-6">No leaderboard data yet</p>
+                <p className="text-muted-foreground text-sm text-center py-6">{t("referrals.noLeaderboardData")}</p>
               ) : (
                 topReferrers.slice(0, 8).map((ref) => (
                   <div
                     key={ref.rank}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                      ref.isCurrentUser
+                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${ref.isCurrentUser
                         ? "border-blue-500/50 bg-blue-500/10"
                         : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/50"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl w-8 text-center">{ref.avatar}</span>
                       <div>
                         <p className="text-white text-sm font-medium">
-                          {ref.isCurrentUser ? "You 🌟" : maskName(ref.username)}
+                          {ref.isCurrentUser ? t("common.youStar") : maskName(ref.username)}
                         </p>
-                        <p className="text-slate-400 text-xs">{ref.referrals} referrals</p>
+                        <p className="text-slate-400 text-xs">{t("common.referralsCount").replace('{n}', ref.referrals.toString())}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-green-400 font-bold">${ref.earnings.toFixed(2)}</p>
-                      <p className="text-slate-500 text-xs">Rank #{ref.rank}</p>
+                      <p className="text-slate-500 text-xs">{t("common.rankLabel").replace('{n}', ref.rank.toString())}</p>
                     </div>
                   </div>
                 ))
@@ -340,10 +342,10 @@ export default function ReferralsPage({
                 <div key={level}>
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-sm font-semibold text-blue-400">
-                      {t("referrals.level")} {level}
+                      {t("referrals.levelLabel").replace('{n}', level.toString())}
                     </h3>
                     <Badge variant="outline" className="text-xs text-slate-400 border-slate-600">
-                      {refs.length} users
+                      {t("referrals.usersCount").replace('{n}', refs.length.toString())}
                     </Badge>
                   </div>
                   {refs.length === 0 ? (

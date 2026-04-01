@@ -337,7 +337,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 </TabsTrigger>
 
                 <TabsTrigger value="activity" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <Activity className="w-4 h-4" /> Activity
+                  <Activity className="w-4 h-4" /> {t("profile.activity")}
                 </TabsTrigger>
               </TabsList>
 
@@ -441,11 +441,11 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="activity" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />Recent Activity</CardTitle>
+                    <CardTitle className="text-white flex items-center"><Activity className="w-5 h-5 mr-2" />{t("profile.activity")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {activityLoading ? (
-                      <p className="text-muted-foreground text-sm text-center py-6">Loading activity...</p>
+                      <p className="text-muted-foreground text-sm text-center py-6">{t("common.loading")}</p>
                     ) : (
                       <>
                         {activityDeposits.map((d) => (
@@ -455,7 +455,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                                 <ArrowDownCircle className="w-4 h-4 text-green-400" />
                               </div>
                               <div>
-                                <p className="text-white text-sm font-medium">Deposit</p>
+                                <p className="text-white text-sm font-medium">{t("wallet.deposit")}</p>
                                 <p className="text-slate-400 text-xs">{new Date(d.created_at).toLocaleString()}</p>
                               </div>
                             </div>
@@ -473,7 +473,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                                 <ArrowUpCircle className="w-4 h-4 text-red-400" />
                               </div>
                               <div>
-                                <p className="text-white text-sm font-medium">Withdrawal</p>
+                                <p className="text-white text-sm font-medium">{t("wallet.withdraw")}</p>
                                 <p className="text-slate-400 text-xs">{new Date(w.created_at).toLocaleString()}</p>
                               </div>
                             </div>
@@ -498,7 +498,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                             <div className="text-right">
                               <p className="text-white text-sm">${tr.amount}</p>
                               <Badge className={`text-xs ${tr.result === "win" ? "bg-green-500/20 text-green-400" : tr.result === "lose" ? "bg-red-500/20 text-red-400" : "bg-slate-500/20 text-slate-400"}`}>
-                                {tr.result || "pending"}
+                                {tr.result || t("common.pending")}
                               </Badge>
                             </div>
                           </div>

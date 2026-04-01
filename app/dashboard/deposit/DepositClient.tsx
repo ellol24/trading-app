@@ -32,18 +32,18 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/jpg"];
 
 export default function DepositClient({ user, profile }: any) {
   const { t } = useLanguage();
-  const [networks, setNetworks]       = useState<Network[]>([]);
-  const [networkId, setNetworkId]     = useState<string>("");
-  const [amount, setAmount]           = useState<string>("");
-  const [screenshot, setScreenshot]   = useState<File | null>(null);
-  const [fileError, setFileError]     = useState<string>("");
+  const [networks, setNetworks] = useState<Network[]>([]);
+  const [networkId, setNetworkId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [deposits, setDeposits]       = useState<Deposit[]>([]);
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [isEnabled, setIsEnabled]     = useState(true);
-  const [minDeposit, setMinDeposit]   = useState(10);
+  const [isEnabled, setIsEnabled] = useState(true);
+  const [minDeposit, setMinDeposit] = useState(10);
   const [addressCopied, setAddressCopied] = useState(false);
-  const [previewImg, setPreviewImg]   = useState<string | null>(null);
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
   const [liveBalance, setLiveBalance] = useState<number>(0);
 
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function DepositClient({ user, profile }: any) {
       toast.warning(`⚠️ Minimum deposit is $${minDeposit}`); return;
     }
     if (!screenshot) { toast.warning("⚠️ Please attach a screenshot of your transfer"); return; }
-    if (!selected?.id)  { toast.warning("⚠️ Please select a wallet"); return; }
+    if (!selected?.id) { toast.warning("⚠️ Please select a wallet"); return; }
 
     setIsProcessing(true);
     try {
@@ -151,13 +151,13 @@ export default function DepositClient({ user, profile }: any) {
       reader.readAsDataURL(screenshot);
       reader.onloadend = async () => {
         const { error } = await supabase.from("deposits").insert({
-          user_id:    user.id,
-          uid:        profile?.uid ?? null,
-          username:   profile?.full_name || user.email || null,
-          email:      user.email || null,
+          user_id: user.id,
+          uid: profile?.uid ?? null,
+          username: profile?.full_name || user.email || null,
+          email: user.email || null,
           network_id: selected.id,
-          amount:     Number(amount),
-          status:     "pending",
+          amount: Number(amount),
+          status: "pending",
           proof_base64: reader.result as string,
         });
         if (error) { toast.error("❌ Deposit failed!"); }
@@ -180,15 +180,15 @@ export default function DepositClient({ user, profile }: any) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">{t("wallet.depositTitle")}</h1>
-            <p className="text-blue-200 mt-1">Select a wallet, transfer crypto, then upload proof</p>
+            <p className="text-blue-200 mt-1">{t("wallet.depositSubtitle")}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2">
-              <span className="text-blue-300 text-sm">Balance</span>
+              <span className="text-blue-300 text-sm">{t("common.balance")}</span>
               <span className="text-white font-bold">${liveBalance.toFixed(2)}</span>
             </div>
             <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
-              <CheckCircle2 className="w-4 h-4 mr-2" /> Secure &amp; Manual
+              <CheckCircle2 className="w-4 h-4 mr-2" /> {t("wallet.secureAndManual")}
             </Badge>
           </div>
         </div>
@@ -198,7 +198,7 @@ export default function DepositClient({ user, profile }: any) {
           <div className="bg-red-600/10 border border-red-500 text-red-400 p-4 rounded-xl flex items-center gap-3">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <div>
-              <p className="font-semibold">Deposits are currently disabled</p>
+              <p className="font-semibold">{t("wallet.depositsDisabledTitle")}</p>
               <p className="text-sm">{t("wallet.depositsDisabled")}</p>
             </div>
           </div>
@@ -210,15 +210,15 @@ export default function DepositClient({ user, profile }: any) {
             <fieldset disabled={formDisabled} className={formDisabled ? "opacity-50 pointer-events-none" : ""}>
               <Card className="trading-card">
                 <CardHeader>
-                  <CardTitle className="text-white">1. Select Wallet &amp; Enter Amount</CardTitle>
+                  <CardTitle className="text-white">{t("wallet.selectWalletStep")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   {/* Wallet select */}
                   <div className="space-y-2">
-                    <Label className="text-white">Payment Network</Label>
+                    <Label className="text-white">{t("wallet.paymentNetwork")}</Label>
                     <Select value={networkId} onValueChange={setNetworkId}>
                       <SelectTrigger className="h-12 bg-slate-700 text-white border-slate-600">
-                        <SelectValue placeholder="Select wallet" />
+                        <SelectValue placeholder={t("wallet.selectWalletPlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
                         {networks.map((n) => (
@@ -233,7 +233,7 @@ export default function DepositClient({ user, profile }: any) {
                   {/* Wallet address + copy */}
                   {selected?.address && (
                     <div className="space-y-2">
-                      <Label className="text-white">Platform Wallet Address</Label>
+                      <Label className="text-white">{t("wallet.platformWalletAddress")}</Label>
                       <div className="flex gap-2">
                         <Input
                           readOnly
@@ -250,7 +250,7 @@ export default function DepositClient({ user, profile }: any) {
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <Info className="w-3.5 h-3.5" />
-                        Send only {selected.asset ?? "crypto"} to this address. Sending other assets may result in permanent loss.
+                        {t("wallet.sendOnlyWarning").replace('{asset}', selected.asset ?? "crypto")}
                       </div>
                     </div>
                   )}
@@ -258,13 +258,13 @@ export default function DepositClient({ user, profile }: any) {
                   {/* Amount */}
                   <div className="space-y-2">
                     <Label className="text-white">
-                      Amount (USD) — Min ${minDeposit}
+                      {t("wallet.amountMinLabel").replace('{min}', minDeposit.toString())}
                     </Label>
                     <Input
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder={`Minimum $${minDeposit}`}
+                      placeholder={t("wallet.minimumPlaceholder").replace('{min}', minDeposit.toString())}
                       min={minDeposit}
                       className="h-12 bg-slate-700 text-white border-slate-600"
                     />
@@ -275,21 +275,20 @@ export default function DepositClient({ user, profile }: any) {
               {/* Upload proof */}
               <Card className="trading-card">
                 <CardHeader>
-                  <CardTitle className="text-white">2. Upload Payment Proof</CardTitle>
+                  <CardTitle className="text-white">{t("wallet.uploadProofTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
                     <div
-                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                        fileError ? "border-red-500 bg-red-500/5" : "border-slate-600 hover:border-blue-500 bg-slate-800/40"
-                      }`}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${fileError ? "border-red-500 bg-red-500/5" : "border-slate-600 hover:border-blue-500 bg-slate-800/40"
+                        }`}
                       onClick={() => document.getElementById("proof-upload")?.click()}
                     >
                       <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
                       <p className="text-white text-sm font-medium">
-                        {screenshot ? screenshot.name : "Click to upload screenshot"}
+                        {screenshot ? screenshot.name : t("wallet.clickToUpload")}
                       </p>
-                      <p className="text-slate-500 text-xs mt-1">PNG, JPG, WEBP — Max 5MB</p>
+                      <p className="text-slate-500 text-xs mt-1">{t("wallet.allowedFormats")}</p>
                     </div>
                     <input
                       id="proof-upload"
@@ -318,7 +317,7 @@ export default function DepositClient({ user, profile }: any) {
                   >
                     {isProcessing
                       ? <><Loader2 className="animate-spin h-5 w-5 mr-2" />{t("wallet.processing")}</>
-                      : "✅ I've Completed the Payment"}
+                      : `✅ ${t("wallet.completedPayment")}`}
                   </Button>
                 </CardContent>
               </Card>
@@ -329,14 +328,14 @@ export default function DepositClient({ user, profile }: any) {
           <div className="space-y-6">
             <Card className="trading-card border border-blue-500/20">
               <CardHeader>
-                <CardTitle className="text-white text-base">How It Works</CardTitle>
+                <CardTitle className="text-white text-base">{t("wallet.howItWorks")}</CardTitle>
               </CardHeader>
               <CardContent className="text-blue-200 space-y-3 text-sm">
                 {[
-                  "Select a payment network (e.g. USDT TRC20).",
-                  "Copy the wallet address and send your crypto.",
-                  "Upload a clear screenshot of the completed transfer.",
-                  "Submit — admin will review and credit your balance.",
+                  t("wallet.depositStep1"),
+                  t("wallet.depositStep2"),
+                  t("wallet.depositStep3"),
+                  t("wallet.depositStep4"),
                 ].map((step, i) => (
                   <div key={i} className="flex gap-3">
                     <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
@@ -348,11 +347,11 @@ export default function DepositClient({ user, profile }: any) {
 
             <Card className="trading-card border border-yellow-500/20">
               <CardContent className="p-4 space-y-2 text-xs text-yellow-300">
-                <p className="font-semibold text-yellow-400 flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> Important Notes</p>
-                <p>• Only send the exact network shown (e.g. TRC20 ≠ BEP20).</p>
-                <p>• Minimum deposit: <strong>${minDeposit}</strong></p>
-                <p>• Deposits are reviewed within 1–24 hours.</p>
-                <p>• Balance is credited after admin confirmation.</p>
+                <p className="font-semibold text-yellow-400 flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> {t("wallet.importantNotes")}</p>
+                <p>• {t("wallet.importantNote1")}</p>
+                <p>• {t("wallet.importantNote2").replace('{min}', minDeposit.toString())}</p>
+                <p>• {t("wallet.importantNote3")}</p>
+                <p>• {t("wallet.importantNote4")}</p>
               </CardContent>
             </Card>
           </div>
@@ -364,7 +363,7 @@ export default function DepositClient({ user, profile }: any) {
             <CardTitle className="text-white">{t("wallet.depositHistory")}</CardTitle>
           </CardHeader>
           <CardContent>
-            {loadingHistory && <p className="text-slate-400 text-sm py-4">Loading history...</p>}
+            {loadingHistory && <p className="text-slate-400 text-sm py-4">{t("wallet.loadingHistory")}</p>}
             {!loadingHistory && deposits.length === 0 && (
               <p className="text-slate-500 text-sm py-4">{t("wallet.noDeposits")}</p>
             )}
@@ -388,15 +387,15 @@ export default function DepositClient({ user, profile }: any) {
                           ? "bg-yellow-500/20 text-yellow-400 border-yellow-400"
                           : "bg-red-500/20 text-red-400 border-red-400"
                     }>
-                      {dep.status === "approved" || dep.status === "confirmed" ? "✅ Approved" :
-                        dep.status === "pending" ? "⏳ Pending" : "❌ Rejected"}
+                      {dep.status === "approved" || dep.status === "confirmed" ? t("wallet.statusBadgeApproved") :
+                        dep.status === "pending" ? t("wallet.statusBadgePending") : t("wallet.statusBadgeRejected")}
                     </Badge>
                     {dep.proof_base64 && (
                       <button
                         onClick={() => setPreviewImg(dep.proof_base64!)}
                         className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                       >
-                        <ZoomIn className="w-3.5 h-3.5" /> View Proof
+                        <ZoomIn className="w-3.5 h-3.5" /> {t("wallet.viewProof")}
                       </button>
                     )}
                   </div>
@@ -411,7 +410,7 @@ export default function DepositClient({ user, profile }: any) {
       <Dialog open={!!previewImg} onOpenChange={() => setPreviewImg(null)}>
         <DialogContent className="max-w-2xl bg-slate-900 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-white">Deposit Proof</DialogTitle>
+            <DialogTitle className="text-white">{t("wallet.depositProofTitle")}</DialogTitle>
           </DialogHeader>
           {previewImg && (
             <img src={previewImg} alt="Deposit proof" className="w-full rounded-lg object-contain max-h-[70vh]" />

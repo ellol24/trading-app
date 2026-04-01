@@ -45,7 +45,7 @@ type WithdrawalRequest = {
 function isProfileComplete(profile: any): boolean {
   if (!profile) return false;
   return !!(profile.first_name?.trim() && profile.last_name?.trim() &&
-            profile.phone?.trim() && profile.country?.trim());
+    profile.phone?.trim() && profile.country?.trim());
 }
 
 // ─── 24-hour wallet freeze check ─────────────────────────────────────────────
@@ -57,26 +57,26 @@ function getWalletFreezeInfo(wallet: WithdrawalWallet | undefined): { frozen: bo
   const freezeMs = 24 * 60 * 60 * 1000; // 24 hours
   if (elapsed >= freezeMs) return { frozen: false, remainingMs: 0, remainingLabel: "" };
   const remainingMs = freezeMs - elapsed;
-  const hrs  = Math.floor(remainingMs / (1000 * 60 * 60));
+  const hrs = Math.floor(remainingMs / (1000 * 60 * 60));
   const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
   return { frozen: true, remainingMs, remainingLabel: `${hrs}h ${mins}m` };
 }
 
 export default function WithdrawClient({ user, profile }: Props) {
   const { t } = useLanguage();
-  const [wallets, setWallets]                 = useState<WithdrawalWallet[]>([]);
-  const [withdrawals, setWithdrawals]         = useState<WithdrawalRequest[]>([]);
+  const [wallets, setWallets] = useState<WithdrawalWallet[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
-  const [amount, setAmount]                   = useState<string>("");
-  const [isSubmitting, setIsSubmitting]       = useState(false);
-  const [addWalletOpen, setAddWalletOpen]     = useState(false);
-  const [deleteDialog, setDeleteDialog]       = useState<WithdrawalWallet | null>(null);
-  const [feePercentage, setFeePercentage]     = useState<number>(10);
+  const [amount, setAmount] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addWalletOpen, setAddWalletOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<WithdrawalWallet | null>(null);
+  const [feePercentage, setFeePercentage] = useState<number>(10);
   const [withdrawEnabled, setWithdrawEnabled] = useState<boolean>(true);
   const [minWithdrawAmount, setMinWithdrawAmount] = useState<number>(21);
-  const [liveBalance, setLiveBalance]         = useState<number>(profile?.balance ?? 0);
+  const [liveBalance, setLiveBalance] = useState<number>(profile?.balance ?? 0);
   const [nextWithdrawTime, setNextWithdrawTime] = useState<string | null>(null);
-  const [, forceRender]                       = useState<number>(0); // for freeze countdown
+  const [, forceRender] = useState<number>(0); // for freeze countdown
 
   const [newWallet, setNewWallet] = useState<{
     asset: WithdrawalWallet["asset"] | ""; address: string; label: string;
@@ -158,12 +158,12 @@ export default function WithdrawClient({ user, profile }: Props) {
   }, [user?.id, loadWithdrawals]);
 
   // ─── Computed values ─────────────────────────────────────────────────────
-  const selectedWallet    = useMemo(() => wallets.find((w) => w.id === selectedWalletId), [wallets, selectedWalletId]);
-  const fee               = amount ? Math.max(0, Number(amount) * (feePercentage / 100)) : 0;
-  const net               = amount ? Math.max(0, Number(amount) - fee) : 0;
-  const profileComplete   = isProfileComplete(profile);
-  const freezeInfo        = getWalletFreezeInfo(selectedWallet);
-  const canSubmit         = withdrawEnabled && profileComplete && !freezeInfo.frozen && !!selectedWallet && !!amount && Number(amount) >= minWithdrawAmount && !isSubmitting;
+  const selectedWallet = useMemo(() => wallets.find((w) => w.id === selectedWalletId), [wallets, selectedWalletId]);
+  const fee = amount ? Math.max(0, Number(amount) * (feePercentage / 100)) : 0;
+  const net = amount ? Math.max(0, Number(amount) - fee) : 0;
+  const profileComplete = isProfileComplete(profile);
+  const freezeInfo = getWalletFreezeInfo(selectedWallet);
+  const canSubmit = withdrawEnabled && profileComplete && !freezeInfo.frozen && !!selectedWallet && !!amount && Number(amount) >= minWithdrawAmount && !isSubmitting;
 
   const startOfTodayISO = () => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString();
@@ -180,7 +180,7 @@ export default function WithdrawClient({ user, profile }: Props) {
     const amt = Number(amount);
     if (!withdrawEnabled) { toast.error(`🚫 ${t("wallet.withdrawalsDisabled")}`); return; }
     if (!selectedWallet || !amount || isNaN(amt) || amt < minWithdrawAmount) {
-      toast.warning(`⚠️ Minimum withdrawal is $${minWithdrawAmount}`); return;
+      toast.warning(`⚠️ ${t("wallet.amountMinLabel").replace('{min}', String(minWithdrawAmount))}`); return;
     }
 
     setIsSubmitting(true);
@@ -259,13 +259,13 @@ export default function WithdrawClient({ user, profile }: Props) {
 
   // ─── Delete Wallet ───────────────────────────────────────────────────────
   const deleteWallet = async (wallet: WithdrawalWallet) => {
-    const loadingToast = toast.loading("Removing wallet...");
+    const loadingToast = toast.loading(`${t("common.loading")}`);
     const { error } = await supabase
       .from("withdrawal_wallets").delete().eq("id", wallet.id);
     toast.dismiss(loadingToast);
-    if (error) { toast.error(`❌ Could not delete wallet: ${error.message}`); }
+    if (error) { toast.error(`❌ ${t("common.error")}: ${error.message}`); }
     else {
-      toast.success("✅ Wallet removed");
+      toast.success(`✅ ${t("common.success")}`);
       setDeleteDialog(null);
       if (selectedWalletId === wallet.id) setSelectedWalletId("");
       await fetchWallets();
@@ -311,12 +311,11 @@ export default function WithdrawClient({ user, profile }: Props) {
         {!profileComplete && (
           <Alert className="bg-orange-600/20 border-orange-500/50 text-orange-200">
             <UserCheck className="h-5 w-5 text-orange-400" />
-            <AlertTitle className="text-orange-300 font-semibold">Profile Incomplete — Withdrawals Locked</AlertTitle>
+            <AlertTitle className="text-orange-300 font-semibold">{t("common.profileIncompleteTitle")}</AlertTitle>
             <AlertDescription className="text-orange-200 mt-1">
-              To protect your funds, you must complete your profile before withdrawing.
-              Please fill in your <strong>First Name, Last Name, Phone Number, and Country</strong>.
+              {t("common.profileIncompleteDesc")}
               <Link href="/dashboard/profile" className="inline-flex items-center gap-1 ml-2 text-orange-300 underline underline-offset-2 hover:text-orange-100 font-medium">
-                Go to Profile <ExternalLink className="w-3 h-3" />
+                {t("common.goToProfile")} <ExternalLink className="w-3 h-3" />
               </Link>
             </AlertDescription>
           </Alert>
@@ -326,10 +325,9 @@ export default function WithdrawClient({ user, profile }: Props) {
         {freezeInfo.frozen && (
           <Alert className="bg-blue-700/20 border-blue-500/40 text-blue-200">
             <Shield className="h-5 w-5 text-blue-400" />
-            <AlertTitle className="text-blue-300 font-semibold">Security Freeze Active — {freezeInfo.remainingLabel} Remaining</AlertTitle>
+            <AlertTitle className="text-blue-300 font-semibold">{t("wallet.securityFreezeTitle").replace('{time}', freezeInfo.remainingLabel)}</AlertTitle>
             <AlertDescription className="text-blue-200">
-              For your security, withdrawals are suspended for <strong>24 hours</strong> after a new withdrawal address is added.
-              This prevents unauthorised fund transfers if your account is compromised. Please wait or select an older wallet.
+              {t("wallet.securityFreezeDesc")}
             </AlertDescription>
           </Alert>
         )}
@@ -338,8 +336,8 @@ export default function WithdrawClient({ user, profile }: Props) {
         {nextWithdrawTime && (
           <Alert className="bg-slate-600/20 border-slate-500/40 text-slate-300">
             <Clock className="h-4 w-4" />
-            <AlertTitle>Daily limit reached</AlertTitle>
-            <AlertDescription>You can submit your next withdrawal after: <strong>{nextWithdrawTime}</strong></AlertDescription>
+            <AlertTitle>{t("wallet.dailyLimitTitle")}</AlertTitle>
+            <AlertDescription>{t("wallet.dailyLimitDesc")} <strong>{nextWithdrawTime}</strong></AlertDescription>
           </Alert>
         )}
 
@@ -373,7 +371,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle className="text-yellow-400">{t("common.important")}</AlertTitle>
                       <AlertDescription className="text-yellow-200">
-                        {feePercentage}% fee applies. Minimum withdrawal: ${minWithdrawAmount}. One withdrawal per day.
+                        {t("wallet.feeWarning").replace('{fee}', String(feePercentage)).replace('{min}', String(minWithdrawAmount))} {t("wallet.oneWithdrawalPerDay")}
                       </AlertDescription>
                     </Alert>
 
@@ -429,8 +427,8 @@ export default function WithdrawClient({ user, profile }: Props) {
                       <h3 className="text-white font-semibold">{t("common.summary")}</h3>
                       {[
                         { label: t("wallet.requestedAmount"), value: `$${amount || "0.00"}`, cls: "text-white" },
-                        { label: `Fee (${feePercentage}%)`,   value: `-$${fee.toFixed(2)}`,  cls: "text-red-400" },
-                        { label: t("wallet.youWillReceive"), value: `$${net.toFixed(2)}`,    cls: "text-green-400 font-bold" },
+                        { label: t("wallet.fee").replace('{fee}', String(feePercentage)), value: `-$${fee.toFixed(2)}`, cls: "text-red-400" },
+                        { label: t("wallet.youWillReceive"), value: `$${net.toFixed(2)}`, cls: "text-green-400 font-bold" },
                       ].map(({ label, value, cls }) => (
                         <div key={label} className="flex justify-between text-sm">
                           <span className="text-muted-foreground">{label}</span>
@@ -449,9 +447,9 @@ export default function WithdrawClient({ user, profile }: Props) {
                         : !withdrawEnabled
                           ? t("wallet.withdrawalsDisabledTitle")
                           : !profileComplete
-                            ? <><UserCheck className="mr-2 h-5 w-5" /> Complete Your Profile to Withdraw</>
+                            ? <><UserCheck className="mr-2 h-5 w-5" /> {t("common.profileIncompleteTitle")}</>
                             : freezeInfo.frozen
-                              ? <><Clock className="mr-2 h-5 w-5" /> Security Freeze — {freezeInfo.remainingLabel} Remaining</>
+                              ? <><Clock className="mr-2 h-5 w-5" /> {t("wallet.securityFreezeTitle").replace('{time}', freezeInfo.remainingLabel)}</>
                               : t("wallet.submitRequest")}
                     </Button>
                   </CardContent>
@@ -519,7 +517,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge variant="outline" className={w.otp_verified ? "text-green-400 border-green-400" : "text-yellow-400 border-yellow-400"}>
                               <CheckCircle2 className="w-3 h-3 mr-1" />
-                              {w.otp_verified ? t("common.verified") : "Pending"}
+                              {w.otp_verified ? t("common.verified") : t("common.pending")}
                             </Badge>
                             <Button
                               size="sm"
@@ -549,7 +547,7 @@ export default function WithdrawClient({ user, profile }: Props) {
               </CardHeader>
               <CardContent className="space-y-3">
                 {withdrawals.length === 0 && (
-                  <p className="text-muted-foreground text-xs text-center py-4">No withdrawals yet</p>
+                  <p className="text-muted-foreground text-xs text-center py-4">{t("common.noWithdrawalsYet")}</p>
                 )}
                 {withdrawals.map((r) => (
                   <div key={r.id} className="p-3 bg-background/20 rounded-lg border border-border/30 hover:bg-background/30 transition-colors">
@@ -576,8 +574,8 @@ export default function WithdrawClient({ user, profile }: Props) {
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>• {t("wallet.securityTip1")}</p>
                 <p>• {t("wallet.securityTip2")}</p>
-                <p>• Double-check wallet addresses before submitting.</p>
-                <p>• Withdrawals are processed within 24 hours.</p>
+                <p>• {t("wallet.securityTip3")}</p>
+                <p>• {t("wallet.securityTip4")}</p>
               </CardContent>
             </Card>
           </div>
@@ -596,10 +594,10 @@ export default function WithdrawClient({ user, profile }: Props) {
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent" onClick={() => setDeleteDialog(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={() => deleteDialog && deleteWallet(deleteDialog)}>
-              <Trash2 className="w-4 h-4 mr-2" /> Delete
+              <Trash2 className="w-4 h-4 mr-2" /> {t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

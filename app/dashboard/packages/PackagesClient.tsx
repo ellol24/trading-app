@@ -424,8 +424,8 @@ export default function PackagesClient({ userId }: { userId: string }) {
                               />
                             )}
                             <div className="flex justify-between text-xs text-slate-500">
-                              <span>Min: {formatUSD(min)}</span>
-                              <span>Max: {formatUSD(max)}</span>
+                              <span>{t('packages.minLabel')} {formatUSD(min)}</span>
+                              <span>{t('packages.maxLabel')} {formatUSD(max)}</span>
                             </div>
                           </div>
 
@@ -433,20 +433,20 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
                             <div className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
                               <Calculator className="w-3.5 h-3.5" />
-                              Profit Calculator
+                              {t('packages.profitCalculator')}
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-slate-400 text-xs">Daily profit</span>
+                                <span className="text-slate-400 text-xs">{t('packages.dailyProfit')}</span>
                                 <span className="text-white text-xs font-medium">{formatUSD((amt * roiDaily) / 100)}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-slate-400 text-xs">Total profit</span>
+                                <span className="text-slate-400 text-xs">{t('packages.totalProfit')}</span>
                                 <span className="text-green-400 text-xs font-medium">+{formatUSD(projectedProfit)}</span>
                               </div>
                             </div>
                             <div className="flex justify-between items-center pt-1 border-t border-green-500/20">
-                              <span className="text-slate-300 text-xs">You receive after {durationDays}d</span>
+                              <span className="text-slate-300 text-xs">{t('packages.youReceiveAfter').replace('{n}', durationDays.toString())}</span>
                               <span className="text-green-400 font-bold text-sm">{formatUSD(totalReturn)}</span>
                             </div>
                           </div>
