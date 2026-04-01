@@ -31,6 +31,14 @@ export default function PackagesClient({ userId }: { userId: string }) {
   const [investments, setInvestments] = useState<any[]>([])
   const [amounts, setAmounts] = useState<Record<string, number>>({})
 
+  // Helper to dynamically proxy user-created titles through the translation system
+  const translateDynamic = (text: string | null | undefined, ns: string = 'packages') => {
+    if (!text) return text;
+    const key = `${ns}.${text}`;
+    const translated = t(key);
+    return translated === key ? text : translated;
+  };
+
   // منع تنفيذ إنهاء الباقة أكثر من مرة محليًا
   const finishedIdsRef = useRef<Set<any>>(new Set())
 
@@ -125,7 +133,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
         return
       }
 
-      toast({ title: t('packages.activationSuccessTitle'), description: t('packages.activationSuccessDesc').replace('{title}', pkg.title) })
+      toast({ title: t('packages.activationSuccessTitle'), description: t('packages.activationSuccessDesc').replace('{title}', translateDynamic(pkg.title) || "") })
       // تحديث محلي للواجهة
       setWallet((prev) => prev - amt)
 
@@ -137,7 +145,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
       if (invs) setInvestments(invs)
     } catch (err) {
       console.error("handleBuy error", err)
-      toast({ title: t('common.error'), description: "An unexpected error occurred", variant: "destructive" })
+      toast({ title: t('common.error'), description: t('common.error'), variant: "destructive" })
     }
   }
 
@@ -357,7 +365,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           {pkg.image_url ? (
                             <img
                               src={pkg.image_url}
-                              alt={pkg.title ?? "package"}
+                              alt={translateDynamic(pkg.title) ?? "package"}
                               className="w-full h-44 object-cover rounded-t-lg"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                             />
@@ -374,8 +382,8 @@ export default function PackagesClient({ userId }: { userId: string }) {
                         </div>
 
                         <div className="p-5 space-y-4">
-                          <h3 className="text-lg font-semibold text-white">{pkg.title}</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{pkg.description}</p>
+                          <h3 className="text-lg font-semibold text-white">{translateDynamic(pkg.title)}</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{translateDynamic(pkg.description)}</p>
 
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div className="flex items-center space-x-2 p-3 rounded-lg bg-background/10">
@@ -486,7 +494,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                       <CardContent className="p-5 space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="text-white font-semibold">{inv.investment_packages?.title}</h3>
+                            <h3 className="text-white font-semibold">{translateDynamic(inv.investment_packages?.title)}</h3>
                             <p className="text-sm text-muted-foreground">
                               {t('common.amount')} {formatUSD(inv.amount)} • {t('packages.dailyRoi')} {inv.investment_packages?.roi_daily_percentage}% • {t('packages.duration')} {inv.investment_packages?.duration_days} {t('packages.days')}
                             </p>

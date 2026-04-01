@@ -362,7 +362,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                     <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Wallet className="w-5 h-5 text-blue-400" />
-                        <span className="text-blue-200">Available Balance</span>
+                        <span className="text-blue-200">{t("wallet.availableBalance")}</span>
                       </div>
                       <span className="text-white font-bold text-xl">${liveBalance.toFixed(2)}</span>
                     </div>

@@ -285,7 +285,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   {user?.email_confirmed_at ? t('profile.verifiedAccount') : t('profile.unverifiedAccount')}
                 </Badge>
                 <Badge variant="outline" className="text-blue-400 border-blue-400 bg-blue-400/10">
-                  Balance: ${balance.toFixed(2)}
+                  {t("profile.balance")}: ${balance.toFixed(2)}
                 </Badge>
               </div>
             </div>
@@ -313,12 +313,12 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Balance</span>
+                  <span className="text-muted-foreground">{t("profile.balance")}</span>
                   <span className="text-white font-bold">${balance.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('common.status')}</span>
-                  <Badge className="bg-green-600 text-white">{profile?.status || "Active"}</Badge>
+                  <Badge className="bg-green-600 text-white">{profile?.status || t("common.status_active")}</Badge>
                 </div>
 
               </CardContent>
