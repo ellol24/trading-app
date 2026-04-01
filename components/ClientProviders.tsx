@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/contexts/theme-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "sonner";
+import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import ProtectionScript from "@/components/ProtectionScript";
 import BottomNavigation from "@/components/bottom-navigation";
 
@@ -34,6 +35,7 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
             closeButton
             expand
           />
+          <ShadcnToaster />
 
         </AuthProvider>
       </LanguageProvider>

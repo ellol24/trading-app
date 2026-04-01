@@ -70,8 +70,12 @@ export default function AdminDepositsPage() {
       console.error(error);
       notify.deposit.failed();
     } else {
-      setDeposits(data || []);
-      calcStats(data || []);
+      const formatted = (data || []).map((d: any) => ({
+        ...d,
+        deposit_wallets: Array.isArray(d.deposit_wallets) ? d.deposit_wallets[0] : d.deposit_wallets
+      })) as Deposit[];
+      setDeposits(formatted);
+      calcStats(formatted);
     }
     setLoading(false);
   }
@@ -94,6 +98,24 @@ export default function AdminDepositsPage() {
   useEffect(() => {
     loadDeposits();
     loadSettings();
+
+    const channel = supabase
+      .channel("admin-deposit-singular")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deposits" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            notify.deposit.submitted("New Deposit Request Arrived");
+          }
+          loadDeposits();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // ✅ حساب الإحصائيات
@@ -287,8 +309,8 @@ export default function AdminDepositsPage() {
                     dep.status === "pending"
                       ? "bg-yellow-500/20 text-yellow-500"
                       : dep.status === "approved"
-                      ? "bg-green-500/20 text-green-500"
-                      : "bg-red-500/20 text-red-500"
+                        ? "bg-green-500/20 text-green-500"
+                        : "bg-red-500/20 text-red-500"
                   }
                 >
                   {dep.status}

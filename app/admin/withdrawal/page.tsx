@@ -124,7 +124,7 @@ export default function AdminWithdrawalsPage() {
     setLoading(true);
     try {
       const { data: wdRows, error: wdErr } = await supabase
-        .from<WithdrawalRow>("withdrawals")
+        .from("withdrawals")
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -135,7 +135,7 @@ export default function AdminWithdrawalsPage() {
         return;
       }
 
-      const wd = wdRows || [];
+      const wd = (wdRows as unknown as WithdrawalRow[]) || [];
       if (wd.length === 0) {
         setWithdrawals([]);
         setLoading(false);
@@ -146,18 +146,20 @@ export default function AdminWithdrawalsPage() {
       const walletIds = Array.from(new Set(wd.map((r) => r.wallet_id).filter(Boolean)));
 
       // fetch users (manual join)
-      const { data: users, error: usersErr } = await supabase
-        .from<UserProfile>("user_profiles")
+      const { data: usersData, error: usersErr } = await supabase
+        .from("user_profiles")
         .select("uid, full_name, email, balance")
         .in("uid", userIds);
+      const users = usersData as unknown as UserProfile[];
 
       if (usersErr) console.error("Failed to fetch users", usersErr);
 
       // fetch wallets (manual join)
-      const { data: wallets, error: walletsErr } = await supabase
-        .from<Wallet>("withdrawal_wallets")
+      const { data: walletsData, error: walletsErr } = await supabase
+        .from("withdrawal_wallets")
         .select("id, user_id, asset, address, label")
         .in("id", walletIds);
+      const wallets = walletsData as unknown as Wallet[];
 
       if (walletsErr) console.error("Failed to fetch wallets", walletsErr);
 
@@ -178,6 +180,24 @@ export default function AdminWithdrawalsPage() {
 
   useEffect(() => {
     loadWithdrawals();
+
+    const channel = supabase
+      .channel("admin-withdrawals-singular")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "withdrawals" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            toast.success("New Withdrawal Request Arrived");
+          }
+          loadWithdrawals();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // --- toggle withdraw: update withdrawal_control (single row)
@@ -248,12 +268,13 @@ export default function AdminWithdrawalsPage() {
 
     const t = toast.loading("Rejecting withdrawal...");
     try {
-      const { data: userRow, error: userErr } = await supabase
-        .from<UserProfile>("user_profiles")
+      const { data: userRowData, error: userErr } = await supabase
+        .from("user_profiles")
         .select("uid, balance")
         .eq("uid", w.user_id)
         .limit(1)
         .single();
+      const userRow = userRowData as unknown as UserProfile;
 
       if (userErr || !userRow) throw userErr || new Error("User not found");
 
@@ -476,7 +497,7 @@ export default function AdminWithdrawalsPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    <Badge className={ w.status === "approved" ? "bg-green-600 text-white" : w.status === "rejected" ? "bg-red-600 text-white" : "bg-yellow-500 text-black" }>
+                    <Badge className={w.status === "approved" ? "bg-green-600 text-white" : w.status === "rejected" ? "bg-red-600 text-white" : "bg-yellow-500 text-black"}>
                       {w.status}
                     </Badge>
 
