@@ -44,7 +44,7 @@ const FOREX = [
   "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "XAU/USD"
 ];
 
-const QUICK_AMOUNTS = [10, 25, 50, 100, 250, 500];
+// QUICK_AMOUNTS is now dynamically populated per user
 
 export default function TradingClient({ user, profile }: TradingClientProps) {
   const { t } = useLanguage();
@@ -65,7 +65,20 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [balance, setBalance] = useState<number>(0);
-  const [minTradeAmount, setMinTradeAmount] = useState<number>(1);
+  const [minTradeAmount, setMinTradeAmount] = useState<number>(profile?.min_trade_amount || 1);
+  const [quickAmounts, setQuickAmounts] = useState<number[]>([10, 25, 50, 100, 250, 500]);
+
+  useEffect(() => {
+    if (profile?.min_trade_amount) setMinTradeAmount(profile.min_trade_amount);
+    if (profile?.suggested_trade_amounts) {
+      try {
+        const parsed = typeof profile.suggested_trade_amounts === 'string'
+          ? JSON.parse(profile.suggested_trade_amounts)
+          : profile.suggested_trade_amounts;
+        if (Array.isArray(parsed) && parsed.length > 0) setQuickAmounts(parsed);
+      } catch (e) { console.error("Could not parse suggested amounts", e); }
+    }
+  }, [profile]);
   const [isTrading, setIsTrading] = useState(false);
 
   const userId = user?.id;
@@ -156,6 +169,17 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
         (payload) => {
           if (payload.new?.balance !== undefined) {
             setBalance(Number(payload.new.balance));
+          }
+          if (payload.new?.min_trade_amount !== undefined) {
+            setMinTradeAmount(Number(payload.new.min_trade_amount));
+          }
+          if (payload.new?.suggested_trade_amounts) {
+            try {
+              const parsed = typeof payload.new.suggested_trade_amounts === 'string'
+                ? JSON.parse(payload.new.suggested_trade_amounts)
+                : payload.new.suggested_trade_amounts;
+              if (Array.isArray(parsed)) setQuickAmounts(parsed);
+            } catch (e) { }
           }
         }
       )
@@ -339,15 +363,14 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
               <div className="space-y-2">
                 <Label className="text-white text-sm">{t('trading.tradeAmount')}</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {QUICK_AMOUNTS.map((q) => (
+                  {quickAmounts.map((q) => (
                     <button
                       key={q}
                       onClick={() => setAmount(q)}
-                      className={`py-1.5 rounded text-sm font-medium transition-all border ${
-                        amount === q
+                      className={`py-1.5 rounded text-sm font-medium transition-all border ${amount === q
                           ? "bg-blue-600 border-blue-500 text-white"
                           : "border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white bg-slate-800/40"
-                      }`}
+                        }`}
                     >
                       ${q}
                     </button>
@@ -457,13 +480,12 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                     </p>
                   </div>
                   <Badge
-                    className={`shrink-0 ${
-                      trade.result === "win"
+                    className={`shrink-0 ${trade.result === "win"
                         ? "bg-green-500/20 text-green-300 border-green-400"
                         : trade.result === "lose"
                           ? "bg-red-500/20 text-red-300 border-red-400"
                           : "bg-slate-500/20 text-slate-300 border-slate-400"
-                    }`}
+                      }`}
                   >
                     {trade.result === "win" ? `+$${(trade.profit_loss ?? 0).toFixed(2)}` :
                       trade.result === "lose" ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}` :

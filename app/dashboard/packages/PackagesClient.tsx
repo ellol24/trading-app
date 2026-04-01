@@ -358,6 +358,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                   const durationDays = Number(pkg.duration_days ?? 0)
                   const projectedProfit = Number(((amt * (roiDaily / 100)) * durationDays).toFixed(2))
                   const totalReturn = Number((amt + projectedProfit).toFixed(2))
+                  const hasActive = investments.some(inv => inv.package_id === pkg.id && inv.status === 'active')
                   return (
                     <Card key={pkg.id} className="trading-card" translate="no" data-react-protected>
                       <CardContent className="p-0">
@@ -462,8 +463,9 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           <Button
                             className="w-full h-11 text-base font-semibold professional-gradient"
                             onClick={() => handleBuy(pkg)}
+                            disabled={hasActive}
                           >
-                            {t('packages.activatePackage')}
+                            {hasActive ? t('packages.alreadyActive') : t('packages.activatePackage')}
                           </Button>
                         </div>
                       </CardContent>

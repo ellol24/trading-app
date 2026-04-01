@@ -212,7 +212,6 @@ export interface Translation {
     securityTip3?: string
     securityTip4?: string
     loadingWithdraw?: string
-    availableBalance?: string
     securityFreezeTitle?: string
     securityFreezeDesc?: string
     dailyLimitTitle?: string
@@ -318,6 +317,7 @@ export interface Translation {
     insufficientBalanceTitle: string
     insufficientBalanceDesc: string
     updateBalanceError: string
+    alreadyActive: string
     createInvestmentError: string
     activationSuccessTitle: string
     activationSuccessDesc: string
