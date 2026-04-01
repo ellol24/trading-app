@@ -99,20 +99,11 @@ export default function AdminTradingControlsPage() {
     fetchRounds();
     fetchTradingLimits();
 
-    const channel = supabase
-      .channel("admin-trade-rounds")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trade_rounds" },
-        (payload) => {
-          fetchRounds();
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      fetchRounds();
+    }, 5000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // إنشاء جولة

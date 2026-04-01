@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase/client";
-import { notify } from "@/lib/notify";
+import { toast } from "sonner";
 
 type Deposit = {
   id: string;
@@ -45,9 +45,12 @@ export default function AdminDepositsPage() {
     todayAmount: 0,
   });
 
+  // Keep track of known IDs to fire notifications on new items
+  const knownIdsRef = useRef<Set<string>>(new Set());
+
   // ✅ تحميل الإيداعات
-  async function loadDeposits() {
-    setLoading(true);
+  async function loadDeposits(isPolling = false) {
+    if (!isPolling) setLoading(true);
     const { data, error } = await supabase
       .from("deposits")
       .select(`
@@ -68,16 +71,30 @@ export default function AdminDepositsPage() {
 
     if (error) {
       console.error(error);
-      notify.deposit.failed();
+      if (!isPolling) toast.error("Error loading deposits");
     } else {
       const formatted = (data || []).map((d: any) => ({
         ...d,
         deposit_wallets: Array.isArray(d.deposit_wallets) ? d.deposit_wallets[0] : d.deposit_wallets
       })) as Deposit[];
+
+      const currentKnownSize = knownIdsRef.current.size;
+
+      if (currentKnownSize > 0 && isPolling) {
+        const newIds = formatted.map(x => x.id).filter(id => !knownIdsRef.current.has(id));
+        if (newIds.length > 0) {
+          toast.info(`New Deposit Request${newIds.length > 1 ? 's' : ''} Arrived!`);
+          knownIdsRef.current = new Set(formatted.map(x => x.id));
+        }
+      } else if (currentKnownSize === 0) {
+        // Initial load
+        knownIdsRef.current = new Set(formatted.map(x => x.id));
+      }
+
       setDeposits(formatted);
       calcStats(formatted);
     }
-    setLoading(false);
+    if (!isPolling) setLoading(false);
   }
 
   // ✅ تحميل إعدادات الإيداع
@@ -99,23 +116,12 @@ export default function AdminDepositsPage() {
     loadDeposits();
     loadSettings();
 
-    const channel = supabase
-      .channel("admin-deposit-singular")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "deposits" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            notify.deposit.submitted("New Deposit Request Arrived");
-          }
-          loadDeposits();
-        }
-      )
-      .subscribe();
+    // Polling every 5 seconds to bypass Supabase Realtime RLS limitations
+    const interval = setInterval(() => {
+      loadDeposits(true);
+    }, 5000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // ✅ حساب الإحصائيات
@@ -152,10 +158,10 @@ export default function AdminDepositsPage() {
       .neq("id", 0); // لتحديث أول صف فقط
 
     if (error) {
-      notify.deposit.failed();
+      toast.error("Error updating settings");
       console.error(error);
     } else {
-      notify.deposit.submitted("Settings updated ✅");
+      toast.success("Settings updated ✅");
     }
   }
 
@@ -168,11 +174,11 @@ export default function AdminDepositsPage() {
         .eq("id", dep.id);
 
       if (error) throw error;
-      notify.deposit.submitted("Deposit approved ✅");
+      toast.success("Deposit approved ✅");
       loadDeposits();
     } catch (err) {
       console.error(err);
-      notify.deposit.failed();
+      toast.error("Error approving deposit");
     }
   }
 
@@ -185,11 +191,11 @@ export default function AdminDepositsPage() {
         .eq("id", dep.id);
 
       if (error) throw error;
-      notify.deposit.submitted("Deposit rejected ❌");
+      toast.success("Deposit rejected ❌");
       loadDeposits();
     } catch (err) {
       console.error(err);
-      notify.deposit.failed();
+      toast.error("Error rejecting deposit");
     }
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
   Card,
@@ -119,9 +119,11 @@ export default function AdminWithdrawalsPage() {
     loadSettings();
   }, []);
 
+  const knownIdsRef = useRef<Set<string>>(new Set());
+
   // --- load withdrawals manual and merge users+wallets
-  const loadWithdrawals = async () => {
-    setLoading(true);
+  const loadWithdrawals = async (isPolling = false) => {
+    if (!isPolling) setLoading(true);
     try {
       const { data: wdRows, error: wdErr } = await supabase
         .from("withdrawals")
@@ -130,15 +132,15 @@ export default function AdminWithdrawalsPage() {
 
       if (wdErr) {
         console.error("Failed to fetch withdrawals", wdErr);
-        setWithdrawals([]);
-        setLoading(false);
+        if (!isPolling) setWithdrawals([]);
+        if (!isPolling) setLoading(false);
         return;
       }
 
       const wd = (wdRows as unknown as WithdrawalRow[]) || [];
       if (wd.length === 0) {
-        setWithdrawals([]);
-        setLoading(false);
+        if (!isPolling) setWithdrawals([]);
+        if (!isPolling) setLoading(false);
         return;
       }
 
@@ -169,35 +171,35 @@ export default function AdminWithdrawalsPage() {
         return { ...r, user, wallet };
       });
 
+      const currentKnownSize = knownIdsRef.current.size;
+
+      if (currentKnownSize > 0 && isPolling) {
+        const newIds = enriched.map(x => x.id).filter(id => !knownIdsRef.current.has(id));
+        if (newIds.length > 0) {
+          toast.info(`New Withdrawal Request${newIds.length > 1 ? 's' : ''} Arrived!`);
+          knownIdsRef.current = new Set(enriched.map(x => x.id));
+        }
+      } else if (currentKnownSize === 0) {
+        knownIdsRef.current = new Set(enriched.map(x => x.id));
+      }
+
       setWithdrawals(enriched);
     } catch (err) {
       console.error("loadWithdrawals unexpected", err);
-      setWithdrawals([]);
+      if (!isPolling) setWithdrawals([]);
     } finally {
-      setLoading(false);
+      if (!isPolling) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadWithdrawals();
 
-    const channel = supabase
-      .channel("admin-withdrawals-singular")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "withdrawals" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            toast.success("New Withdrawal Request Arrived");
-          }
-          loadWithdrawals();
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      loadWithdrawals(true);
+    }, 5000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   // --- toggle withdraw: update withdrawal_control (single row)
