@@ -167,7 +167,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const handleSave = async () => {
     if (!user) return;
     if (!isValidEmail(profileData.email)) {
-      toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" });
+      toast({ title: t('profile.invalidEmailTitle') || "Invalid email", description: t('profile.invalidEmailDesc') || "Please enter a valid email address.", variant: "destructive" });
       return;
     }
     setIsSaving(true);
@@ -186,11 +186,11 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
         const alt = await supabase.from("user_profiles").update(payload).eq("user_id", user.id);
         if (alt.error) throw alt.error;
       }
-      toast({ title: "Profile Updated", description: "Your profile information has been saved successfully." });
+      toast({ title: t('profile.profileUpdated') || "Profile Updated", description: t('profile.profileUpdatedDesc') || "Your profile information has been saved successfully." });
       setIsEditing(false);
       router.refresh();
     } catch (err: any) {
-      toast({ title: "Save failed", description: err?.message || "Could not save profile.", variant: "destructive" });
+      toast({ title: t('profile.saveFailed') || "Save failed", description: err?.message || t('profile.saveFailedDesc') || "Could not save profile.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -205,14 +205,14 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       const { error } = await supabase.from("user_preferences").upsert(upsertPayload, { onConflict: "user_id" });
       if (error) throw error;
     } catch (err: any) {
-      toast({ title: "Preferences error", description: err?.message || "Could not update preferences.", variant: "destructive" });
+      toast({ title: t('profile.preferencesError') || "Preferences error", description: err?.message || t('profile.preferencesErrorDesc') || "Could not update preferences.", variant: "destructive" });
       setPrefs((p) => ({ ...p, [key]: !value }));
     }
   };
 
   const handleChangePassword = async () => {
     if (!newPassword) {
-      toast({ title: "Missing field", description: "Please enter a new password.", variant: "destructive" });
+      toast({ title: t('profile.missingField') || "Missing field", description: t('profile.missingFieldDesc') || "Please enter a new password.", variant: "destructive" });
       return;
     }
     // Show confirm dialog instead of immediately updating
@@ -229,7 +229,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       setCurrentPassword("");
       setNewPassword("");
     } catch (err: any) {
-      toast({ title: "Password error", description: err?.message || "Failed to change password.", variant: "destructive" });
+      toast({ title: t('profile.passwordError') || "Password error", description: err?.message || t('profile.passwordErrorDesc') || "Failed to change password.", variant: "destructive" });
     } finally {
       setIsPasswordSaving(false);
     }
@@ -243,7 +243,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       await supabase.auth.signOut();
       router.replace("/auth/login");
     } catch (err: any) {
-      toast({ title: "Logout failed", description: err?.message || "Could not sign out.", variant: "destructive" });
+      toast({ title: t('profile.logoutFailed') || "Logout failed", description: err?.message || t('profile.logoutFailedDesc') || "Could not sign out.", variant: "destructive" });
     } finally {
       setIsLoggingOut(false);
     }

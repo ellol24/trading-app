@@ -104,5 +104,17 @@
   "statusBadgeRejected": "❌ مرفوض",
   "secureAndManual": "آمن ويدوي",
   "selectWalletStep": "1. اختيار المحفظة وإدخال المبلغ",
-  "insufficientBalanceWithAvailable": "الرصيد غير كافٍ (المتاح: ${balance})"
+  "insufficientBalanceWithAvailable": "الرصيد غير كافٍ (المتاح: ${balance})",
+  "statusBadgeProcessing": "🔄 قيد المعالجة",
+  "addressCopied": "تم نسخ العنوان!",
+  "invalidFileType": "يسمح فقط بصور PNG و JPG و WEBP.",
+  "fileTooLarge": "يجب أن يكون حجم الملف أقل من {size} ميغابايت.",
+  "minDepositWarning": "الحد الأدنى للإيداع هو ${min}",
+  "missingScreenshot": "يرجى إرفاق لقطة شاشة للتحويل",
+  "missingWallet": "يرجى اختيار محفظة",
+  "depositFailed": "فشل الإيداع!",
+  "depositSubmitted": "تم إرسال الإيداع! في انتظار موافقة المسؤول.",
+  "somethingWentWrong": "حدث خطأ ما",
+  "balanceUpdated": "تم تحديث رصيدك!",
+  "oneWithdrawalPerDayDesc": "يمكنك التقديم مرة أخرى بعد {time}"
 }

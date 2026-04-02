@@ -43,5 +43,6 @@
   "minLabel": "Min:",
   "maxLabel": "Max:",
   "alreadyActiveTitle": "Package Already Active",
-  "alreadyActiveDesc": "You already have an active investment with this package. Please wait for it to expire."
+  "alreadyActiveDesc": "You already have an active investment with this package. Please wait for it to expire.",
+  "alreadyActive": "Already Active"
 }

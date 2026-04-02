@@ -53,7 +53,7 @@ export default function DepositClient({ user, profile }: any) {
       });
     supabase.from("deposit_wallets").select("id,address,asset")
       .then(({ data, error }) => {
-        if (error) { toast.error("❌ Failed to load wallets"); return; }
+        if (error) { toast.error(`❌ ${t("wallet.walletsLoadError")}`); return; }
         const rows = data ?? [];
         setNetworks(rows);
         if (rows.length > 0) setNetworkId(rows[0].id);
@@ -72,13 +72,13 @@ export default function DepositClient({ user, profile }: any) {
     if (!selected?.address) return;
     await navigator.clipboard.writeText(selected.address);
     setAddressCopied(true);
-    toast.success(`✅ Address copied!`);
+    toast.success(`✅ ${t("wallet.addressCopied")}`);
     setTimeout(() => setAddressCopied(false), 2500);
   };
 
   const validateFile = (file: File): string => {
-    if (!ALLOWED_TYPES.includes(file.type)) return "Only PNG, JPG and WEBP images are allowed.";
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) return `File must be smaller than ${MAX_FILE_SIZE_MB}MB.`;
+    if (!ALLOWED_TYPES.includes(file.type)) return t("wallet.invalidFileType");
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) return t("wallet.fileTooLarge").replace('{size}', String(MAX_FILE_SIZE_MB));
     return "";
   };
 
@@ -98,7 +98,7 @@ export default function DepositClient({ user, profile }: any) {
       .select("id, amount, status, created_at, proof_base64, deposit_wallets(asset, address)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (error) toast.error("❌ Failed to load deposit history");
+    if (error) toast.error(`❌ ${t("wallet.historyLoadError")}`);
     else setDeposits((data as any) ?? []);
     setLoadingHistory(false);
   }, [user?.id]);
@@ -125,7 +125,7 @@ export default function DepositClient({ user, profile }: any) {
         (payload) => {
           if (payload.new?.balance !== undefined) {
             setLiveBalance(Number(payload.new.balance));
-            toast.success("💰 Your balance has been updated!");
+            toast.success(`💰 ${t("wallet.balanceUpdated")}`);
           }
         }
       )
@@ -140,10 +140,10 @@ export default function DepositClient({ user, profile }: any) {
   const createPayment = async () => {
     if (!isEnabled) { toast.error(`🚫 ${t("wallet.depositsDisabled")}`); return; }
     if (!amount || Number(amount) < minDeposit) {
-      toast.warning(`⚠️ Minimum deposit is $${minDeposit}`); return;
+      toast.warning(`⚠️ ${t("wallet.minDepositWarning").replace('{min}', String(minDeposit))}`); return;
     }
-    if (!screenshot) { toast.warning("⚠️ Please attach a screenshot of your transfer"); return; }
-    if (!selected?.id) { toast.warning("⚠️ Please select a wallet"); return; }
+    if (!screenshot) { toast.warning(`⚠️ ${t("wallet.missingScreenshot")}`); return; }
+    if (!selected?.id) { toast.warning(`⚠️ ${t("wallet.missingWallet")}`); return; }
 
     setIsProcessing(true);
     try {
@@ -160,15 +160,15 @@ export default function DepositClient({ user, profile }: any) {
           status: "pending",
           proof_base64: reader.result as string,
         });
-        if (error) { toast.error("❌ Deposit failed!"); }
+        if (error) { toast.error(`❌ ${t("wallet.depositFailed")}`); }
         else {
           setAmount(""); setScreenshot(null);
-          toast.success("✅ Deposit submitted! Awaiting admin approval.");
+          toast.success(`✅ ${t("wallet.depositSubmitted")}`);
           loadDeposits();
         }
         setIsProcessing(false);
       };
-    } catch { toast.error("❌ Something went wrong"); setIsProcessing(false); }
+    } catch { toast.error(`❌ ${t("wallet.somethingWentWrong")}`); setIsProcessing(false); }
   };
 
   const formDisabled = !isEnabled || isProcessing;

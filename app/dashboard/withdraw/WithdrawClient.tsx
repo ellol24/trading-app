@@ -194,7 +194,7 @@ export default function WithdrawClient({ user, profile }: Props) {
       if (todayRows && todayRows.length > 0) {
         const resetTime = midnightResetTime();
         setNextWithdrawTime(resetTime);
-        toast.error(`🚫 One withdrawal per day. You can submit again after ${resetTime}`);
+        toast.error(`🚫 ${t("wallet.oneWithdrawalPerDayDesc").replace('{time}', resetTime)}`);
         return;
       }
 
@@ -275,12 +275,12 @@ export default function WithdrawClient({ user, profile }: Props) {
   // ─── Status badge helper ─────────────────────────────────────────────────
   const statusBadge = (status: string) => {
     if (status === "paid" || status === "approved")
-      return <Badge className="bg-green-500/20 text-green-400 border-green-400">✅ Paid</Badge>;
+      return <Badge className="bg-green-500/20 text-green-400 border-green-400">{t("wallet.statusBadgeApproved") || "✅ Paid"}</Badge>;
     if (status === "rejected")
-      return <Badge className="bg-red-500/20 text-red-400 border-red-400">❌ Rejected</Badge>;
+      return <Badge className="bg-red-500/20 text-red-400 border-red-400">{t("wallet.statusBadgeRejected") || "❌ Rejected"}</Badge>;
     if (status === "processing")
-      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-400">🔄 Processing</Badge>;
-    return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-400">⏳ Pending</Badge>;
+      return <Badge className="bg-blue-500/20 text-blue-400 border-blue-400">{t("wallet.statusBadgeProcessing") || "🔄 Processing"}</Badge>;
+    return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-400">{t("wallet.statusBadgePending") || "⏳ Pending"}</Badge>;
   };
 
   return (
