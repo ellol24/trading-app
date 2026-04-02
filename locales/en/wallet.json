@@ -68,5 +68,11 @@
   "securityTips": "Security Tips",
   "securityTip1": "Only withdraw to wallets you control.",
   "securityTip2": "We will never DM you asking for your OTP.",
-  "loadingWithdraw": "Loading your withdraw..."
+  "loadingWithdraw": "Loading your withdraw...",
+  "loadingHistory": "Loading history...",
+  "statusBadgeApproved": "✅ Approved",
+  "statusBadgePending": "⏳ Pending",
+  "statusBadgeRejected": "❌ Rejected",
+  "secureAndManual": "Secure and Manual",
+  "selectWalletStep": "1. Select wallet and enter amount"
 }
