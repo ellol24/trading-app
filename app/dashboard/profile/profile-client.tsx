@@ -181,6 +181,19 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
         address: profileData.address,
         zip_code: profileData.zipCode,
       };
+
+      // Automatically set status to "verified" when all data is present
+      const isComplete =
+        payload.first_name?.trim() &&
+        payload.last_name?.trim() &&
+        payload.phone?.trim() &&
+        payload.country?.trim() &&
+        payload.city?.trim() &&
+        payload.address?.trim() &&
+        payload.zip_code?.trim() &&
+        profileData.email?.trim();
+
+      payload.status = isComplete ? "verified" : "pending";
       const { error } = await supabase.from("user_profiles").update(payload).eq("uid", user.id);
       if (error) {
         const alt = await supabase.from("user_profiles").update(payload).eq("user_id", user.id);
