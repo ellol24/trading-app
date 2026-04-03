@@ -106,5 +106,8 @@
   "securityTips": "نصائح أمنية",
   "securityTip1": "اسحب فقط إلى المحافظ التي تتحكم فيها.",
   "securityTip2": "لن نطلب منك أبداً رمز OTP في رسالة خاصة.",
-  "loadingWithdraw": "جاري تحميل السحب..."
+  "loadingWithdraw": "جاري تحميل السحب...",
+  "onboardingTitle": "🚀 مرحباً بك في XSpy Trader!",
+  "onboardingDesc": "ابدأ بإجراء أول إيداع لك. تظهر الأموال فوراً بعد موافقة المسؤول.",
+  "makeDepositBtn": "قم بإيداع"
 }

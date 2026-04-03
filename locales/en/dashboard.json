@@ -141,5 +141,8 @@
   "statusBadgePending": "⏳ Pending",
   "statusBadgeRejected": "❌ Rejected",
   "secureAndManual": "Secure & Manual",
-  "selectWalletStep": "1. Select Wallet & Enter Amount"
+  "selectWalletStep": "1. Select Wallet & Enter Amount",
+  "onboardingTitle": "🚀 Welcome to XSpy Trader!",
+  "onboardingDesc": "Get started by making your first deposit. Funds appear instantly after admin approval.",
+  "makeDepositBtn": "Make a Deposit"
 }

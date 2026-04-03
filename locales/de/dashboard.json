@@ -106,5 +106,8 @@
   "securityTips": "Security Tips",
   "securityTip1": "Only withdraw to wallets you control.",
   "securityTip2": "We will never DM you asking for your OTP.",
-  "loadingWithdraw": "Loading your withdraw..."
+  "loadingWithdraw": "Loading your withdraw...",
+  "onboardingTitle": "🚀 Willkommen bei XSpy Trader!",
+  "onboardingDesc": "Beginnen Sie mit Ihrer ersten Einzahlung. Das Guthaben erscheint sofort nach Genehmigung durch den Administrator.",
+  "makeDepositBtn": "Einzahlung tätigen"
 }

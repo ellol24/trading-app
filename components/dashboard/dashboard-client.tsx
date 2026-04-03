@@ -288,18 +288,18 @@ export default function DashboardClient({
         {showOnboarding && (
           <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/40 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <h2 className="text-white font-bold text-xl mb-1">🚀 Welcome to XSpy Trader!</h2>
-              <p className="text-blue-200 text-sm">Get started by making your first deposit. Funds appear instantly after admin approval.</p>
+              <h2 className="text-white font-bold text-xl mb-1">{t('dashboard.onboardingTitle') || "🚀 Welcome to XSpy Trader!"}</h2>
+              <p className="text-blue-200 text-sm">{t('dashboard.onboardingDesc') || "Get started by making your first deposit. Funds appear instantly after admin approval."}</p>
             </div>
             <div className="flex gap-3 shrink-0">
               <Link href="/dashboard/deposit">
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <CreditCard className="w-4 h-4 mr-2" /> Make a Deposit
+                  <CreditCard className="w-4 h-4 mr-2" /> {t('dashboard.makeDepositBtn') || "Make a Deposit"}
                 </Button>
               </Link>
               <Link href="/dashboard/trading">
                 <Button variant="outline" className="border-slate-500 text-slate-300 bg-transparent hover:bg-slate-700">
-                  <TrendingUp className="w-4 h-4 mr-2" /> Start Trading
+                  <TrendingUp className="w-4 h-4 mr-2" /> {t('dashboard.startTrading') || "Start Trading"}
                 </Button>
               </Link>
             </div>
