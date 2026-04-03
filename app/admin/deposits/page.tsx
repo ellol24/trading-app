@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, CheckCircle2, XCircle, ImageIcon, Clock, DollarSign, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { processDepositCommissions } from "@/lib/actions/commissions";
 
 type RealDeposit = {
   id: string;
@@ -167,6 +168,10 @@ export default function AdminDepositsPage() {
       toast({ title: "Wallet Error", description: "Deposit marked confirmed, but balance update failed: " + rpcErr.message, variant: "destructive" });
     } else {
       toast({ title: "Success", description: "Deposit confirmed and funds added to user wallet." });
+
+      // 3. Process any applicable referral commissions silently in the background
+      await processDepositCommissions(selected.user_id, Number(selected.amount));
+
       fetchDeposits();
     }
 

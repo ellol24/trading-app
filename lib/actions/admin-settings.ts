@@ -20,9 +20,9 @@ export async function saveAdminSettings(
     // This allows the admin settings to save even if no SQL policies explicitly allow it.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    
+
     if (!supabaseUrl || !supabaseServiceKey || supabaseServiceKey.includes("placeholder")) {
-       return { success: false, error: "Missing authentic Supabase admin credentials" };
+      return { success: false, error: "Missing authentic Supabase admin credentials" };
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -30,13 +30,14 @@ export async function saveAdminSettings(
     });
 
     // 3. Perform Upserts bypassing RLS
-    const { error: depErr } = await supabaseAdmin.from("referral_commission_rates").upsert(depositRows);
+    // Add onConflict to tell Supabase how to upsert when no ID is provided
+    const { error: depErr } = await supabaseAdmin.from("referral_commission_rates").upsert(depositRows, { onConflict: "level" });
     if (depErr) return { success: false, error: depErr.message };
 
-    const { error: tradeErr } = await supabaseAdmin.from("trade_profit_commission_rates").upsert(tradeRows);
+    const { error: tradeErr } = await supabaseAdmin.from("trade_profit_commission_rates").upsert(tradeRows, { onConflict: "level" });
     if (tradeErr) return { success: false, error: tradeErr.message };
 
-    const { error: pkgErr } = await supabaseAdmin.from("package_referral_commission_rates").upsert(packageRows);
+    const { error: pkgErr } = await supabaseAdmin.from("package_referral_commission_rates").upsert(packageRows, { onConflict: "level" });
     if (pkgErr) return { success: false, error: pkgErr.message };
 
     const { error: settingsErr } = await supabaseAdmin.from("system_settings").upsert({
@@ -44,7 +45,7 @@ export async function saveAdminSettings(
       value: { enabled: welcomeBonus.enabled, amount: welcomeBonus.amount },
       description: "Automatically applied welcome bonus for new user registrations",
       category: "user_management"
-    });
+    }, { onConflict: "key" });
     if (settingsErr) return { success: false, error: settingsErr.message };
 
     return { success: true };

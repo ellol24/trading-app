@@ -64,6 +64,7 @@ type ReferralsPageProps = {
   topReferrers: TopReferrer[];
   commissionLevels: CommissionLevel[];
   stats: ReferralStats;
+  rates: number[];
 };
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ function StatCard({ title, value, icon, color, isMoney = true }: {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function ReferralsPage({
-  user, profile, history, topReferrers, commissionLevels, stats,
+  user, profile, history, topReferrers, commissionLevels, stats, rates
 }: ReferralsPageProps) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -106,10 +107,10 @@ export default function ReferralsPage({
 
   // Commission structure
   const COMMISSION_STRUCTURE = useMemo(() => [
-    { level: 1, pct: "10%", emoji: "🥇", description: t("referrals.directReferrals") },
-    { level: 2, pct: "5%", emoji: "🥈", description: t("referrals.secondDegreeReferrals") },
-    { level: 3, pct: "2%", emoji: "🥉", description: t("referrals.thirdDegreeReferrals") },
-  ], [t]);
+    { level: 1, pct: `${rates?.[0] ?? 10}%`, emoji: "🥇", description: t("referrals.directReferrals") },
+    { level: 2, pct: `${rates?.[1] ?? 7}%`, emoji: "🥈", description: t("referrals.secondDegreeReferrals") },
+    { level: 3, pct: `${rates?.[2] ?? 3}%`, emoji: "🥉", description: t("referrals.thirdDegreeReferrals") },
+  ], [t, rates]);
 
   const referralLink = useMemo(() =>
     profile?.referral_code
@@ -309,8 +310,8 @@ export default function ReferralsPage({
                   <div
                     key={ref.rank}
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${ref.isCurrentUser
-                        ? "border-blue-500/50 bg-blue-500/10"
-                        : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/50"
+                      ? "border-blue-500/50 bg-blue-500/10"
+                      : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/50"
                       }`}
                   >
                     <div className="flex items-center gap-3">

@@ -21,6 +21,7 @@ export default async function Page() {
     { data: profile, error: profileError },
     { data: referralsRaw, error: referralsError },
     { data: commissionsRaw, error: commissionsError },
+    { data: dbRates },
   ] = await Promise.all([
     supabase.from("user_profiles").select("*").eq("uid", user.id).single(),
     supabase
@@ -33,7 +34,17 @@ export default async function Page() {
       .from("referral_commissions")
       .select("id, commission_amount, created_at, referral_id, level, referrals(referrer_id)")
       .eq("referrals.referrer_id", user.id),
+    supabase.from("referral_commission_rates").select("*").order("level", { ascending: true }),
   ]);
+
+  const realRates = [10, 7, 3]; // defaults
+  if (dbRates && dbRates.length > 0) {
+    dbRates.forEach((r: any) => {
+      if (r.level === 1) realRates[0] = Number(r.percentage);
+      if (r.level === 2) realRates[1] = Number(r.percentage);
+      if (r.level === 3) realRates[2] = Number(r.percentage);
+    });
+  }
 
   if (profileError) console.error("profileError:", profileError);
   if (referralsError) console.error("referralsError:", referralsError);
@@ -96,7 +107,7 @@ export default async function Page() {
     activeReferrals,
     totalEarnings,
     thisMonthEarnings,
-    commissionRate: 10,
+    commissionRate: realRates[0],
     lifetimeCommission: totalEarnings,
     commissionsTotal: totalEarnings,
   };
@@ -151,12 +162,15 @@ export default async function Page() {
     levelsMap[lvl].earnings += Number(h.yourCommission || 0);
   });
 
-  const commissionLevels = Object.entries(levelsMap).map(([level, d]) => ({
-    level: Number(level),
-    users: d.users,
-    commission: Number(level) === 1 ? 10 : Number(level) === 2 ? 5 : 2,
-    earnings: d.earnings,
-  }));
+  const commissionLevels = [1, 2, 3].map((level) => {
+    const d = levelsMap[level] || { users: 0, earnings: 0 };
+    return {
+      level,
+      users: d.users,
+      commission: realRates[level - 1] ?? 0,
+      earnings: d.earnings,
+    };
+  });
 
   // مرر كل شيء إلى المكوّن العميل
   return (
@@ -168,6 +182,7 @@ export default async function Page() {
       topReferrers={topReferrers}
       commissionLevels={commissionLevels}
       stats={stats}
+      rates={realRates}
     />
   );
 }
