@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { processReferralCommissions } from "@/lib/actions/commissions";
 
 type TradeRound = {
   id: string;
@@ -258,76 +259,9 @@ export default function AdminTradingControlsPage() {
             .update({ balance: newBalance })
             .eq("uid", user.uid);
 
-          // ✅ توزيع العمولات للمحيلين حتى 3 مستويات
+          // ✅ توزيع العمولات للمحيلين حتى 3 مستويات باستخدام Server Action الموثوق
           if (result === "win" && profit > 0) {
-            const { data: settings } = await supabase
-              .from("settings")
-              .select("level1_commission, level2_commission, level3_commission")
-              .single();
-
-            const lvl1 = settings?.level1_commission ?? 5;
-            const lvl2 = settings?.level2_commission ?? 2;
-            const lvl3 = settings?.level3_commission ?? 1;
-
-            if (user.referral_code_used) {
-              const { data: ref1 } = await supabase
-                .from("user_profiles")
-                .select("uid, referral_code_used, balance, referral_earnings")
-                .eq("referral_code", user.referral_code_used)
-                .single();
-
-              if (ref1) {
-                const commission1 = (profit * lvl1) / 100;
-                await supabase
-                  .from("user_profiles")
-                  .update({
-                    referral_earnings:
-                      (ref1.referral_earnings ?? 0) + commission1,
-                    balance: (ref1.balance ?? 0) + commission1,
-                  })
-                  .eq("uid", ref1.uid);
-
-                if (ref1.referral_code_used) {
-                  const { data: ref2 } = await supabase
-                    .from("user_profiles")
-                    .select("uid, referral_code_used, balance, referral_earnings")
-                    .eq("referral_code", ref1.referral_code_used)
-                    .single();
-
-                  if (ref2) {
-                    const commission2 = (profit * lvl2) / 100;
-                    await supabase
-                      .from("user_profiles")
-                      .update({
-                        referral_earnings:
-                          (ref2.referral_earnings ?? 0) + commission2,
-                        balance: (ref2.balance ?? 0) + commission2,
-                      })
-                      .eq("uid", ref2.uid);
-
-                    if (ref2.referral_code_used) {
-                      const { data: ref3 } = await supabase
-                        .from("user_profiles")
-                        .select("uid, balance, referral_earnings")
-                        .eq("referral_code", ref2.referral_code_used)
-                        .single();
-
-                      if (ref3) {
-                        const commission3 = (profit * lvl3) / 100;
-                        await supabase
-                          .from("user_profiles")
-                          .update({
-                            referral_earnings:
-                              (ref3.referral_earnings ?? 0) + commission3,
-                            balance: (ref3.balance ?? 0) + commission3,
-                          })
-                          .eq("uid", ref3.uid);
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            await processReferralCommissions(trade.user_id, profit, "trade");
           }
         }
       }

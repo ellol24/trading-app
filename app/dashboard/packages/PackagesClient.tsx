@@ -12,6 +12,7 @@ import { DollarSign, Clock, Package, PiggyBank, Wallet, Info, TrendingUp, Calcul
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
+import { processReferralCommissions } from "@/lib/actions/commissions"
 
 import { useLanguage } from "@/contexts/language-context"
 
@@ -147,6 +148,9 @@ export default function PackagesClient({ userId }: { userId: string }) {
       toast({ title: t('packages.activationSuccessTitle'), description: t('packages.activationSuccessDesc').replace('{title}', translateDynamic(pkg.title) || "") })
       // تحديث محلي للواجهة
       setWallet((prev) => prev - amt)
+
+      // ✅ Grant Package commissions quietly
+      await processReferralCommissions(userId, amt, "package")
 
       // إعادة جلب الاستثمارات لتحديث القائمة
       const { data: invs } = await supabase

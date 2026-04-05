@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { headers, cookies } from "next/headers";
+import { processNewUserReferral } from "./actions/handle-referrals";
 
 // ✅ تعريف ActionState
 export type ActionState = {
@@ -40,6 +41,11 @@ export async function signUp(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // ✅ Process referral tree in the background
+  if (data?.user && referralCodeUsed) {
+    await processNewUserReferral(data.user.id, data.user.email ?? email, referralCodeUsed);
   }
 
   return { success: "Account created successfully!" };

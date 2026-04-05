@@ -4,9 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Automatically processes referral commissions up to 3 levels deep
- * when a user's deposit is approved.
+ * when a user deposits, earns a trading profit, or buys a package.
  */
-export async function processDepositCommissions(userId: string, depositAmount: number) {
+export async function processReferralCommissions(
+    userId: string, 
+    baseAmount: number, 
+    commissionType: "deposit" | "trade" | "package"
+) {
     try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -20,13 +24,18 @@ export async function processDepositCommissions(userId: string, depositAmount: n
             auth: { persistSession: false },
         });
 
-        // 1. Fetch active deposit rates
+        // Determine which rates table to query
+        let tableName = "referral_commission_rates";
+        if (commissionType === "trade") tableName = "trade_profit_commission_rates";
+        if (commissionType === "package") tableName = "package_referral_commission_rates";
+
+        // 1. Fetch active rates
         const { data: dbRates } = await supabaseAdmin
-            .from("referral_commission_rates")
+            .from(tableName)
             .select("*")
             .order("level", { ascending: true });
 
-        const rates = [10, 7, 3]; // Default fallback percentages map
+        const rates = [0, 0, 0]; // Default fallback percentages map
         if (dbRates && dbRates.length > 0) {
             dbRates.forEach((r: any) => {
                 if (r.level === 1) rates[0] = Number(r.percentage);
@@ -35,44 +44,39 @@ export async function processDepositCommissions(userId: string, depositAmount: n
             });
         }
 
-        // Process up to 3 levels of referrals recursively
-        let currentReferredId = userId;
+        // Fetch all ancestor referrals referencing this user
+        const { data: ancestors, error: ancestorsErr } = await supabaseAdmin
+            .from("referrals")
+            .select("id, referrer_id, level")
+            .eq("referred_id", userId);
 
-        for (let level = 1; level <= 3; level++) {
-            // Find who referred the current user
-            const { data: referralRow, error: refError } = await supabaseAdmin
-                .from("referrals")
-                .select("id, referrer_id")
-                .eq("referred_id", currentReferredId)
-                .single();
+        if (ancestorsErr || !ancestors || ancestors.length === 0) {
+            return { success: true, message: "No active referrers found." };
+        }
 
-            if (refError || !referralRow || !referralRow.referrer_id) {
-                // No parent referrer found (chain broken), stop distributing.
-                break;
-            }
+        // Apply commissions concurrently
+        for (const record of ancestors) {
+            const lvl = record.level ?? 1;
+            const percentage = rates[lvl - 1];
+            if (!percentage) continue;
 
-            const referrerId = referralRow.referrer_id;
-            const commissionAmount = parseFloat(((depositAmount * rates[level - 1]) / 100).toFixed(2));
-
+            const commissionAmount = parseFloat(((baseAmount * percentage) / 100).toFixed(2));
             if (commissionAmount > 0) {
-                // A. Insert record into `referral_commissions` using `id` from the `referrals` table
+                // A. Insert record into `referral_commissions`
                 await supabaseAdmin.from("referral_commissions").insert({
-                    referral_id: referralRow.id,
+                    referral_id: record.id,
                     commission_amount: commissionAmount,
-                    level: level
+                    level: lvl
                 });
 
                 // B. Add funds directly to referrer's wallet
                 await supabaseAdmin.rpc("update_wallet_balance", {
-                    p_user_id: referrerId,
-                    p_currency: "USD", // System typically holds commissions in USD
+                    p_user_id: record.referrer_id,
+                    p_currency: "USD",
                     p_amount: commissionAmount,
                     p_transaction_type: "referral_commission",
                 });
             }
-
-            // Move up the tree for the next level: The parent becomes the new child
-            currentReferredId = referrerId;
         }
 
         return { success: true };
