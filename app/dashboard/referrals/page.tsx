@@ -1,7 +1,22 @@
 // app/dashboard/referrals/page.tsx
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { processNewUserReferral } from "@/lib/actions/handle-referrals";
 import ReferralsPage from "./ReferralsPage";
+
+// Privacy helper functions
+function obscureName(name: string | null) {
+  if (!name || name === "Unnamed") return "Hidden User";
+  const parts = name.split(" ");
+  return parts.map(p => p.charAt(0) + "***").join(" ");
+}
+
+function obscureEmail(email: string | null) {
+  if (!email) return "Hidden";
+  const [local, dom] = email.split("@");
+  if (!dom) return email;
+  return local.charAt(0) + "***@" + dom;
+}
 
 export default async function Page() {
   const supabase = createClient();
@@ -50,7 +65,38 @@ export default async function Page() {
   if (referralsError) console.error("referralsError:", referralsError);
   if (commissionsError) console.error("commissionsError:", commissionsError);
 
-  const referrals = Array.isArray(referralsRaw) ? referralsRaw : [];
+  let referrals = Array.isArray(referralsRaw) ? referralsRaw : [];
+
+  // ================= SELF-HEALING BLOCK =================
+  // If the user has legacy users bridging their referral code, but no actual DB rows in `referrals`!
+  if (profile?.referral_code) {
+    const { data: missingLegacy } = await supabase
+      .from("user_profiles")
+      .select("uid, email, referral_code_used")
+      .eq("referral_code_used", profile.referral_code);
+
+    let needsRefetch = false;
+    if (missingLegacy && missingLegacy.length > 0) {
+       for (const missing of missingLegacy) {
+          if (!referrals.some((r: any) => r.referred_id === missing.uid)) {
+             // Found a direct referral missing their DB row! Build the robust tree silently.
+             await processNewUserReferral(missing.uid, missing.email, missing.referral_code_used);
+             needsRefetch = true;
+          }
+       }
+    }
+    
+    // Automatically re-sync after healing.
+    if (needsRefetch) {
+       const { data: healed } = await supabase
+        .from("referrals")
+        .select("id, referred_id, referred_email, referral_code, created_at, status, level")
+        .eq("referrer_id", user.id)
+        .order("created_at", { ascending: false });
+       if (healed) referrals = healed;
+    }
+  }
+  // =======================================================
 
   // جلب بروفايلات المـحالين دفعة واحدة (names/emails)
   const referredIds = referrals.map((r: any) => r.referred_id).filter(Boolean);
@@ -80,8 +126,8 @@ export default async function Page() {
     return {
       id: r.id,
       referred_uid: r.referred_id,
-      referred_email: r.referred_email ?? p.email ?? null,
-      username: p.full_name ?? "Unnamed",
+      referred_email: obscureEmail(r.referred_email ?? p.email ?? null),
+      username: obscureName(p.full_name ?? "Unnamed"),
       referral_code: p.referral_code ?? r.referral_code ?? null,
       joinDate: r.created_at ? new Date(r.created_at).toISOString() : null,
       status: r.status === "active" ? "Active" : (r.status ?? "Inactive"),
@@ -142,7 +188,7 @@ export default async function Page() {
   const topReferrers = Object.entries(topMap)
     .map(([id, d], idx) => ({
       rank: 0, // temporary: will set after sorting
-      username: topProfiles[id]?.full_name ?? "Unknown",
+      username: obscureName(topProfiles[id]?.full_name ?? "Unknown"),
       referrals: d.referrals,
       earnings: d.earnings,
       avatar: idx === 0 ? "👑" : idx === 1 ? "🏆" : idx === 2 ? "⭐" : "💎",
