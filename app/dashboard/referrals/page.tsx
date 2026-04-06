@@ -5,13 +5,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { processNewUserReferral } from "@/lib/actions/handle-referrals";
 import ReferralsPage from "./ReferralsPage";
 
-// Privacy helper functions
+// Privacy helpers
 function obscureName(name: string | null) {
   if (!name || name === "Unnamed") return "Hidden User";
-  const parts = name.split(" ");
-  return parts.map(p => p.charAt(0) + "***").join(" ");
+  return name.split(" ").map((p) => p.charAt(0) + "***").join(" ");
 }
-
 function obscureEmail(email: string | null) {
   if (!email) return "Hidden";
   const [local, dom] = email.split("@");
@@ -22,38 +20,31 @@ function obscureEmail(email: string | null) {
 export default async function Page() {
   const supabase = createClient();
 
-  // جلب session و user من السيرفر (الكوكيز)
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) {
-    console.error("Supabase getSession error:", sessionError);
-  }
-  if (!session || !session.user) {
-    redirect("/auth/login");
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) redirect("/auth/login");
   const user = session.user;
 
-  // جلب profile, referrals, commissions (قيمة الحقول قد تحتاج تعديل حسب schema)
-  const [
-    { data: profile, error: profileError },
-    { data: referralsRaw, error: referralsError },
-    { data: commissionsRaw, error: commissionsError },
-    { data: dbRates },
-  ] = await Promise.all([
-    supabase.from("user_profiles").select("*").eq("uid", user.id).single(),
-    supabase
-      .from("referrals")
-      .select("id, referred_id, referred_email, referral_code, created_at, status, level")
-      .eq("referrer_id", user.id)
-      .order("created_at", { ascending: false }),
-    // تجمع عمولات المستخدم المرتبطة بكونه referrer: في بعض DBs قد تختلف الشروط / المفاتيح
-    supabase
-      .from("referral_commissions")
-      .select("id, commission_amount, created_at, referral_id, level, referrals(referrer_id)")
-      .eq("referrals.referrer_id", user.id),
-    supabase.from("referral_commission_rates").select("*").order("level", { ascending: true }),
-  ]);
+  // Always use admin client to bypass RLS for full data access
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
 
-  const realRates = [10, 7, 3]; // defaults
+  // 1. Fetch current user's profile
+  const { data: profile } = await supabaseAdmin
+    .from("user_profiles")
+    .select("*")
+    .eq("uid", user.id)
+    .single();
+
+  // 2. Fetch commission rates
+  const { data: dbRates } = await supabaseAdmin
+    .from("referral_commission_rates")
+    .select("*")
+    .order("level", { ascending: true });
+
+  const realRates = [10, 7, 3];
   if (dbRates && dbRates.length > 0) {
     dbRates.forEach((r: any) => {
       if (r.level === 1) realRates[0] = Number(r.percentage);
@@ -62,141 +53,139 @@ export default async function Page() {
     });
   }
 
-  if (profileError) console.error("profileError:", profileError);
-  if (referralsError) console.error("referralsError:", referralsError);
-  if (commissionsError) console.error("commissionsError:", commissionsError);
-
-  let referrals = Array.isArray(referralsRaw) ? referralsRaw : [];
-
-  // ================= SELF-HEALING BLOCK =================
-  // If the user has legacy users bridging their referral code, but no actual DB rows in `referrals`!
-  // We MUST use supabaseAdmin here to bypass Row Level Security (RLS) on user_profiles!
+  // 3. Self-healing: Find all users who used this user's referral code
+  //    but do not yet have a row in the referrals table
   if (profile?.referral_code) {
-    const supabaseAdmin = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
-
-    const { data: missingLegacy } = await supabaseAdmin
+    const { data: codeUsers } = await supabaseAdmin
       .from("user_profiles")
       .select("uid, email, referral_code_used")
       .eq("referral_code_used", profile.referral_code);
 
-    let needsRefetch = false;
-    if (missingLegacy && missingLegacy.length > 0) {
-      for (const missing of missingLegacy) {
-        if (!referrals.some((r: any) => r.referred_id === missing.uid)) {
-          // Found a direct referral missing their DB row! Build the robust tree silently.
-          await processNewUserReferral(missing.uid, missing.email, missing.referral_code_used);
-          needsRefetch = true;
-        }
+    const { data: existingDirect } = await supabaseAdmin
+      .from("referrals")
+      .select("referred_id")
+      .eq("referrer_id", user.id)
+      .eq("level", 1);
+
+    const alreadyLinked = new Set((existingDirect || []).map((r: any) => r.referred_id));
+
+    for (const cu of (codeUsers || [])) {
+      if (!alreadyLinked.has(cu.uid)) {
+        // This user registered with our code but has no referrals row — bridge them!
+        await processNewUserReferral(cu.uid, cu.email, cu.referral_code_used);
       }
     }
-
-    // Automatically re-sync after healing.
-    if (needsRefetch) {
-      const { data: healed } = await supabase
-        .from("referrals")
-        .select("id, referred_id, referred_email, referral_code, created_at, status, level")
-        .eq("referrer_id", user.id)
-        .order("created_at", { ascending: false });
-      if (healed) referrals = healed;
-    }
   }
-  // =======================================================
 
-  // جلب بروفايلات المـحالين دفعة واحدة (names/emails)
+  // 4. Fetch all referrals where this user is the referrer (all 3 levels)
+  const { data: referralsRaw } = await supabaseAdmin
+    .from("referrals")
+    .select("id, referred_id, status, level, created_at")
+    .eq("referrer_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const referrals = Array.isArray(referralsRaw) ? referralsRaw : [];
+
+  // 5. Fetch referred users' profiles in one batch
   const referredIds = referrals.map((r: any) => r.referred_id).filter(Boolean);
-  let referredProfilesMap: Record<string, any> = {};
+  const referredProfilesMap: Record<string, any> = {};
   if (referredIds.length > 0) {
-    const { data: referredProfiles, error: profErr } = await supabase
+    const { data: referredProfiles } = await supabaseAdmin
       .from("user_profiles")
       .select("uid, full_name, email, referral_code")
       .in("uid", referredIds);
-    if (profErr) console.error("referredProfiles err:", profErr);
     (referredProfiles || []).forEach((p: any) => {
       referredProfilesMap[p.uid] = p;
     });
   }
 
-  // جمع عمولات لكل referral_id
-  const commissionsForUser = Array.isArray(commissionsRaw) ? commissionsRaw : [];
-  const commissionsMap: Record<string, number> = {};
-  (commissionsForUser || []).forEach((c: any) => {
-    const rid = c.referral_id;
-    commissionsMap[rid] = (commissionsMap[rid] || 0) + Number(c.commission_amount ?? c.amount ?? 0);
-  });
+  // 6. Fetch commissions for this user using REAL column names:
+  //    referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, type, created_at
+  const { data: commissionsRaw } = await supabaseAdmin
+    .from("referral_commissions")
+    .select("id, amount, level, type, created_at, source_uid")
+    .eq("recipient_uid", user.id)
+    .order("created_at", { ascending: false });
 
-  // بناء history مبسطة قابلة للـ client (تحويل التواريخ لـ ISO)
-  const history = (referrals || []).map((r: any) => {
+  const commissionsForUser = Array.isArray(commissionsRaw) ? commissionsRaw : [];
+
+  // 7. Build history for each referral
+  const history = referrals.map((r: any) => {
     const p = referredProfilesMap[r.referred_id] || {};
+    // Commission earned from this specific user (by source_uid match)
+    const commissionFromUser = commissionsForUser
+      .filter((c: any) => c.source_uid === r.referred_id)
+      .reduce((sum: number, c: any) => sum + Number(c.amount ?? 0), 0);
+
     return {
       id: r.id,
       referred_uid: r.referred_id,
-      referred_email: obscureEmail(r.referred_email ?? p.email ?? null),
+      referred_email: obscureEmail(p.email ?? null),
       username: obscureName(p.full_name ?? "Unnamed"),
-      referral_code: p.referral_code ?? r.referral_code ?? null,
+      referral_code: p.referral_code ?? null,
       joinDate: r.created_at ? new Date(r.created_at).toISOString() : null,
       status: r.status === "active" ? "Active" : (r.status ?? "Inactive"),
       totalDeposits: 0,
-      yourCommission: commissionsMap[r.id] || 0,
+      yourCommission: commissionFromUser,
       level: r.level ?? 1,
     };
   });
 
-  // إحصاءات
-  const totalInvites = history.length;
+  // 8. Compute stats
+  const totalInvites = referrals.length;
   const activeReferrals = history.filter((h) => h.status === "Active").length;
-  const totalEarnings = (commissionsForUser || []).reduce((s: number, c: any) => s + Number(c.commission_amount ?? c.amount ?? 0), 0);
+  const totalEarnings = commissionsForUser.reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const depositEarnings = commissionsForUser.filter((c: any) => c.type === "deposit").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const tradeEarnings = commissionsForUser.filter((c: any) => c.type === "trade").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const packageEarnings = commissionsForUser.filter((c: any) => c.type === "package").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
   const thisMonthIndex = new Date().getMonth();
-  const thisMonthEarnings = (commissionsForUser || []).filter((c: any) => {
-    const d = c.created_at ? new Date(c.created_at) : null;
-    return d ? d.getMonth() === thisMonthIndex : false;
-  }).reduce((s: number, c: any) => s + Number(c.commission_amount ?? c.amount ?? 0), 0);
+  const thisMonthEarnings = commissionsForUser
+    .filter((c: any) => c.created_at && new Date(c.created_at).getMonth() === thisMonthIndex)
+    .reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
 
   const stats = {
     referralsCount: totalInvites,
     totalInvites,
     activeReferrals,
     totalEarnings,
+    depositEarnings,
+    tradeEarnings,
+    packageEarnings,
     thisMonthEarnings,
     commissionRate: realRates[0],
     lifetimeCommission: totalEarnings,
     commissionsTotal: totalEarnings,
   };
 
-  // Leaderboard: جلب كل عمولات النظام ثم تجميع بحسب referrer_id
-  const { data: allCommissions, error: allCommErr } = await supabase
+  // 9. Leaderboard — use real columns
+  const { data: allCommissions } = await supabaseAdmin
     .from("referral_commissions")
-    .select("commission_amount, referral_id, created_at, referrals(referrer_id)")
+    .select("recipient_uid, amount, created_at")
     .order("created_at", { ascending: false });
-  if (allCommErr) console.error("allCommissions err:", allCommErr);
 
   const topMap: Record<string, { earnings: number; referrals: number }> = {};
   (allCommissions || []).forEach((c: any) => {
-    const rid = c.referrals?.referrer_id;
+    const rid = c.recipient_uid;
     if (!rid) return;
     if (!topMap[rid]) topMap[rid] = { earnings: 0, referrals: 0 };
-    topMap[rid].earnings += Number(c.commission_amount ?? c.amount ?? 0);
+    topMap[rid].earnings += Number(c.amount ?? 0);
     topMap[rid].referrals += 1;
   });
 
   const topIds = Object.keys(topMap);
-  let topProfiles: Record<string, any> = {};
+  const topProfilesMap: Record<string, any> = {};
   if (topIds.length > 0) {
-    const { data: tp, error: tpErr } = await supabase
+    const { data: tp } = await supabaseAdmin
       .from("user_profiles")
       .select("uid, full_name")
       .in("uid", topIds);
-    if (tpErr) console.error("top profiles err:", tpErr);
-    (tp || []).forEach((p: any) => (topProfiles[p.uid] = p));
+    (tp || []).forEach((p: any) => (topProfilesMap[p.uid] = p));
   }
 
   const topReferrers = Object.entries(topMap)
     .map(([id, d], idx) => ({
-      rank: 0, // temporary: will set after sorting
-      username: obscureName(topProfiles[id]?.full_name ?? "Unknown"),
+      rank: 0,
+      username: obscureName(topProfilesMap[id]?.full_name ?? "Unknown"),
       referrals: d.referrals,
       earnings: d.earnings,
       avatar: idx === 0 ? "👑" : idx === 1 ? "🏆" : idx === 2 ? "⭐" : "💎",
@@ -207,32 +196,30 @@ export default async function Page() {
     .map((t, idx) => ({ ...t, rank: idx + 1 }))
     .slice(0, 10);
 
-  // Commission levels (مجموعة مبنية على ال history)
+  // 10. Commission levels breakdown
   const levelsMap: Record<number, { users: number; earnings: number }> = {};
-  history.forEach((h) => {
-    const lvl = Number(h.level || 1);
+  referrals.forEach((r: any) => {
+    const lvl = Number(r.level || 1);
     if (!levelsMap[lvl]) levelsMap[lvl] = { users: 0, earnings: 0 };
     levelsMap[lvl].users++;
-    levelsMap[lvl].earnings += Number(h.yourCommission || 0);
+  });
+  commissionsForUser.forEach((c: any) => {
+    const lvl = Number(c.level || 1);
+    if (!levelsMap[lvl]) levelsMap[lvl] = { users: 0, earnings: 0 };
+    levelsMap[lvl].earnings += Number(c.amount ?? 0);
   });
 
   const commissionLevels = [1, 2, 3].map((level) => {
     const d = levelsMap[level] || { users: 0, earnings: 0 };
-    return {
-      level,
-      users: d.users,
-      commission: realRates[level - 1] ?? 0,
-      earnings: d.earnings,
-    };
+    return { level, users: d.users, commission: realRates[level - 1] ?? 0, earnings: d.earnings };
   });
 
-  // مرر كل شيء إلى المكوّن العميل
   return (
     <ReferralsPage
       user={user}
       profile={profile ?? null}
       history={history}
-      commissions={commissionsForUser ?? []}
+      commissions={commissionsForUser}
       topReferrers={topReferrers}
       commissionLevels={commissionLevels}
       stats={stats}
