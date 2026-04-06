@@ -89,7 +89,6 @@ export async function GET(req: Request) {
             const { error: ins1 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level1Uid,
                 referred_id: user.uid,
-                referred_email: user.email,
                 status: "active",
                 level: 1,
             }).select();
@@ -104,7 +103,6 @@ export async function GET(req: Request) {
             const { error: ins2 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level2Uid,
                 referred_id: user.uid,
-                referred_email: user.email,
                 status: "active",
                 level: 2,
             }).select();
@@ -119,7 +117,6 @@ export async function GET(req: Request) {
             const { error: ins3 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level3Uid,
                 referred_id: user.uid,
-                referred_email: user.email,
                 status: "active",
                 level: 3,
             }).select();
