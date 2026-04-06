@@ -1,6 +1,7 @@
 // app/dashboard/referrals/page.tsx
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { processNewUserReferral } from "@/lib/actions/handle-referrals";
 import ReferralsPage from "./ReferralsPage";
 
@@ -69,31 +70,38 @@ export default async function Page() {
 
   // ================= SELF-HEALING BLOCK =================
   // If the user has legacy users bridging their referral code, but no actual DB rows in `referrals`!
+  // We MUST use supabaseAdmin here to bypass Row Level Security (RLS) on user_profiles!
   if (profile?.referral_code) {
-    const { data: missingLegacy } = await supabase
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
+
+    const { data: missingLegacy } = await supabaseAdmin
       .from("user_profiles")
       .select("uid, email, referral_code_used")
       .eq("referral_code_used", profile.referral_code);
 
     let needsRefetch = false;
     if (missingLegacy && missingLegacy.length > 0) {
-       for (const missing of missingLegacy) {
-          if (!referrals.some((r: any) => r.referred_id === missing.uid)) {
-             // Found a direct referral missing their DB row! Build the robust tree silently.
-             await processNewUserReferral(missing.uid, missing.email, missing.referral_code_used);
-             needsRefetch = true;
-          }
-       }
+      for (const missing of missingLegacy) {
+        if (!referrals.some((r: any) => r.referred_id === missing.uid)) {
+          // Found a direct referral missing their DB row! Build the robust tree silently.
+          await processNewUserReferral(missing.uid, missing.email, missing.referral_code_used);
+          needsRefetch = true;
+        }
+      }
     }
-    
+
     // Automatically re-sync after healing.
     if (needsRefetch) {
-       const { data: healed } = await supabase
+      const { data: healed } = await supabase
         .from("referrals")
         .select("id, referred_id, referred_email, referral_code, created_at, status, level")
         .eq("referrer_id", user.id)
         .order("created_at", { ascending: false });
-       if (healed) referrals = healed;
+      if (healed) referrals = healed;
     }
   }
   // =======================================================
