@@ -6,8 +6,8 @@ import { createClient } from "@supabase/supabase-js";
  * Creates up to 3 levels of referral links when a new user registers.
  *
  * Real DB schema for referrals table (from live audit):
- * id, referrer_id, referred_id, status, level, created_at
- * NOTE: There is NO referred_email column in the referrals table.
+ * id, referrer_id, referred_id, referral_code, status, level, created_at
+ * NOTE: referral_code is a REQUIRED (NOT NULL) column.
  */
 export async function processNewUserReferral(
   newUserId: string,
@@ -27,16 +27,17 @@ export async function processNewUserReferral(
   // 1. Find Level 1 Referrer
   const { data: level1User } = await supabaseAdmin
     .from("user_profiles")
-    .select("uid")
+    .select("uid, referral_code")
     .eq("referral_code", referralCodeUsed)
     .single();
 
   if (!level1User?.uid) return; // Invalid code
 
-  // Insert Level 1 row — only columns that actually exist in the DB
+  // Insert Level 1 row
   const { error: e1 } = await supabaseAdmin.from("referrals").insert({
     referrer_id: level1User.uid,
     referred_id: newUserId,
+    referral_code: referralCodeUsed, // The code used
     status: "active",
     level: 1,
   });
@@ -59,40 +60,62 @@ export async function processNewUserReferral(
   }
 
   // 2. Find Level 2 Referrer (Who referred Level 1?)
-  const { data: level2Ref } = await supabaseAdmin
+  const { data: level1ReferrerRow } = await supabaseAdmin
     .from("referrals")
     .select("referrer_id")
     .eq("referred_id", level1User.uid)
     .eq("level", 1)
     .single();
 
-  if (!level2Ref?.referrer_id) return;
+  if (level1ReferrerRow?.referrer_id) {
+    const l2Uid = level1ReferrerRow.referrer_id;
+    // Get L2 referrer's code
+    const { data: l2Profile } = await supabaseAdmin
+      .from("user_profiles")
+      .select("referral_code")
+      .eq("uid", l2Uid)
+      .single();
 
-  // Insert Level 2 row
-  const { error: e2 } = await supabaseAdmin.from("referrals").insert({
-    referrer_id: level2Ref.referrer_id,
-    referred_id: newUserId,
-    status: "active",
-    level: 2,
-  });
-  if (e2) console.error("[Referral L2 insert error]", e2.message);
+    if (l2Profile?.referral_code) {
+      // Insert Level 2 row
+      const { error: e2 } = await supabaseAdmin.from("referrals").insert({
+        referrer_id: l2Uid,
+        referred_id: newUserId,
+        referral_code: l2Profile.referral_code,
+        status: "active",
+        level: 2,
+      });
+      if (e2) console.error("[Referral L2 insert error]", e2.message);
 
-  // 3. Find Level 3 Referrer (Who referred Level 2?)
-  const { data: level3Ref } = await supabaseAdmin
-    .from("referrals")
-    .select("referrer_id")
-    .eq("referred_id", level2Ref.referrer_id)
-    .eq("level", 1)
-    .single();
+      // 3. Find Level 3 Referrer (Who referred Level 2?)
+      const { data: level2ReferrerRow } = await supabaseAdmin
+        .from("referrals")
+        .select("referrer_id")
+        .eq("referred_id", l2Uid)
+        .eq("level", 1)
+        .single();
 
-  if (!level3Ref?.referrer_id) return;
+      if (level2ReferrerRow?.referrer_id) {
+        const l3Uid = level2ReferrerRow.referrer_id;
+        // Get L3 referrer's code
+        const { data: l3Profile } = await supabaseAdmin
+          .from("user_profiles")
+          .select("referral_code")
+          .eq("uid", l3Uid)
+          .single();
 
-  // Insert Level 3 row
-  const { error: e3 } = await supabaseAdmin.from("referrals").insert({
-    referrer_id: level3Ref.referrer_id,
-    referred_id: newUserId,
-    status: "active",
-    level: 3,
-  });
-  if (e3) console.error("[Referral L3 insert error]", e3.message);
+        if (l3Profile?.referral_code) {
+          // Insert Level 3 row
+          const { error: e3 } = await supabaseAdmin.from("referrals").insert({
+            referrer_id: l3Uid,
+            referred_id: newUserId,
+            referral_code: l3Profile.referral_code,
+            status: "active",
+            level: 3,
+          });
+          if (e3) console.error("[Referral L3 insert error]", e3.message);
+        }
+      }
+    }
+  }
 }

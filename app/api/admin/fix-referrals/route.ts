@@ -66,10 +66,14 @@ export async function GET(req: Request) {
     const usersWithCode = (allProfiles || []).filter((u: any) => u.referral_code_used);
     report.users_with_referral_code = usersWithCode;
 
-    // 6. Build a referral code → uid lookup map
+    // 6. Build lookup maps
     const codeToUid: Record<string, string> = {};
+    const uidToCode: Record<string, string> = {};
     (allProfiles || []).forEach((u: any) => {
-        if (u.referral_code) codeToUid[u.referral_code] = u.uid;
+        if (u.referral_code) {
+            codeToUid[u.referral_code] = u.uid;
+            uidToCode[u.uid] = u.referral_code;
+        }
     });
 
     // 7. For each user who used a code, check if they have a referrals row
@@ -89,6 +93,7 @@ export async function GET(req: Request) {
             const { error: ins1 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level1Uid,
                 referred_id: user.uid,
+                referral_code: code, // The code used for this level
                 status: "active",
                 level: 1,
             }).select();
@@ -103,6 +108,7 @@ export async function GET(req: Request) {
             const { error: ins2 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level2Uid,
                 referred_id: user.uid,
+                referral_code: uidToCode[level2Uid] || "",
                 status: "active",
                 level: 2,
             }).select();
@@ -117,6 +123,7 @@ export async function GET(req: Request) {
             const { error: ins3 } = await supabaseAdmin.from("referrals").insert({
                 referrer_id: level3Uid,
                 referred_id: user.uid,
+                referral_code: uidToCode[level3Uid] || "",
                 status: "active",
                 level: 3,
             }).select();
