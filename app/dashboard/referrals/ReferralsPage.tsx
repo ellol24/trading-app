@@ -24,6 +24,7 @@ type ReferralHistory = {
   joinDate?: string | null;
   status: string;
   balance?: number;
+  totalDeposits?: number;
   totalReferrals?: number;
   yourCommission: number;
   level: number;
@@ -364,12 +365,20 @@ export default function ReferralsPage({
                             {t("referrals.joined")} {ref.joinDate ? new Date(ref.joinDate).toLocaleDateString() : "—"}
                           </p>
                         </div>
-                        <div className="text-right space-y-1">
-                          <div className="flex items-center justify-end gap-1">
-                            <Wallet className="h-3 w-3 text-yellow-400" />
-                            <span className="text-xs text-yellow-400">${(ref.balance ?? 0).toFixed(2)}</span>
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-400">Total Deposits:</span>
+                            <span className="text-blue-400 font-medium">${(ref.totalDeposits ?? 0).toFixed(2)}</span>
                           </div>
-                          <Badge className="bg-green-600 text-white text-xs">{ref.status}</Badge>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-400">User Balance:</span>
+                            <span className="text-yellow-400 font-medium">${(ref.balance ?? 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-400">You Earned:</span>
+                            <span className="text-green-400 font-bold">${(ref.yourCommission ?? 0).toFixed(2)}</span>
+                          </div>
+                          <Badge className="bg-green-600 text-white text-[10px] uppercase">{ref.status}</Badge>
                         </div>
                       </div>
                     ))

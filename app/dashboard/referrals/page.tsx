@@ -99,6 +99,20 @@ export default async function Page() {
     });
   }
 
+  // 5.5 Fetch referred users' wallets
+  const referredWalletsMap: Record<string, any> = {};
+  if (referredIds.length > 0) {
+    const { data: referredWallets } = await supabaseAdmin
+      .from("user_wallets")
+      .select("user_id, balance, total_deposited")
+      .in("user_id", referredIds)
+      .eq("currency", "USD");
+
+    (referredWallets || []).forEach((w: any) => {
+      referredWalletsMap[w.user_id] = w;
+    });
+  }
+
   // 6. Fetch commissions for this user using REAL column names:
   //    referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, metadata, created_at
   const { data: commissionsRaw } = await supabaseAdmin
@@ -125,7 +139,8 @@ export default async function Page() {
       referral_code: p.referral_code ?? null,
       joinDate: r.created_at ? new Date(r.created_at).toISOString() : null,
       status: r.status === "active" ? "Active" : (r.status ?? "Inactive"),
-      totalDeposits: 0,
+      totalDeposits: Number(referredWalletsMap[r.referred_id]?.total_deposited ?? 0),
+      balance: Number(referredWalletsMap[r.referred_id]?.balance ?? 0),
       yourCommission: commissionFromUser,
       level: r.level ?? 1,
     };
