@@ -33,6 +33,7 @@ export default function AdminLayout({
   const sidebarItems = [
     { href: "/admin/dashboard", icon: LayoutDashboard, label: t('admin.dashboard') },
     { href: "/admin/users", icon: Users, label: t('admin.userManagement') },
+    { href: "/admin/referrals", icon: Users, label: "Referrals UI" },
     { href: "/admin/packages", icon: Package, label: t('admin.packageManagement') },
     { href: "/admin/trading", icon: TrendingUp, label: t('admin.tradingControls') },
     { href: "/admin/withdrawals", icon: DollarSign, label: t('admin.withdrawals') },
