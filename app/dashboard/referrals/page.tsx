@@ -92,15 +92,16 @@ export default async function Page() {
   if (referredIds.length > 0) {
     const { data: referredProfiles } = await supabaseAdmin
       .from("user_profiles")
-      .select("uid, full_name, email, referral_code")
+      .select("uid, full_name, email, referral_code, balance")
       .in("uid", referredIds);
     (referredProfiles || []).forEach((p: any) => {
       referredProfilesMap[p.uid] = p;
     });
   }
 
-  // 5.5 Fetch referred users' wallets
+  // 5.5 Fetch referred users' wallets and raw confirmed deposits
   const referredWalletsMap: Record<string, any> = {};
+  const referredDepositsMap: Record<string, number> = {};
   if (referredIds.length > 0) {
     const { data: referredWallets } = await supabaseAdmin
       .from("user_wallets")
@@ -110,6 +111,18 @@ export default async function Page() {
 
     (referredWallets || []).forEach((w: any) => {
       referredWalletsMap[w.user_id] = w;
+    });
+
+    // Also fetch raw confirmed deposits to be bulletproof
+    const { data: rawDeposits } = await supabaseAdmin
+      .from("deposits")
+      .select("user_id, amount")
+      .in("user_id", referredIds)
+      .eq("status", "confirmed");
+
+    (rawDeposits || []).forEach((d: any) => {
+      if (!referredDepositsMap[d.user_id]) referredDepositsMap[d.user_id] = 0;
+      referredDepositsMap[d.user_id] += Number(d.amount ?? 0);
     });
   }
 
@@ -139,8 +152,8 @@ export default async function Page() {
       referral_code: p.referral_code ?? null,
       joinDate: r.created_at ? new Date(r.created_at).toISOString() : null,
       status: r.status === "active" ? "Active" : (r.status ?? "Inactive"),
-      totalDeposits: Number(referredWalletsMap[r.referred_id]?.total_deposited ?? 0),
-      balance: Number(referredWalletsMap[r.referred_id]?.balance ?? 0),
+      totalDeposits: referredDepositsMap[r.referred_id] || Number(referredWalletsMap[r.referred_id]?.total_deposited ?? 0),
+      balance: Math.max(Number(p.balance ?? 0), Number(referredWalletsMap[r.referred_id]?.balance ?? 0)),
       yourCommission: commissionFromUser,
       level: r.level ?? 1,
     };
