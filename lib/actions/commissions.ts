@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
  *
  * Real DB schema (from live audit):
  * - referrals: id, referrer_id, referred_id, status, level, created_at
- * - referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, type, created_at
+ * - referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, metadata, created_at
  */
 export async function processReferralCommissions(
     userId: string,
@@ -70,7 +70,7 @@ export async function processReferralCommissions(
                 amount: commissionAmount,
                 percentage: percentage,
                 level: lvl,
-                type: commissionType,
+                metadata: { reason: commissionType },
             });
 
             // B. Add funds directly to referrer's balance on user_profiles

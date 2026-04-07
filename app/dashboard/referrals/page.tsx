@@ -100,10 +100,10 @@ export default async function Page() {
   }
 
   // 6. Fetch commissions for this user using REAL column names:
-  //    referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, type, created_at
+  //    referral_commissions: id, recipient_uid, source_uid, amount, percentage, level, metadata, created_at
   const { data: commissionsRaw } = await supabaseAdmin
     .from("referral_commissions")
-    .select("id, amount, level, type, created_at, source_uid")
+    .select("id, amount, level, metadata, created_at, source_uid")
     .eq("recipient_uid", user.id)
     .order("created_at", { ascending: false });
 
@@ -135,9 +135,9 @@ export default async function Page() {
   const totalInvites = referrals.length;
   const activeReferrals = history.filter((h) => h.status === "Active").length;
   const totalEarnings = commissionsForUser.reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
-  const depositEarnings = commissionsForUser.filter((c: any) => c.type === "deposit").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
-  const tradeEarnings = commissionsForUser.filter((c: any) => c.type === "trade").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
-  const packageEarnings = commissionsForUser.filter((c: any) => c.type === "package").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const depositEarnings = commissionsForUser.filter((c: any) => c.metadata?.reason === "deposit").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const tradeEarnings = commissionsForUser.filter((c: any) => c.metadata?.reason === "trade").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
+  const packageEarnings = commissionsForUser.filter((c: any) => c.metadata?.reason === "package").reduce((s: number, c: any) => s + Number(c.amount ?? 0), 0);
   const thisMonthIndex = new Date().getMonth();
   const thisMonthEarnings = commissionsForUser
     .filter((c: any) => c.created_at && new Date(c.created_at).getMonth() === thisMonthIndex)
