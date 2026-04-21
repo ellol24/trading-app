@@ -29,15 +29,20 @@ export async function saveAdminSettings(
       auth: { persistSession: false }
     });
 
-    // 3. Perform Upserts bypassing RLS
-    // Add onConflict to tell Supabase how to upsert when no ID is provided
-    const { error: depErr } = await supabaseAdmin.from("referral_commission_rates").upsert(depositRows, { onConflict: "level" });
+    // 3. Perform Updates bypassing RLS
+    // Since the database lacks a UNIQUE constraint on 'level' for these tables,
+    // upsert({ onConflict: "level" }) fails. We workaround this by deleting existing levels and inserting new ones.
+    
+    await supabaseAdmin.from("referral_commission_rates").delete().in("level", [1, 2, 3]);
+    const { error: depErr } = await supabaseAdmin.from("referral_commission_rates").insert(depositRows);
     if (depErr) return { success: false, error: depErr.message };
 
-    const { error: tradeErr } = await supabaseAdmin.from("trade_profit_commission_rates").upsert(tradeRows, { onConflict: "level" });
+    await supabaseAdmin.from("trade_profit_commission_rates").delete().in("level", [1, 2, 3]);
+    const { error: tradeErr } = await supabaseAdmin.from("trade_profit_commission_rates").insert(tradeRows);
     if (tradeErr) return { success: false, error: tradeErr.message };
 
-    const { error: pkgErr } = await supabaseAdmin.from("package_referral_commission_rates").upsert(packageRows, { onConflict: "level" });
+    await supabaseAdmin.from("package_referral_commission_rates").delete().in("level", [1, 2, 3]);
+    const { error: pkgErr } = await supabaseAdmin.from("package_referral_commission_rates").insert(packageRows);
     if (pkgErr) return { success: false, error: pkgErr.message };
 
     const { error: settingsErr } = await supabaseAdmin.from("system_settings").upsert({
