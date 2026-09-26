@@ -45,8 +45,10 @@ export default function DepositClient({ user, profile }: any) {
   const [addressCopied, setAddressCopied] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
   const [liveBalance, setLiveBalance] = useState<number>(0);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     supabase.from("deposit_settings").select("is_enabled, min_deposit_amount").limit(1).single()
       .then(({ data }) => {
         if (data) { setIsEnabled(data.is_enabled); setMinDeposit(Number(data.min_deposit_amount)); }
@@ -372,7 +374,7 @@ export default function DepositClient({ user, profile }: any) {
                 <div key={dep.id} className="flex flex-col md:flex-row justify-between p-4 border border-slate-700 rounded-xl bg-slate-700/30 gap-4 hover:bg-slate-700/50 transition-colors">
                   <div className="space-y-1">
                     <p className="text-white font-bold text-lg">${Number(dep.amount).toFixed(2)}</p>
-                    <p className="text-slate-400 text-sm">{new Date(dep.created_at).toLocaleString()}</p>
+                    <p className="text-slate-400 text-sm">{mounted ? new Date(dep.created_at).toLocaleString() : "..."}</p>
                     {dep.deposit_wallets && (
                       <p className="text-blue-300 text-xs">
                         {dep.deposit_wallets.asset} · {dep.deposit_wallets.address.slice(0, 20)}…

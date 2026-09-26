@@ -2,6 +2,29 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==========================================
+-- 0. CLEANUP EXISTING TABLES (Idempotency)
+-- ==========================================
+DROP TABLE IF EXISTS public.referral_commissions CASCADE;
+DROP TABLE IF EXISTS public.referrals CASCADE;
+DROP TABLE IF EXISTS public.package_referral_commission_rates CASCADE;
+DROP TABLE IF EXISTS public.trade_profit_commission_rates CASCADE;
+DROP TABLE IF EXISTS public.referral_commission_rates CASCADE;
+DROP TABLE IF EXISTS public.investments CASCADE;
+DROP TABLE IF EXISTS public.investment_packages CASCADE;
+DROP TABLE IF EXISTS public.trades CASCADE;
+DROP TABLE IF EXISTS public.trade_rounds CASCADE;
+DROP TABLE IF EXISTS public.withdrawals CASCADE;
+DROP TABLE IF EXISTS public.withdrawal_wallets CASCADE;
+DROP TABLE IF EXISTS public.withdrawal_settings CASCADE;
+DROP TABLE IF EXISTS public.withdrawal_control CASCADE;
+DROP TABLE IF EXISTS public.deposits CASCADE;
+DROP TABLE IF EXISTS public.deposit_wallets CASCADE;
+DROP TABLE IF EXISTS public.deposit_settings CASCADE;
+DROP TABLE IF EXISTS public.system_settings CASCADE;
+DROP TABLE IF EXISTS public.user_preferences CASCADE;
+DROP TABLE IF EXISTS public.user_profiles CASCADE;
+
+-- ==========================================
 -- 1. USER PROFILES & SETTINGS
 -- ==========================================
 CREATE TABLE public.user_profiles (
@@ -13,7 +36,11 @@ CREATE TABLE public.user_profiles (
     balance NUMERIC(20, 2) DEFAULT 0.00,
     demo_balance NUMERIC(20, 2) DEFAULT 50000.00,
     ip_address TEXT,
+    referral_code TEXT UNIQUE,
     referral_code_used TEXT,
+    total_referrals INT DEFAULT 0,
+    total_trades INT DEFAULT 0,
+    referral_earnings NUMERIC(20, 2) DEFAULT 0.00,
     min_trade_amount NUMERIC(20, 2) DEFAULT 1.00,
     suggested_trade_amounts JSONB DEFAULT '[10, 25, 50, 100, 250, 500]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -182,6 +209,27 @@ CREATE TABLE public.package_referral_commission_rates (
     percentage NUMERIC(5, 2) NOT NULL
 );
 
+CREATE TABLE public.referrals (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    referrer_id UUID REFERENCES public.user_profiles(uid) ON DELETE CASCADE,
+    referred_id UUID REFERENCES public.user_profiles(uid) ON DELETE CASCADE,
+    level INT NOT NULL CHECK (level IN (1, 2, 3)),
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(referrer_id, referred_id)
+);
+
+CREATE TABLE public.referral_commissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    recipient_uid UUID REFERENCES public.user_profiles(uid) ON DELETE CASCADE,
+    source_uid UUID REFERENCES public.user_profiles(uid) ON DELETE CASCADE,
+    amount NUMERIC(20, 2) NOT NULL,
+    percentage NUMERIC(5, 2) NOT NULL,
+    level INT NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ==========================================
 -- 6. REALTIME ENABLEMENT
 -- ==========================================
@@ -190,6 +238,8 @@ BEGIN;
   ALTER PUBLICATION supabase_realtime ADD TABLE withdrawals;
   ALTER PUBLICATION supabase_realtime ADD TABLE trade_rounds;
   ALTER PUBLICATION supabase_realtime ADD TABLE user_profiles;
+  ALTER PUBLICATION supabase_realtime ADD TABLE referrals;
+  ALTER PUBLICATION supabase_realtime ADD TABLE referral_commissions;
 COMMIT;
 
 -- ==========================================
@@ -200,6 +250,8 @@ ALTER TABLE public.deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_commissions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users view own profile" 
 ON public.user_profiles FOR SELECT 
@@ -212,6 +264,14 @@ USING (auth.uid() = uid);
 CREATE POLICY "Users view own withdrawals" 
 ON public.withdrawals FOR SELECT 
 USING (auth.uid() = user_id);
+
+CREATE POLICY "Users view own referrals"
+ON public.referrals FOR SELECT
+USING (auth.uid() = referrer_id OR auth.uid() = referred_id);
+
+CREATE POLICY "Users view own referral commissions"
+ON public.referral_commissions FOR SELECT
+USING (auth.uid() = recipient_uid);
 
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$

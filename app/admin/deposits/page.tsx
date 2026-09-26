@@ -41,6 +41,7 @@ export default function AdminDepositsPage() {
   const [txId, setTxId] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { toast } = useToast();
 
@@ -64,6 +65,7 @@ export default function AdminDepositsPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchDeposits();
 
     const channel = supabase
@@ -284,7 +286,7 @@ export default function AdminDepositsPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <div className="text-right mr-4">
                         <div className="text-2xl font-bold text-emerald-400">${Number(d.amount).toFixed(2)}</div>
-                        <div className="text-xs text-slate-500">{new Date(d.created_at).toLocaleString()}</div>
+                        <div className="text-xs text-slate-500">{mounted ? new Date(d.created_at).toLocaleString() : "..."}</div>
                       </div>
 
                       <div className="w-24 flex justify-end">
