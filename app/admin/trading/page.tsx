@@ -163,18 +163,18 @@ export default function AdminTradingControlsPage() {
     if (!round) return;
 
     const outcome =
-      selectedOutcome[roundId] ?? round.forced_outcome ?? "draw";
+      selectedOutcome[roundId] ?? round.forced_outcome ?? "";
 
-    if (outcome === "draw") {
+    if (!outcome) {
       toast({
         title: "No outcome selected",
-        description: "Please select Win or Lose before completing the round.",
+        description: "Please select Win, Lose, or Draw before completing the round.",
         variant: "destructive",
       });
       return;
     }
 
-    const finalOutcome = outcome as "win" | "lose";
+    const finalOutcome = outcome as "win" | "lose" | "draw";
 
     // ✅ تحديد الفوز بناءً على اتجاه الأدمن
     const isAdminBuy = round.admin_direction === "buy";
@@ -211,22 +211,28 @@ export default function AdminTradingControlsPage() {
 
     // ✅ معالجة نتائج الصفقات وتحديث الأرصدة
     for (const trade of trades) {
-      let result = "lose";
+      let result: "win" | "lose" | "draw" = "lose";
       let profit = 0;
 
-      // تحقق من نوع الصفقة مقارنة باتجاه الأدمن
-      const userBuy = trade.type === "CALL" || trade.type === "BUY";
-      const userSell = trade.type === "PUT" || trade.type === "SELL";
-
-      if (
-        (isAdminBuy && userBuy && finalOutcome === "win") ||
-        (!isAdminBuy && userSell && finalOutcome === "win")
-      ) {
-        result = "win";
-        profit = trade.amount * (trade.roi_percentage / 100);
+      if (finalOutcome === "draw") {
+        // Draw: everyone gets their stake back, no profit no loss
+        result = "draw";
+        profit = 0;
       } else {
-        result = "lose";
-        profit = -trade.amount;
+        // Determine if user's direction matches admin's winning direction
+        const userBuy = trade.type === "CALL" || trade.type === "BUY";
+        const userSell = trade.type === "PUT" || trade.type === "SELL";
+
+        if (
+          (isAdminBuy && userBuy && finalOutcome === "win") ||
+          (!isAdminBuy && userSell && finalOutcome === "win")
+        ) {
+          result = "win";
+          profit = trade.amount * (trade.roi_percentage / 100);
+        } else {
+          result = "lose";
+          profit = -trade.amount;
+        }
       }
 
       // تحديث نتيجة الصفقة
@@ -240,7 +246,7 @@ export default function AdminTradingControlsPage() {
         })
         .eq("id", trade.id);
 
-      // ✅ تحديث رصيد المستخدم عند الفوز أو التعادل
+      // Update user balance for wins and draws
       if (result === "win" || result === "draw") {
         const { data: user } = await supabase
           .from("user_profiles")
@@ -251,15 +257,20 @@ export default function AdminTradingControlsPage() {
         if (user) {
           let newBalance = user.balance;
 
-          if (result === "win") newBalance += trade.amount + profit;
-          else if (result === "draw") newBalance += trade.amount;
+          if (result === "win") {
+            // Return stake + profit
+            newBalance += trade.amount + profit;
+          } else if (result === "draw") {
+            // Refund stake only (amount was already deducted on entry)
+            newBalance += trade.amount;
+          }
 
           await supabase
             .from("user_profiles")
             .update({ balance: newBalance })
             .eq("uid", user.uid);
 
-          // ✅ توزيع العمولات للمحيلين حتى 3 مستويات باستخدام Server Action الموثوق
+          // Referral commissions only on actual wins
           if (result === "win" && profit > 0) {
             await processReferralCommissions(trade.user_id, profit, "trade");
           }
