@@ -122,7 +122,8 @@ export default function AdminDepositsPage() {
       case "pending":
         return <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-600">Pending</Badge>;
       case "confirmed":
-        return <Badge className="bg-green-500/20 text-green-600 border-green-600">Confirmed</Badge>;
+      case "approved":
+        return <Badge className="bg-green-500/20 text-green-600 border-green-600">Approved</Badge>;
       case "rejected":
         return <Badge className="bg-red-500/20 text-red-600 border-red-600">Rejected</Badge>;
       default:
@@ -146,10 +147,12 @@ export default function AdminDepositsPage() {
     if (!selected) return;
     setLoading(true);
 
-    // 1. Update deposit status
+    // 1. Update deposit status to 'approved'
+    // NOTE: The DB trigger on_deposit_approved() will automatically
+    // credit the user's balance when status changes to 'approved' or 'confirmed'.
     const { error: updateErr } = await supabase
       .from("deposits")
-      .update({ status: "confirmed", transaction_id: txId })
+      .update({ status: "approved", transaction_id: txId })
       .eq("id", selected.id);
 
     if (updateErr) {
@@ -158,25 +161,12 @@ export default function AdminDepositsPage() {
       return;
     }
 
-    // 2. Fund user's wallet
-    const { error: rpcErr } = await supabase.rpc("update_wallet_balance", {
-      p_user_id: selected.user_id,
-      p_currency: "USD",
-      p_amount: selected.amount,
-      p_transaction_type: "deposit",
-    });
+    toast({ title: "✅ Success", description: "Deposit approved and funds added to user wallet." });
 
-    if (rpcErr) {
-      toast({ title: "Wallet Error", description: "Deposit marked confirmed, but balance update failed: " + rpcErr.message, variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Deposit confirmed and funds added to user wallet." });
+    // 2. Process any applicable referral commissions silently in the background
+    await processReferralCommissions(selected.user_id, Number(selected.amount), "deposit");
 
-      // 3. Process any applicable referral commissions silently in the background
-      await processReferralCommissions(selected.user_id, Number(selected.amount), "deposit");
-
-      fetchDeposits();
-    }
-
+    fetchDeposits();
     setConfirmOpen(false);
     setSelected(null);
     setTxId("");
@@ -299,7 +289,7 @@ export default function AdminDepositsPage() {
                             <ImageIcon className="w-4 h-4 mr-2" /> Proof
                           </Button>
                         )}
-                        {d.status === "pending" && (
+                        {!['approved', 'confirmed', 'rejected'].includes(d.status) && (
                           <>
                             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => openConfirm(d)}>
                               <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm
