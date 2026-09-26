@@ -173,11 +173,11 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
   const joinRound = async (roundId: string) => {
     if (!userId) return;
-    const { error } = await supabase.from("user_rounds").insert({
+    const { error } = await supabase.from("user_rounds").upsert({
       user_id: userId,
       trade_round_id: roundId,
-    });
-    if (error) {
+    }, { onConflict: "user_id, trade_round_id" });
+    if (error && error.code !== "23505" && error.code !== "409") {
       toast.error(`❌ ${t('trading.joinFailed')}: ${error.message}`);
     } else {
       toast.success(`✅ ${t('trading.joinSuccess')}`);
