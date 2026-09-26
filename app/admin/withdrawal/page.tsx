@@ -225,9 +225,10 @@ export default function AdminWithdrawalsPage() {
   const saveSettings = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase.from("withdrawal_settings").insert([
-        { fee_percentage: feePercentage, min_withdraw_amount: minWithdrawAmount, withdraw_enabled: withdrawEnabled },
-      ]);
+      const { error } = await supabase.from("withdrawal_settings").upsert(
+        { id: 1, fee_percentage: feePercentage, min_withdraw_amount: minWithdrawAmount, withdraw_enabled: withdrawEnabled },
+        { onConflict: "id" }
+      );
       if (error) throw error;
       toast.success("Settings saved.");
     } catch (err) {

@@ -71,6 +71,8 @@
   "addNewWallet": "Add New Wallet",
   "addWalletTitle": "Add Withdrawal Wallet",
   "addWalletDesc": "Temporarily added without email verification",
+  "securityFreezeTitle": "Security Freeze Active — {time} left",
+  "securityFreezeDesc": "For your protection, withdrawals are paused for 24 hours after adding a new wallet. This prevents unauthorized transfers if your account is compromised. Please wait or use an older wallet.",
   "selectAsset": "Select asset",
   "walletLabel": "Label (optional)",
   "walletLabelPlaceholder": "e.g. Primary USDT (TRC20)",
