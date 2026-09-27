@@ -434,16 +434,23 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
                     </p>
                   </div>
                   <Badge
-                    className={`shrink-0 ${trade.result === "win"
-                      ? "bg-green-500/20 text-green-300 border-green-400"
-                      : trade.result === "lose"
-                        ? "bg-red-500/20 text-red-300 border-red-400"
-                        : "bg-slate-500/20 text-slate-300 border-slate-400"
-                      }`}
+                    className={`shrink-0 ${
+                      trade.result === "win"
+                        ? "bg-green-500/20 text-green-300 border-green-400"
+                        : trade.result === "lose"
+                          ? "bg-red-500/20 text-red-300 border-red-400"
+                          : trade.result === "draw"
+                            ? "bg-blue-500/20 text-blue-300 border-blue-400"
+                            : "bg-slate-500/20 text-slate-300 border-slate-400"
+                    }`}
                   >
-                    {trade.result === "win" ? `+$${(trade.profit_loss ?? 0).toFixed(2)}` :
-                      trade.result === "lose" ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}` :
-                        t('common.pending')}
+                    {trade.result === "win"
+                      ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
+                      : trade.result === "lose"
+                        ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
+                        : trade.result === "draw"
+                          ? `$0.00 (${t('common.draw') || 'Draw'})`
+                          : t('common.pending')}
                   </Badge>
                 </div>
               ))}
