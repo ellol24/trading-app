@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signUp, type ActionState } from "@/lib/auth-actions";
 
 import { useLanguage } from "@/contexts/language-context";
@@ -41,6 +42,7 @@ function SubmitButton({ pending, t }: { pending: boolean, t: (key: string) => st
 }
 
 export default function RegisterForm({ referralCode: referralCodeFromUrl }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<ActionState>({});
   const [isPending, startTransition] = useTransition();
   const [referralCode, setReferralCode] = useState(referralCodeFromUrl || "");
@@ -57,6 +59,10 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
       formData.set("referralCode", referralCode);
       const result = await signUp(state, formData);
       setState(result);
+      
+      if (result?.success) {
+        router.push("/dashboard");
+      }
     });
   }
 

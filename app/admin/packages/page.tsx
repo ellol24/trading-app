@@ -54,11 +54,16 @@ export default function AdminPackagesPage() {
   const [processing, setProcessing] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PackageItem | null>(null);
-  const [statistics, setStatistics] = useState({
-    totalPackages: 0,
-    activePackages: 0,
-    totalPurchases: 0,
-    totalRevenue: 0,
+  const [statistics, setStatistics] = useState<{
+    totalPackages: number | null;
+    activePackages: number | null;
+    totalPurchases: number | null;
+    totalRevenue: number | null;
+  }>({
+    totalPackages: null,
+    activePackages: null,
+    totalPurchases: null,
+    totalRevenue: null,
   });
 
   const { toast } = useToast();
@@ -291,18 +296,18 @@ export default function AdminPackagesPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-blue-200">إجمالي الباقات</div>
-              <div className="text-2xl font-bold">{statistics.totalPackages}</div>
+              <div className="text-2xl font-bold">{loading ? "—" : statistics.totalPackages}</div>
             </div>
             <Package className="w-6 h-6 text-blue-300" />
           </div>
-          <div className="text-sm text-blue-200 mt-2">{statistics.activePackages} مفعلة</div>
+          <div className="text-sm text-blue-200 mt-2">{loading ? "—" : statistics.activePackages} مفعلة</div>
         </div>
 
         <div className="bg-slate-800 p-4 rounded border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-blue-200">إجمالي المشتريات</div>
-              <div className="text-2xl font-bold">{statistics.totalPurchases}</div>
+              <div className="text-2xl font-bold">{loading ? "—" : statistics.totalPurchases}</div>
             </div>
             <Users className="w-6 h-6 text-blue-300" />
           </div>
@@ -313,7 +318,7 @@ export default function AdminPackagesPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-blue-200">إجمالي الإيرادات</div>
-              <div className="text-2xl font-bold">${statistics.totalRevenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{loading ? "—" : `$${(statistics.totalRevenue ?? 0).toLocaleString()}`}</div>
             </div>
             <DollarSign className="w-6 h-6 text-blue-300" />
           </div>
@@ -324,7 +329,7 @@ export default function AdminPackagesPage() {
             <div>
               <div className="text-sm text-blue-200">متوسط الاستثمار</div>
               <div className="text-2xl font-bold">
-                ${statistics.totalPurchases ? Math.round(statistics.totalRevenue / statistics.totalPurchases) : 0}
+                {loading ? "—" : `$${statistics.totalPurchases ? Math.round((statistics.totalRevenue ?? 0) / statistics.totalPurchases) : 0}`}
               </div>
             </div>
             <TrendingUp className="w-6 h-6 text-blue-300" />
