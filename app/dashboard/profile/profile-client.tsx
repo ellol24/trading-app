@@ -40,9 +40,11 @@ interface ProfileOtpModalProps {
   sessionId: string;
   expiresAt: string;
   email: string;
+  endpoint?: string;
+  extraPayload?: Record<string, any>;
 }
 
-function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email }: ProfileOtpModalProps) {
+function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email, endpoint, extraPayload }: ProfileOtpModalProps) {
   const { t } = useLanguage();
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
@@ -74,10 +76,10 @@ function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email
     if (otp.length !== 6) return;
     setIsVerifying(true);
     try {
-      const res = await fetch("/api/profile/verify-otp", {
+      const res = await fetch(endpoint || "/api/profile/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, otp }),
+        body: JSON.stringify({ sessionId, otp, ...extraPayload }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -172,11 +174,10 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   // Profile OTP state
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpSession, setOtpSession] = useState<{ sessionId: string; expiresAt: string } | null>(null);
+  const [otpSession, setOtpSession] = useState<{ sessionId: string; expiresAt: string; type: "profile" | "password" } | null>(null);
 
   // Activity state
   const [activityDeposits, setActivityDeposits] = useState<any[]>([]);
@@ -289,7 +290,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
         return;
       }
 
-      setOtpSession({ sessionId: data.sessionId, expiresAt: data.expiresAt });
+      setOtpSession({ sessionId: data.sessionId, expiresAt: data.expiresAt, type: "profile" });
       setShowOtpModal(true);
       toast({ title: t("profile.verificationCodeSent") || "Verification code sent!", description: t("profile.checkYourEmail") || "Check your email for the 6-digit code." });
 
@@ -309,27 +310,34 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword) {
-      toast({ title: t("profile.missingField") || "Missing field", description: t("profile.missingFieldDesc") || "Please enter a new password.", variant: "destructive" });
+    if (!newPassword || newPassword.length < 6) {
+      toast({ title: t("profile.missingField") || "Missing field", description: "Password must be at least 6 characters.", variant: "destructive" });
       return;
     }
-    setShowPasswordConfirm(true);
-  };
-
-  const confirmChangePassword = async () => {
-    setShowPasswordConfirm(false);
+    
     setIsPasswordSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast({ title: t("profile.passwordUpdated") || "Password updated", description: t("profile.passwordUpdatedDesc") || "Your password has been changed successfully." });
-      setCurrentPassword("");
-      setNewPassword("");
+      const res = await fetch("/api/profile/send-password-otp", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: t("profile.saveFailed") || "Failed", description: data.error || "Could not send verification code.", variant: "destructive" });
+        return;
+      }
+      setOtpSession({ sessionId: data.sessionId, expiresAt: data.expiresAt, type: "password" });
+      setShowOtpModal(true);
+      toast({ title: t("profile.verificationCodeSent") || "Code sent!", description: t("profile.checkYourEmail") || "Check your email." });
     } catch (err: any) {
-      toast({ title: t("profile.passwordError") || "Password error", description: err?.message || "Failed to change password.", variant: "destructive" });
+      toast({ title: t("profile.saveFailed") || "Failed", description: err?.message || "Network error.", variant: "destructive" });
     } finally {
       setIsPasswordSaving(false);
     }
+  };
+
+  const handlePasswordOtpSuccess = () => {
+    toast({ title: t("profile.passwordUpdated") || "Password updated", description: t("profile.passwordUpdatedDesc") || "Your password has been changed successfully." });
+    setCurrentPassword("");
+    setNewPassword("");
+    setOtpSession(null);
   };
 
   const handleLogout = async () => {
@@ -673,31 +681,17 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
           </div>
         </div>
 
-        {/* Password Confirm Dialog */}
-        <Dialog open={showPasswordConfirm} onOpenChange={setShowPasswordConfirm}>
-          <DialogContent className="bg-slate-900 border-slate-700">
-            <DialogHeader>
-              <DialogTitle className="text-white">{t("profile.confirmPasswordChange")}</DialogTitle>
-              <DialogDescription className="text-slate-400">
-                {t("profile.confirmPasswordChangeDesc")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent" onClick={() => setShowPasswordConfirm(false)}>{t("common.cancel")}</Button>
-              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmChangePassword}>{t("profile.updatePassword")}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Profile OTP Verification Modal */}
         {otpSession && (
           <ProfileOtpModal
             open={showOtpModal}
             onClose={() => { setShowOtpModal(false); setOtpSession(null); }}
-            onSuccess={handleOtpSuccess}
+            onSuccess={otpSession.type === "password" ? handlePasswordOtpSuccess : handleOtpSuccess}
             sessionId={otpSession.sessionId}
             expiresAt={otpSession.expiresAt}
             email={profileData.email}
+            endpoint={otpSession.type === "password" ? "/api/profile/verify-password-otp" : "/api/profile/verify-otp"}
+            extraPayload={otpSession.type === "password" ? { newPassword } : undefined}
           />
         )}
       </div>
