@@ -47,5 +47,7 @@
   "statusLabel": "Status",
   "youStar": "You 🌟",
   "rankLabel": "Rank #{n}",
-  "referralsCount": "{n} referrals"
+  "referralsCount": "{n} referrals",
+  "sending": "Sending...",
+  "noActivityYet": "No activity yet"
 }

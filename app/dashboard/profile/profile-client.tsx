@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -18,9 +17,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import {
+  InputOTP, InputOTPGroup, InputOTPSlot,
+} from "@/components/ui/input-otp";
+import {
   Mail, CheckCircle, LogOut, User, Shield, Bell,
   Activity, Edit, Save, X, Eye, EyeOff,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, AlertCircle,
+  MessageCircle, Loader2, ShieldCheck, Info,
 } from "lucide-react";
 
 interface ProfileClientProps {
@@ -29,6 +32,134 @@ interface ProfileClientProps {
   preferences?: any | null;
 }
 
+// ─── Profile OTP Modal ────────────────────────────────────────────────────────
+interface ProfileOtpModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  sessionId: string;
+  expiresAt: string;
+  email: string;
+}
+
+function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email }: ProfileOtpModalProps) {
+  const { t } = useLanguage();
+  const [otp, setOtp] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(600);
+
+  useEffect(() => {
+    if (!open) return;
+    const expiry = new Date(expiresAt).getTime();
+    const tick = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0) clearInterval(tick);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [open, expiresAt]);
+
+  useEffect(() => {
+    if (open) {
+      setOtp("");
+      setSecondsLeft(Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)));
+    }
+  }, [open, expiresAt]);
+
+  const mins = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const secs = String(secondsLeft % 60).padStart(2, "0");
+  const expired = secondsLeft === 0;
+
+  const handleVerify = async () => {
+    if (otp.length !== 6) return;
+    setIsVerifying(true);
+    try {
+      const res = await fetch("/api/profile/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, otp }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // inline error shown in UI — we can use a simple alert toast
+        alert(`❌ ${data.error || t("profile.verificationFailed")}`);
+      } else {
+        onSuccess();
+        onClose();
+      }
+    } catch (err: any) {
+      alert(`❌ ${err.message || "Network error"}`);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v && !isVerifying) onClose(); }}>
+      <DialogContent className="bg-slate-900 border-slate-700 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-white text-xl">
+            <ShieldCheck className="w-6 h-6 text-blue-400" />
+            {t("profile.verifyIdentity")}
+          </DialogTitle>
+          <DialogDescription className="text-slate-400">
+            {t("profile.otpSentToEmail").replace("{email}", email)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-2">
+          {/* Timer */}
+          <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg border ${expired ? "bg-red-500/10 border-red-500/40 text-red-400" : "bg-blue-500/10 border-blue-500/30 text-blue-300"}`}>
+            <span className="text-sm font-semibold font-mono">
+              {expired ? t("profile.codeExpired") : t("profile.codeExpiresIn").replace("{time}", `${mins}:${secs}`)}
+            </span>
+          </div>
+
+          {/* OTP Input */}
+          <div className="space-y-3">
+            <Label className="text-slate-200 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-blue-400" />
+              {t("profile.enterVerificationCode")}
+            </Label>
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={setOtp} disabled={expired}>
+                <InputOTPGroup>
+                  {[0,1,2,3,4,5].map((i) => (
+                    <InputOTPSlot key={i} index={i} className="border-slate-600 bg-slate-800 text-white text-lg" />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <Button
+            variant="outline"
+            className="border-slate-600 text-slate-300 bg-transparent hover:bg-slate-800"
+            onClick={onClose}
+            disabled={isVerifying}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold flex-1"
+            onClick={handleVerify}
+            disabled={otp.length !== 6 || expired || isVerifying}
+          >
+            {isVerifying ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("profile.verifying")}</>
+            ) : (
+              <><ShieldCheck className="mr-2 h-4 w-4" /> {t("profile.confirmAndSave")}</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main Profile Component ───────────────────────────────────────────────────
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -43,12 +174,15 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
+  // Profile OTP state
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpSession, setOtpSession] = useState<{ sessionId: string; expiresAt: string } | null>(null);
+
   // Activity state
   const [activityDeposits, setActivityDeposits] = useState<any[]>([]);
   const [activityWithdrawals, setActivityWithdrawals] = useState<any[]>([]);
   const [activityTrades, setActivityTrades] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
-  const [kycStatus, setKycStatus] = useState<string>(profile?.kyc_status ?? "not_verified");
   const [balance, setBalance] = useState<number>(profile?.balance || 0);
 
   // Profile form state
@@ -61,32 +195,14 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     city: "",
     address: "",
     zipCode: "",
-  });
-
-  // Preferences state (explicit type to allow risk_tolerance)
-  const [prefs, setPrefs] = useState<{
-    notifications_enabled: boolean;
-    email_notifications: boolean;
-    sms_notifications: boolean;
-    trading_notifications: boolean;
-    two_factor_enabled: boolean;
-    auto_invest_enabled: boolean;
-    risk_tolerance: string;
-  }>({
-    notifications_enabled: true,
-    email_notifications: true,
-    sms_notifications: false,
-    trading_notifications: true,
-    two_factor_enabled: false,
-    auto_invest_enabled: false,
-    risk_tolerance: "medium",
+    telegramChatId: "",
   });
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  // Populate state from props or fetch from DB
+  // Populate state from props
   useEffect(() => {
     const loadIfMissing = async () => {
       if (!user) return;
@@ -95,12 +211,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       if (!profileRow) {
         const { data } = await supabase.from("user_profiles").select("*").eq("uid", user.id).single();
         if (data) profileRow = data;
-      }
-
-      let prefsRow = preferences ?? null;
-      if (!prefsRow) {
-        const { data } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).single();
-        if (data) prefsRow = data;
       }
 
       setProfileData({
@@ -112,30 +222,18 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
         city: profileRow?.city ?? "",
         address: profileRow?.address ?? "",
         zipCode: profileRow?.zip_code ?? "",
+        telegramChatId: profileRow?.telegram_chat_id ?? "",
       });
-
-      if (prefsRow) {
-        setPrefs({
-          notifications_enabled: prefsRow.notifications_enabled ?? true,
-          email_notifications: prefsRow.email_notifications ?? true,
-          sms_notifications: prefsRow.sms_notifications ?? false,
-          trading_notifications: prefsRow.trading_notifications ?? true,
-          two_factor_enabled: prefsRow.two_factor_enabled ?? false,
-          auto_invest_enabled: prefsRow.auto_invest_enabled ?? false,
-          risk_tolerance: prefsRow.risk_tolerance ?? "medium",
-        });
-      }
     };
     loadIfMissing();
   }, [user]);
 
-  // Fetch activity (deposits, withdrawals, trades, balance, kyc)
+  // Fetch activity
   const fetchActivity = useCallback(async () => {
     if (!user) return;
     setActivityLoading(true);
     try {
       const [depRes, wdRes, tradeRes, profRes] = await Promise.all([
-        // FIX: deposits uses 'uid' not 'user_id'
         supabase.from("deposits").select("id, amount, status, created_at").eq("uid", user.id).order("created_at", { ascending: false }).limit(8),
         supabase.from("withdrawals").select("id, amount, status, created_at, net_amount").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
         supabase.from("trades").select("id, asset, type, amount, result, profit_loss, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
@@ -146,7 +244,6 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       if (tradeRes.data) setActivityTrades(tradeRes.data);
       if (profRes.data) {
         setBalance(Number(profRes.data.balance) || 0);
-        setKycStatus(profRes.data.kyc_status || "not_verified");
       }
     } finally {
       setActivityLoading(false);
@@ -155,80 +252,67 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
   useEffect(() => { fetchActivity(); }, [fetchActivity]);
 
-  // Polling every 5s for activity data (WebSocket RLS may block user-scoped channels)
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => fetchActivity(), 5000);
     return () => clearInterval(interval);
   }, [user, fetchActivity]);
 
-  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
+  // ─── Save Changes → Trigger OTP flow ────────────────────────────────────
   const handleSave = async () => {
     if (!user) return;
-    if (!isValidEmail(profileData.email)) {
-      toast({ title: t('profile.invalidEmailTitle') || "Invalid email", description: t('profile.invalidEmailDesc') || "Please enter a valid email address.", variant: "destructive" });
+    if (!profileData.firstName?.trim() || !profileData.lastName?.trim()) {
+      toast({ title: t("profile.missingField") || "Missing field", description: t("profile.firstLastRequired") || "First and last name are required.", variant: "destructive" });
       return;
     }
+
     setIsSaving(true);
     try {
-      const payload: any = {
-        first_name: profileData.firstName,
-        last_name: profileData.lastName,
-        phone: profileData.phone,
-        country: profileData.country,
-        city: profileData.city,
-        address: profileData.address,
-        zip_code: profileData.zipCode,
-      };
+      const res = await fetch("/api/profile/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          phone: profileData.phone,
+          country: profileData.country,
+          city: profileData.city,
+          address: profileData.address,
+          zipCode: profileData.zipCode,
+          telegramChatId: profileData.telegramChatId,
+        }),
+      });
 
-      // Automatically set status to "verified" when all data is present
-      const isComplete =
-        payload.first_name?.trim() &&
-        payload.last_name?.trim() &&
-        payload.phone?.trim() &&
-        payload.country?.trim() &&
-        payload.city?.trim() &&
-        payload.address?.trim() &&
-        payload.zip_code?.trim() &&
-        profileData.email?.trim();
-
-      payload.status = isComplete ? "verified" : "pending";
-      const { error } = await supabase.from("user_profiles").update(payload).eq("uid", user.id);
-      if (error) {
-        const alt = await supabase.from("user_profiles").update(payload).eq("user_id", user.id);
-        if (alt.error) throw alt.error;
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: t("profile.saveFailed") || "Save failed", description: data.error || "Could not send verification code.", variant: "destructive" });
+        return;
       }
-      toast({ title: t('profile.profileUpdated') || "Profile Updated", description: t('profile.profileUpdatedDesc') || "Your profile information has been saved successfully." });
-      setIsEditing(false);
-      router.refresh();
+
+      setOtpSession({ sessionId: data.sessionId, expiresAt: data.expiresAt });
+      setShowOtpModal(true);
+      toast({ title: t("profile.verificationCodeSent") || "Verification code sent!", description: t("profile.checkYourEmail") || "Check your email for the 6-digit code." });
+
     } catch (err: any) {
-      toast({ title: t('profile.saveFailed') || "Save failed", description: err?.message || t('profile.saveFailedDesc') || "Could not save profile.", variant: "destructive" });
+      toast({ title: t("profile.saveFailed") || "Save failed", description: err?.message || "Network error.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // FIXED: was using empty string "" as table name — now correctly uses "user_preferences"
-  const updatePreference = async (key: string, value: any) => {
-    if (!user) return;
-    setPrefs((p) => ({ ...p, [key]: value }));
-    try {
-      const upsertPayload: any = { user_id: user.id, updated_at: new Date().toISOString(), [key]: value };
-      const { error } = await supabase.from("user_preferences").upsert(upsertPayload, { onConflict: "user_id" });
-      if (error) throw error;
-    } catch (err: any) {
-      toast({ title: t('profile.preferencesError') || "Preferences error", description: err?.message || t('profile.preferencesErrorDesc') || "Could not update preferences.", variant: "destructive" });
-      setPrefs((p) => ({ ...p, [key]: !value }));
-    }
+  // ─── OTP Verified → Profile saved ───────────────────────────────────────
+  const handleOtpSuccess = () => {
+    toast({ title: t("profile.profileUpdated") || "Profile Updated", description: t("profile.profileUpdatedDesc") || "Your profile information has been saved successfully." });
+    setIsEditing(false);
+    setOtpSession(null);
+    router.refresh();
   };
 
   const handleChangePassword = async () => {
     if (!newPassword) {
-      toast({ title: t('profile.missingField') || "Missing field", description: t('profile.missingFieldDesc') || "Please enter a new password.", variant: "destructive" });
+      toast({ title: t("profile.missingField") || "Missing field", description: t("profile.missingFieldDesc") || "Please enter a new password.", variant: "destructive" });
       return;
     }
-    // Show confirm dialog instead of immediately updating
     setShowPasswordConfirm(true);
   };
 
@@ -238,17 +322,15 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast({ title: t('profile.passwordUpdated') || "Password updated", description: t('profile.passwordUpdatedDesc') || "Your password has been changed successfully." });
+      toast({ title: t("profile.passwordUpdated") || "Password updated", description: t("profile.passwordUpdatedDesc") || "Your password has been changed successfully." });
       setCurrentPassword("");
       setNewPassword("");
     } catch (err: any) {
-      toast({ title: t('profile.passwordError') || "Password error", description: err?.message || t('profile.passwordErrorDesc') || "Failed to change password.", variant: "destructive" });
+      toast({ title: t("profile.passwordError") || "Password error", description: err?.message || "Failed to change password.", variant: "destructive" });
     } finally {
       setIsPasswordSaving(false);
     }
   };
-
-  const handleStartKYC = () => router.push("/dashboard/kyc/start");
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -256,7 +338,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
       await supabase.auth.signOut();
       router.replace("/auth/login");
     } catch (err: any) {
-      toast({ title: t('profile.logoutFailed') || "Logout failed", description: err?.message || t('profile.logoutFailedDesc') || "Could not sign out.", variant: "destructive" });
+      toast({ title: t("profile.logoutFailed") || "Logout failed", description: err?.message || "Could not sign out.", variant: "destructive" });
     } finally {
       setIsLoggingOut(false);
     }
@@ -265,19 +347,17 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
-        <p className="text-white">{t('auth.login')}</p>
+        <p className="text-white">{t("auth.login")}</p>
       </div>
     );
   }
 
-  const prefLabels: Record<string, string> = {
-    notifications_enabled: "All Notifications",
-    email_notifications: "Email Notifications",
-    sms_notifications: "SMS Notifications",
-    trading_notifications: "Trading Alerts",
-    two_factor_enabled: "Two-Factor Authentication",
-    auto_invest_enabled: "Auto Invest",
-  };
+  const isProfileComplete = !!(
+    profileData.firstName?.trim() &&
+    profileData.lastName?.trim() &&
+    profileData.phone?.trim() &&
+    profileData.country?.trim()
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24" data-react-protected>
@@ -296,14 +376,12 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <p className="text-blue-200 flex items-center"><Mail className="w-4 h-4 mr-2" />{profileData.email}</p>
               <div className="flex items-center space-x-2 mt-2">
                 <Badge variant="outline" className={[
-                  !!(profileData.firstName?.trim() && profileData.lastName?.trim() && profileData.phone?.trim() && profileData.country?.trim())
+                  isProfileComplete
                     ? "text-green-400 border-green-400 bg-green-400/10"
                     : "text-yellow-400 border-yellow-400 bg-yellow-400/10"
                 ].join(" ")}>
                   <CheckCircle className="w-3 h-3 mr-1" />
-                  {!!(profileData.firstName?.trim() && profileData.lastName?.trim() && profileData.phone?.trim() && profileData.country?.trim())
-                    ? t('profile.verifiedAccount')
-                    : t('profile.waitingVerification') || t('common.pendingVerification')}
+                  {isProfileComplete ? t("profile.verifiedAccount") : t("profile.waitingVerification")}
                 </Badge>
                 <Badge variant="outline" className="text-blue-400 border-blue-400 bg-blue-400/10">
                   {t("profile.balance")}: ${balance.toFixed(2)}
@@ -320,7 +398,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               disabled={isLoggingOut}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              {isLoggingOut ? t('common.loading') : t('auth.logout')}
+              {isLoggingOut ? t("common.loading") : t("auth.logout")}
             </Button>
           </div>
         </div>
@@ -330,7 +408,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
           <div className="lg:col-span-1">
             <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
-                <CardTitle className="text-white text-lg">{t('profile.accountOverview')}</CardTitle>
+                <CardTitle className="text-white text-lg">{t("profile.accountOverview")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -338,10 +416,19 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   <span className="text-white font-bold">${balance.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('common.status')}</span>
-                  <Badge className="bg-green-600 text-white">{profile?.status === 'active' ? t("common.status_active") : profile?.status === 'pending' ? t("common.pending") : profile?.status || t("common.status_active")}</Badge>
+                  <span className="text-muted-foreground">{t("common.status")}</span>
+                  <Badge className="bg-green-600 text-white">
+                    {profile?.status === "active" ? t("common.status_active") : profile?.status === "pending" ? t("common.pending") : profile?.status || t("common.status_active")}
+                  </Badge>
                 </div>
 
+                {/* Telegram Link Status */}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{t("profile.telegram")}</span>
+                  <Badge variant="outline" className={profileData.telegramChatId ? "text-green-400 border-green-400" : "text-amber-400 border-amber-400"}>
+                    {profileData.telegramChatId ? t("profile.telegramLinked") : t("profile.notLinked")}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -351,12 +438,11 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
             <Tabs defaultValue="profile" className="space-y-6">
               <TabsList className="flex justify-between w-full bg-gradient-to-r from-slate-800/60 to-slate-900/60 backdrop-blur-sm border border-slate-700/50 p-2 rounded-xl shadow-inner" translate="no">
                 <TabsTrigger value="profile" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <User className="w-4 h-4" /> {t('profile.profile')}
+                  <User className="w-4 h-4" /> {t("profile.profile")}
                 </TabsTrigger>
                 <TabsTrigger value="security" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
-                  <Shield className="w-4 h-4" /> {t('profile.security')}
+                  <Shield className="w-4 h-4" /> {t("profile.security")}
                 </TabsTrigger>
-
                 <TabsTrigger value="activity" className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white rounded-lg">
                   <Activity className="w-4 h-4" /> {t("profile.activity")}
                 </TabsTrigger>
@@ -366,14 +452,18 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="profile" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader className="flex items-center justify-between">
-                    <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />{t('profile.personalInformation')}</CardTitle>
+                    <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />{t("profile.personalInformation")}</CardTitle>
                     <div>
                       <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="mr-2 border-slate-600 text-slate-300 bg-transparent">
-                        {isEditing ? <><X className="w-4 h-4 mr-2" />{t('common.cancel')}</> : <><Edit className="w-4 h-4 mr-2" />{t('profile.editProfile')}</>}
+                        {isEditing ? <><X className="w-4 h-4 mr-2" />{t("common.cancel")}</> : <><Edit className="w-4 h-4 mr-2" />{t("profile.editProfile")}</>}
                       </Button>
                       {isEditing && (
                         <Button onClick={handleSave} size="sm" disabled={isSaving} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                          <Save className="w-4 h-4 mr-2" />{isSaving ? t('common.saving') : t('profile.saveChanges')}
+                          {isSaving ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("common.sending")}</>
+                          ) : (
+                            <><Save className="w-4 h-4 mr-2" />{t("profile.saveChanges")}</>
+                          )}
                         </Button>
                       )}
                     </div>
@@ -381,11 +471,11 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {[
-                        { id: "firstName", label: t('auth.firstName'), key: "firstName" },
-                        { id: "lastName", label: t('auth.lastName'), key: "lastName" },
-                        { id: "phone", label: t('auth.phone'), key: "phone" },
-                        { id: "country", label: t('auth.country'), key: "country" },
-                        { id: "city", label: t('profile.city'), key: "city" },
+                        { id: "firstName", label: t("auth.firstName"), key: "firstName" },
+                        { id: "lastName", label: t("auth.lastName"), key: "lastName" },
+                        { id: "phone", label: t("auth.phone"), key: "phone" },
+                        { id: "country", label: t("auth.country"), key: "country" },
+                        { id: "city", label: t("profile.city"), key: "city" },
                       ].map(({ id, label, key }) => (
                         <div key={id} className="space-y-2">
                           <Label htmlFor={id} className="text-slate-300">{label}</Label>
@@ -399,20 +489,65 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                         </div>
                       ))}
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-slate-300">{t('auth.email')}</Label>
+                        <Label htmlFor="email" className="text-slate-300">{t("auth.email")}</Label>
                         <Input id="email" type="email" value={profileData.email} disabled className="bg-slate-800/50 border-slate-600 text-white opacity-60" />
                       </div>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="address" className="text-slate-300">{t('common.address')}</Label>
+                        <Label htmlFor="address" className="text-slate-300">{t("common.address")}</Label>
                         <Input id="address" value={profileData.address} onChange={(e) => setProfileData({ ...profileData, address: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="zipCode" className="text-slate-300">{t('profile.zipCode')}</Label>
+                        <Label htmlFor="zipCode" className="text-slate-300">{t("profile.zipCode")}</Label>
                         <Input id="zipCode" value={profileData.zipCode} onChange={(e) => setProfileData({ ...profileData, zipCode: e.target.value })} disabled={!isEditing} className="bg-slate-800/50 border-slate-600 text-white" />
                       </div>
                     </div>
+
+                    {/* Telegram Chat ID section */}
+                    <div className="space-y-3 pt-2 border-t border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-sky-400" />
+                        <h3 className="text-white font-medium">{t("profile.telegramLinking")}</h3>
+                        {profileData.telegramChatId && (
+                          <Badge variant="outline" className="text-green-400 border-green-400 text-xs">
+                            <CheckCircle className="w-3 h-3 mr-1" /> {t("profile.telegramLinked")}
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-start gap-3">
+                        <Info className="w-4 h-4 text-sky-400 mt-0.5 shrink-0" />
+                        <p className="text-sky-200 text-xs leading-relaxed">
+                          {t("profile.telegramChatIdHint")}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="telegramChatId" className="text-slate-300">
+                          {t("profile.telegramChatId")}
+                        </Label>
+                        <Input
+                          id="telegramChatId"
+                          placeholder={t("profile.telegramChatIdPlaceholder")}
+                          value={profileData.telegramChatId}
+                          onChange={(e) => setProfileData({ ...profileData, telegramChatId: e.target.value.replace(/\D/g, "") })}
+                          disabled={!isEditing}
+                          className="bg-slate-800/50 border-slate-600 text-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* OTP Security Notice */}
+                    {isEditing && (
+                      <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-start gap-3">
+                        <ShieldCheck className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                        <p className="text-blue-200 text-xs">
+                          {t("profile.saveOtpNotice")}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -421,14 +556,14 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               <TabsContent value="security" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />{t('profile.security')}</CardTitle>
+                    <CardTitle className="text-white flex items-center"><Shield className="w-5 h-5 mr-2" />{t("profile.security")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-4">
-                      <h3 className="text-white font-medium">{t('profile.changePassword')}</h3>
+                      <h3 className="text-white font-medium">{t("profile.changePassword")}</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="currentPassword" className="text-slate-300">{t('profile.currentPassword')}</Label>
+                          <Label htmlFor="currentPassword" className="text-slate-300">{t("profile.currentPassword")}</Label>
                           <div className="relative">
                             <Input id="currentPassword" type={showPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
                             <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowPassword(!showPassword)}>
@@ -437,7 +572,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="newPassword" className="text-slate-300">{t('profile.newPassword')}</Label>
+                          <Label htmlFor="newPassword" className="text-slate-300">{t("profile.newPassword")}</Label>
                           <div className="relative">
                             <Input id="newPassword" type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-slate-800/50 border-slate-600 text-white pr-10" />
                             <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowNewPassword(!showNewPassword)}>
@@ -448,31 +583,13 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                       </div>
                       <div className="flex justify-end">
                         <Button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white" onClick={handleChangePassword} disabled={isPasswordSaving}>
-                          {isPasswordSaving ? t('common.updating') : t('profile.updatePassword')}
+                          {isPasswordSaving ? t("common.updating") : t("profile.updatePassword")}
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
-
-              {/* Password confirm dialog */}
-              <Dialog open={showPasswordConfirm} onOpenChange={setShowPasswordConfirm}>
-                <DialogContent className="bg-slate-900 border-slate-700">
-                  <DialogHeader>
-                    <DialogTitle className="text-white">{t('profile.confirmPasswordChange') || "Confirm Password Change"}</DialogTitle>
-                    <DialogDescription className="text-slate-400">
-                      {t('profile.confirmPasswordChangeDesc') || "Are you sure you want to change your password? You will need to use the new password for all future logins."}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="gap-2">
-                    <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent" onClick={() => setShowPasswordConfirm(false)}>{t('common.cancel')}</Button>
-                    <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmChangePassword}>{t('profile.updatePassword')}</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-
 
               {/* Activity Tab */}
               <TabsContent value="activity" translate="no">
@@ -544,7 +661,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                         {activityDeposits.length === 0 && activityWithdrawals.length === 0 && activityTrades.length === 0 && (
                           <div className="text-center py-10 text-muted-foreground">
                             <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            <p>No activity yet</p>
+                            <p>{t("profile.noActivityYet")}</p>
                           </div>
                         )}
                       </>
@@ -555,6 +672,34 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
             </Tabs>
           </div>
         </div>
+
+        {/* Password Confirm Dialog */}
+        <Dialog open={showPasswordConfirm} onOpenChange={setShowPasswordConfirm}>
+          <DialogContent className="bg-slate-900 border-slate-700">
+            <DialogHeader>
+              <DialogTitle className="text-white">{t("profile.confirmPasswordChange")}</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                {t("profile.confirmPasswordChangeDesc")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent" onClick={() => setShowPasswordConfirm(false)}>{t("common.cancel")}</Button>
+              <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmChangePassword}>{t("profile.updatePassword")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Profile OTP Verification Modal */}
+        {otpSession && (
+          <ProfileOtpModal
+            open={showOtpModal}
+            onClose={() => { setShowOtpModal(false); setOtpSession(null); }}
+            onSuccess={handleOtpSuccess}
+            sessionId={otpSession.sessionId}
+            expiresAt={otpSession.expiresAt}
+            email={profileData.email}
+          />
+        )}
       </div>
     </div>
   );
