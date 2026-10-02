@@ -79,6 +79,7 @@ interface OtpModalProps {
 }
 
 function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram, expiresAt, amount, netAmount }: OtpModalProps) {
+  const { t } = useLanguage();
   const [emailCode, setEmailCode] = useState("");
   const [telegramCode, setTelegramCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
@@ -122,7 +123,7 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
       if (!res.ok) {
         toast.error(`❌ ${data.error || "Verification failed"}`);
       } else {
-        toast.success("✅ Withdrawal verified and submitted successfully!");
+        toast.success(t("wallet.withdrawalVerifiedSuccess"));
         onSuccess(data.newBalance);
         onClose();
       }
@@ -139,10 +140,10 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white text-xl">
             <ShieldCheck className="w-6 h-6 text-blue-400" />
-            Security Verification
+            {t("wallet.securityVerification")}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Two verification codes have been sent. Enter both below to authorize your withdrawal of{" "}
+            {t("wallet.twoCodesSent")}{" "}
             <strong className="text-white">${amount.toFixed(2)}</strong>.
           </DialogDescription>
         </DialogHeader>
@@ -152,18 +153,18 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
           <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg border ${expired ? "bg-red-500/10 border-red-500/40 text-red-400" : "bg-blue-500/10 border-blue-500/30 text-blue-300"}`}>
             <Timer className="w-4 h-4" />
             <span className="font-mono text-sm font-semibold">
-              {expired ? "Code Expired — Close and retry" : `Codes expire in ${mins}:${secs}`}
+              {expired ? t("wallet.codeExpired") : t("wallet.codesExpireIn").replace("{time}", `${mins}:${secs}`)}
             </span>
           </div>
 
           {/* Summary */}
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-400">Withdrawal Amount</span>
+              <span className="text-slate-400">{t("wallet.withdrawalAmount")}</span>
               <span className="text-white font-semibold">${amount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">You will receive</span>
+              <span className="text-slate-400">{t("wallet.youWillReceive")}</span>
               <span className="text-green-400 font-bold">${netAmount.toFixed(2)}</span>
             </div>
           </div>
@@ -172,9 +173,9 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
           <div className="space-y-3">
             <Label className="text-slate-200 flex items-center gap-2">
               <Mail className="w-4 h-4 text-blue-400" />
-              Email Verification Code
+              {t("wallet.emailVerificationCode")}
             </Label>
-            <p className="text-xs text-slate-500">Check your registered email inbox for a 6-digit code.</p>
+            <p className="text-xs text-slate-500">{t("wallet.emailCodeDesc")}</p>
             <div className="flex justify-center">
               <InputOTP
                 maxLength={6}
@@ -199,9 +200,9 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
             <div className="space-y-3">
               <Label className="text-slate-200 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-sky-400" />
-                Telegram Verification Code
+                {t("wallet.telegramVerificationCode")}
               </Label>
-              <p className="text-xs text-slate-500">Check your Telegram bot for a separate 6-digit code.</p>
+              <p className="text-xs text-slate-500">{t("wallet.telegramCodeDesc")}</p>
               <div className="flex justify-center">
                 <InputOTP
                   maxLength={6}
@@ -224,11 +225,11 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <MessageCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-300">
-                No Telegram account linked. Only email verification is required.{" "}
+                {t("wallet.noTelegramLinked")}{" "}
                 <Link href="/dashboard/profile" className="underline text-amber-400 hover:text-amber-200">
-                  Link Telegram in your profile
+                  {t("wallet.linkTelegram")}
                 </Link>{" "}
-                for enhanced security.
+                {t("wallet.forEnhancedSecurity")}
               </p>
             </div>
           )}
@@ -249,9 +250,9 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
             disabled={!canVerify}
           >
             {isVerifying ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying…</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("wallet.verifying")}</>
             ) : (
-              <><KeyRound className="mr-2 h-4 w-4" /> Confirm Withdrawal</>
+              <><KeyRound className="mr-2 h-4 w-4" /> {t("wallet.confirmWithdrawal")}</>
             )}
           </Button>
         </DialogFooter>
@@ -416,7 +417,7 @@ export default function WithdrawClient({ user, profile }: Props) {
         expiresAt: data.expiresAt,
       });
       setOtpModalOpen(true);
-      toast.success("✅ Verification codes sent! Check your email" + (data.hasTelegram ? " and Telegram." : "."));
+      toast.success(t("wallet.codesSentSuccess") + (data.hasTelegram ? t("wallet.andTelegram") : "."));
 
     } catch (err: any) {
       toast.dismiss(loadingToast);
@@ -573,13 +574,13 @@ export default function WithdrawClient({ user, profile }: Props) {
                     <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/30">
                       <ShieldCheck className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-blue-300 font-semibold text-sm">Dual 2FA Security Active</p>
+                        <p className="text-blue-300 font-semibold text-sm">{t("wallet.dual2faActive")}</p>
                         <p className="text-slate-400 text-xs mt-0.5">
-                          Every withdrawal requires verification codes sent simultaneously to your{" "}
+                          {t("wallet.dual2faDesc")}{" "}
                           <span className="text-blue-300">Email</span>
-                          {profile?.telegram_chat_id && <> and <span className="text-sky-300">Telegram</span></>}.
+                          {profile?.telegram_chat_id && <> {t("wallet.and")} <span className="text-sky-300">Telegram</span></>}.
                           {!profile?.telegram_chat_id && (
-                            <> <Link href="/dashboard/profile" className="text-amber-400 underline hover:text-amber-300">Link Telegram</Link> for maximum security.</>
+                            <> <Link href="/dashboard/profile" className="text-amber-400 underline hover:text-amber-300">{t("wallet.linkTelegram")}</Link> {t("wallet.forMaximumSecurity")}</>
                           )}
                         </p>
                       </div>
@@ -661,7 +662,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                       disabled={!canSubmit}
                     >
                       {isSubmitting
-                        ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Sending Verification Codes…</>
+                        ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />{t("wallet.sendingVerificationCodes")}</>
                         : !withdrawEnabled
                           ? t("wallet.withdrawalsDisabledTitle")
                           : !profileComplete
@@ -793,7 +794,7 @@ export default function WithdrawClient({ user, profile }: Props) {
                 <p>• {t("wallet.securityTip2")}</p>
                 <p>• {t("wallet.securityTip3")}</p>
                 <p>• {t("wallet.securityTip4")}</p>
-                <p className="text-blue-400 text-xs mt-3">• All withdrawals require dual 2FA (Email + Telegram)</p>
+                <p className="text-blue-400 text-xs mt-3">• {t("wallet.allWithdrawalsRequire2FA")}</p>
               </CardContent>
             </Card>
           </div>
