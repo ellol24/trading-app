@@ -61,7 +61,9 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
       setState(result);
       
       if (result?.success) {
-        router.push("/dashboard");
+        if (!result.success.toLowerCase().includes("verify")) {
+          router.push("/dashboard");
+        }
       }
     });
   }

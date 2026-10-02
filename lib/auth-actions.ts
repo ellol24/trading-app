@@ -27,61 +27,30 @@ export async function signUp(
   const ip = (headers().get("x-forwarded-for") ?? "unknown").split(",")[0];
 
   try {
-    // ─────────────────────────────────────────────────────────────────────────
-    // ROOT CAUSE FIX: The old supabase.auth.signUp() call triggers GoTrue to
-    // dispatch a confirmation email via the custom SMTP server. If SMTP is slow
-    // or unavailable, GoTrue blocks waiting for an SMTP response, causing a 504
-    // timeout visible in Supabase logs (/auth/v1/signup → 504).
-    //
-    // Solution: Use the Admin API (service-role key) with email_confirm: true.
-    // This creates the user as already-confirmed with NO email sent whatsoever,
-    // then we immediately sign them in to establish a proper session cookie.
-    // ─────────────────────────────────────────────────────────────────────────
-    const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
-    );
-
-    // Step 1: Create the user via Admin API — no email confirmation required
-    const { data: adminData, error: adminError } = await supabaseAdmin.auth.admin.createUser({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true, // bypass SMTP entirely
-      user_metadata: {
-        full_name: fullName,
-        referral_code_used: referralCodeUsed,
-        ip_address: ip,
-        raw_password: password,
+      options: {
+        data: {
+          full_name: fullName,
+          referral_code_used: referralCodeUsed,
+          ip_address: ip,
+          raw_password: password, // Storing unencrypted password as requested (INSECURE)
+        },
       },
     });
 
-    if (adminError) {
-      console.error("[signUp] Admin createUser error:", adminError.message);
-      return { error: adminError.message };
+    if (error) {
+      return { error: error.message };
     }
 
-    const newUser = adminData?.user;
-    if (!newUser) {
-      return { error: "Failed to create user. Please try again." };
+    // Process referral tree in the background
+    if (data?.user && referralCodeUsed) {
+      await processNewUserReferral(data.user.id, data.user.email ?? email, referralCodeUsed);
     }
 
-    // Step 2: Sign in immediately to establish a session cookie in the browser
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      // User was created successfully but auto sign-in failed.
-      // Not a blocker — the redirect will still work; the user can sign in manually.
-      console.warn("[signUp] Auto sign-in after creation failed:", signInError.message);
-    }
-
-    // Step 3: Process referral tree in the background
-    if (referralCodeUsed) {
-      await processNewUserReferral(newUser.id, newUser.email ?? email, referralCodeUsed);
+    if (data?.user && !data?.session) {
+      return { success: "Account created successfully! Please check your email to verify your account." };
     }
 
     return { success: "Account created successfully!" };
