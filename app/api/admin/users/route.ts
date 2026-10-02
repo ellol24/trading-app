@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
 const adminClient = createClient(
@@ -10,7 +10,7 @@ const adminClient = createClient(
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient(req);
+    const supabase = createServerClient();
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
     if (authErr || !user) {

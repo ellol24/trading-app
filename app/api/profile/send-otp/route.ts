@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createRouteHandlerClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 
 const adminClient = createClient(
@@ -17,7 +17,7 @@ function generateOtp(): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient(req);
+    const supabase = createServerClient();
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

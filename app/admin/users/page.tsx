@@ -31,7 +31,7 @@ import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
 import { impersonateUser } from "@/app/actions/admin-actions";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -264,19 +264,20 @@ export default function AdminUsersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[70vh]">
-            <table className="w-full text-sm text-left text-slate-300">
-              <thead className="bg-slate-950/80 text-slate-400 uppercase text-xs font-semibold tracking-wider sticky top-0 z-10 backdrop-blur-md">
-                <tr>
-                  <th className="p-4 pl-6 whitespace-nowrap">{t('admin.name')}</th>
-                  <th className="p-4 whitespace-nowrap">{t('admin.email')}</th>
-                  <th className="p-4 whitespace-nowrap">Password</th>
-                  <th className="p-4 whitespace-nowrap">{t('admin.role')}</th>
-                  <th className="p-4 whitespace-nowrap">{t('admin.status')}</th>
-                  <th className="p-4 text-right whitespace-nowrap">{t('admin.balance')}</th>
-                  <th className="p-4 text-center whitespace-nowrap">{t('admin.actions_th')}</th>
-                </tr>
-              </thead>
+          <ScrollArea className="h-[70vh] w-full">
+            <div className="min-w-[900px] w-full">
+              <table className="w-full text-sm text-left text-slate-300">
+                <thead className="bg-slate-950/80 text-slate-400 uppercase text-xs font-semibold tracking-wider sticky top-0 z-10 backdrop-blur-md">
+                  <tr>
+                    <th className="p-4 pl-6 whitespace-nowrap">{t('admin.name')}</th>
+                    <th className="p-4 whitespace-nowrap">{t('admin.email')}</th>
+                    <th className="p-4 whitespace-nowrap">Password</th>
+                    <th className="p-4 whitespace-nowrap">{t('admin.role')}</th>
+                    <th className="p-4 whitespace-nowrap">{t('admin.status')}</th>
+                    <th className="p-4 text-right whitespace-nowrap">{t('admin.balance')}</th>
+                    <th className="p-4 text-center whitespace-nowrap">{t('admin.actions_th')}</th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-slate-800/50">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
@@ -375,7 +376,9 @@ export default function AdminUsersPage() {
                   ))
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </CardContent>
       </Card>

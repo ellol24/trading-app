@@ -98,21 +98,16 @@ export function createClient() {
 
   return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value ?? null;
+      getAll() {
+        return cookieStore.getAll();
       },
-      set(name: string, value: string, options: any) {
+      setAll(cookiesToSet) {
         try {
-          cookieStore.set(name, value, options);
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
         } catch (err) {
-          console.error("Error setting cookie:", err);
-        }
-      },
-      remove(name: string, options: any) {
-        try {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
-        } catch (err) {
-          console.error("Error removing cookie:", err);
+          // Can happen if called from a Server Component
         }
       },
     },
