@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createRouteHandlerClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 
 const adminClient = createClient(
@@ -51,7 +51,7 @@ async function sendTelegramOtp(chatId: string, otp: string) {
 export async function POST(req: NextRequest) {
   try {
     // 1. Authenticate caller
-    const supabase = createServerClient();
+    const supabase = createRouteHandlerClient(req);
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

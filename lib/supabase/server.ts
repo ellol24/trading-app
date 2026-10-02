@@ -125,3 +125,25 @@ export async function getServerAuth() {
   const { data: { session }, error } = await supabase.auth.getSession();
   return { supabase, session, user: session?.user, error };
 }
+
+// ✅ For use inside Route Handlers (app/api/**) — reads cookies from the incoming NextRequest
+import { NextRequest, NextResponse } from "next/server";
+export function createRouteHandlerClient(req: NextRequest) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase server client not configured");
+  }
+
+  return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      get(name: string) {
+        return req.cookies.get(name)?.value ?? null;
+      },
+      set() {
+        // Route handlers cannot set cookies on req; caller must set on response
+      },
+      remove() {
+        // Route handlers cannot remove cookies from req; caller must handle response
+      },
+    },
+  });
+}
