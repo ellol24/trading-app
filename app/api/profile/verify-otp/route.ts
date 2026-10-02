@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
       ...newData,
       full_name: `${newData.first_name} ${newData.last_name}`.trim(),
       status: isComplete ? "verified" : "pending",
-      updated_at: new Date().toISOString(),
     };
 
     const { error: updateErr } = await adminClient
