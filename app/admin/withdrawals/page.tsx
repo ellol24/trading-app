@@ -118,10 +118,7 @@ export default function AdminWithdrawalsPage() {
         used,
         expires_at,
         created_at,
-        users (
-          username,
-          email
-        )
+        user_id
       `)
       .order("created_at", { ascending: false })
       .limit(100)
@@ -131,10 +128,30 @@ export default function AdminWithdrawalsPage() {
       return
     }
 
+    // Fetch user profiles for these OTPs
+    const userIds = [...new Set(data.map((o: any) => o.user_id))]
+    let userMap: Record<string, any> = {}
+    
+    if (userIds.length > 0) {
+      const { data: usersData } = await supabase
+        .from("user_profiles")
+        .select("uid, first_name, last_name, email")
+        .in("uid", userIds)
+        
+      if (usersData) {
+        usersData.forEach((u: any) => {
+          userMap[u.uid] = {
+            username: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : "User",
+            email: u.email || "—"
+          }
+        })
+      }
+    }
+
     setOtps(data.map((o: any) => ({
       id: o.id,
-      username: o.users?.username || "Unknown",
-      email: o.users?.email || "—",
+      username: userMap[o.user_id]?.username || "Unknown",
+      email: userMap[o.user_id]?.email || "—",
       emailOtp: o.email_otp,
       telegramOtp: o.telegram_otp,
       amount: o.amount,

@@ -54,10 +54,19 @@ export async function POST(req: NextRequest) {
       .eq("id", sessionId);
 
     // 6. Apply the staged profile changes from new_data
-    const newData: any = otpRow.new_data;
+    let newData: any = otpRow.new_data;
+    if (typeof newData === 'string') {
+      try {
+        newData = JSON.parse(newData);
+      } catch (e) {
+        console.error("Failed to parse new_data:", newData);
+        newData = {};
+      }
+    }
 
     // Compute status: verified if all key fields are filled
     const isComplete =
+      newData &&
       newData.first_name?.trim() &&
       newData.last_name?.trim() &&
       newData.phone?.trim() &&
@@ -80,7 +89,10 @@ export async function POST(req: NextRequest) {
 
     if (updateErr) {
       console.error("[profile/verify-otp] Update failed:", updateErr);
-      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+      return NextResponse.json({ 
+        error: "Failed to update profile", 
+        details: updateErr.message || updateErr 
+      }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

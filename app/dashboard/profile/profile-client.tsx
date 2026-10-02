@@ -72,6 +72,8 @@ function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email
   const secs = String(secondsLeft % 60).padStart(2, "0");
   const expired = secondsLeft === 0;
 
+  const { toast } = useToast();
+
   const handleVerify = async () => {
     if (otp.length !== 6) return;
     setIsVerifying(true);
@@ -83,14 +85,21 @@ function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email
       });
       const data = await res.json();
       if (!res.ok) {
-        // inline error shown in UI — we can use a simple alert toast
-        alert(`❌ ${data.error || t("profile.verificationFailed")}`);
+        toast({ 
+          title: "Verification Failed", 
+          description: data.details || data.error || t("profile.verificationFailed"), 
+          variant: "destructive" 
+        });
       } else {
         onSuccess();
         onClose();
       }
     } catch (err: any) {
-      alert(`❌ ${err.message || "Network error"}`);
+      toast({ 
+        title: "Network Error", 
+        description: err.message || "Something went wrong.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsVerifying(false);
     }
