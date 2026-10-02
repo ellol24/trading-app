@@ -29,7 +29,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/language-context";
 import { toast } from "sonner";
-import { impersonateUser, getAdminUsers } from "@/app/actions/admin-actions";
+import { impersonateUser } from "@/app/actions/admin-actions";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -75,7 +75,12 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const data = await getAdminUsers();
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to fetch users");
+      }
+      const data = await res.json();
       setUsers(data);
     } catch (err: any) {
       setError(err.message);
