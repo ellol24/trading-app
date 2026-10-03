@@ -54,7 +54,7 @@
   "telegramLinking": "Telegram 2FA-Verknüpfung",
   "telegramChatId": "Telegram Chat-ID (numerisch)",
   "telegramChatIdPlaceholder": "z.B. 123456789",
-  "telegramChatIdHint": "Um Ihr Telegram-Konto für die 2FA-Sicherheit zu verknüpfen, senden Sie eine Nachricht an @userinfobot auf Telegram. Es antwortet mit Ihrer numerischen Chat-ID. Fügen Sie diese hier ein. Sie wird verwendet, um sichere Auszahlungs-Verifizierungscodes zu senden.",
+  "telegramChatIdHint": "Um 2FA-Codes zu erhalten, senden Sie zuerst eine Nachricht an unseren Bot @Xspy_trader_bot und dr�cken Sie START. Senden Sie dann eine Nachricht an @userinfobot, um Ihre Chat-ID zu erhalten, und f�gen Sie diese hier ein.",
   "saveOtpNotice": "Ein 6-stelliger Verifizierungscode wird an Ihre E-Mail gesendet, um diese Änderungen zu bestätigen, bevor sie gespeichert werden.",
   "verifyIdentity": "Identität bestätigen",
   "otpSentToEmail": "Ein 6-stelliger Code wurde an {email} gesendet. Geben Sie ihn unten ein, um Ihre Profiländerungen zu bestätigen.",

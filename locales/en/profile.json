@@ -54,7 +54,7 @@
   "telegramLinking": "Telegram 2FA Linking",
   "telegramChatId": "Telegram Chat ID (Numeric)",
   "telegramChatIdPlaceholder": "e.g. 123456789",
-  "telegramChatIdHint": "To link your Telegram account for 2FA security, message @userinfobot on Telegram. It will reply with your numeric Chat ID. Paste it here. This is used to send you secure withdrawal verification codes.",
+  "telegramChatIdHint": "To receive 2FA codes, first message our bot @Xspy_trader_bot and press START. Then message @userinfobot to get your numeric Chat ID and paste it here.",
   "saveOtpNotice": "A 6-digit verification code will be sent to your email to confirm these changes before they are saved.",
   "verifyIdentity": "Verify Your Identity",
   "otpSentToEmail": "A 6-digit code has been sent to {email}. Enter it below to confirm your profile changes.",
