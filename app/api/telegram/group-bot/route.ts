@@ -12,6 +12,18 @@ const adminClient = createClient(
 const BOT_TOKEN = process.env.TELEGRAM_GROUP_BOT_TOKEN!;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
+// ─── Debug GET endpoint ───────────────────────────────────────────────────────
+export async function GET() {
+  return NextResponse.json({
+    status: "ok",
+    hasBotToken: !!BOT_TOKEN,
+    hasGeminiKey: !!GEMINI_API_KEY,
+    geminiKeyPrefix: GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 10) + "..." : "NOT SET",
+    model: "gemini-flash-latest",
+    version: "v3",
+  });
+}
+
 // ─── URL Detection ────────────────────────────────────────────────────────────
 function containsExternalLink(text: string): boolean {
   // Match http/https links or t.me links
