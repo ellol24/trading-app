@@ -59,12 +59,24 @@ async function callTelegram(method: string, body: object) {
 
 // ─── Send Message ─────────────────────────────────────────────────────────────
 async function sendMessage(chatId: number | string, text: string, replyToMessageId?: number) {
-  return callTelegram("sendMessage", {
+  let res = await callTelegram("sendMessage", {
     chat_id: chatId,
     text,
     parse_mode: "Markdown",
     ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
   });
+  
+  if (!res.ok) {
+    console.warn(`[GroupBot] Markdown parsing failed, retrying in plaintext. Error:`, res);
+    // If Markdown parsing fails (e.g. unclosed asterisks, unescaped underscores),
+    // retry sending as plain text so the message isn't lost.
+    res = await callTelegram("sendMessage", {
+      chat_id: chatId,
+      text,
+      ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
+    });
+  }
+  return res;
 }
 
 // ─── Delete Message ───────────────────────────────────────────────────────────
@@ -279,7 +291,7 @@ export async function POST(req: NextRequest) {
           `I am the platform's AI Assistant. We offer professional binary options trading and high-yield mining packages.\n\n` +
           `🔒 *Important:* To enable withdrawals and secure your account, you must link your Telegram to your profile.\n` +
           `👉 *How to do it:*\n` +
-          `1. Message our security bot @XspyTraderOtp_bot and press START to get your ID.\n` +
+          `1. Message our security bot @XspyTraderOtp\\_bot and press START to get your ID.\n` +
           `2. Paste that ID in your Profile on the platform.\n\n` +
           `If you have any questions about deposits, trading, or anything else, just ask me here in the group!\n\n` +
           `🌐 *Platform*: https://xspy-trader.vercel.app`
