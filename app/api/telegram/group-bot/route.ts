@@ -156,16 +156,41 @@ function getKeywordFallback(userMessage: string): string {
 }
 
 // ─── AI Answer via Gemini ─────────────────────────────────────────────────────
-async function getAIAnswer(userMessage: string, userName: string): Promise<string> {
+async function getAIAnswer(userMessage: string, userName: string, userId: number): Promise<string> {
   if (!GEMINI_API_KEY || GEMINI_API_KEY === "NOT SET") {
     return getKeywordFallback(userMessage);
+  }
+
+  // Check if user has linked their Telegram account to their platform profile
+  let userInfoStr = "Status: Unlinked/Unknown (User has not linked their Telegram to the platform).";
+  try {
+    const { data: profile } = await adminClient
+      .from("user_profiles")
+      .select("*")
+      .eq("telegram_chat_id", String(userId))
+      .single();
+      
+    if (profile) {
+      userInfoStr = `Linked Account Found!
+- Name: ${profile.full_name || userName}
+- Verification Status: ${profile.status}
+- Account UID: ${profile.uid}
+(You can address them by their verified name and confirm their account status if they ask about it.)`;
+    }
+  } catch (e) {
+    // ignore
   }
 
   const prompt = `${PLATFORM_KNOWLEDGE}
 
 ---
 
-A user named "${userName}" asks in the Telegram group:
+## CONTEXT
+You are talking to a user named "${userName}".
+User Database Info:
+${userInfoStr}
+
+User Message:
 "${userMessage}"
 
 Reply professionally as the Xspy-Trader official support assistant. 
@@ -212,17 +237,16 @@ Reply professionally as the Xspy-Trader official support assistant.
 }
 
 // ─── Is the message directed at the bot or a question? ───────────────────────
-function isQuestionForBot(text: string, botUsername: string): boolean {
+function isQuestionForBot(text: string): boolean {
   const lower = text.toLowerCase();
-  const botMention = `@${botUsername.toLowerCase()}`;
   
-  // Explicitly mentioned
-  if (lower.includes(botMention)) return true;
+  // Explicitly mentioned by either potential username
+  if (lower.includes("@xspy_ai_bot") || lower.includes("@xspyaibot")) return true;
   
   // Common question starters
   const questionWords = [
     "how", "what", "when", "where", "why", "can", "could", "do", "does", 
-    "is", "are", "will", "كيف", "ما", "متى", "أين", "لماذا", "هل", "ما هو",
+    "is", "are", "will", "كيف", "ما", "متى", "أين", "لماذا", "هل", "ما هو", "طريقة", "كيفية",
     "comment", "quand", "où", "pourquoi", "est-ce", "wie", "was", "wann"
   ];
   
@@ -243,8 +267,28 @@ export async function POST(req: NextRequest) {
     const userId = message.from?.id;
     const userName = message.from?.first_name || "User";
     const messageId = message.message_id;
-    const text = message.text || message.caption || "";
 
+    // ── 0. NEW MEMBERS WELCOME ───────────────────────────────────────────────
+    if (message.new_chat_members && message.new_chat_members.length > 0) {
+      for (const member of message.new_chat_members) {
+        if (member.is_bot) continue;
+        
+        await sendMessage(
+          chatId,
+          `👋 *Welcome to the official Xspy-Trader group, ${member.first_name}!* 🚀\n\n` +
+          `I am the platform's AI Assistant. We offer professional binary options trading and high-yield mining packages.\n\n` +
+          `🔒 *Important:* To enable withdrawals and secure your account, you must link your Telegram to your profile.\n` +
+          `👉 *How to do it:*\n` +
+          `1. Message our security bot @XspyTraderOtp_bot and press START to get your ID.\n` +
+          `2. Paste that ID in your Profile on the platform.\n\n` +
+          `If you have any questions about deposits, trading, or anything else, just ask me here in the group!\n\n` +
+          `🌐 *Platform*: https://xspy-trader.vercel.app`
+        );
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    const text = message.text || message.caption || "";
     if (!text || !userId) return NextResponse.json({ ok: true });
 
     // ── 1. SPAM MODERATION: Detect external links in groups ──────────────────
@@ -287,20 +331,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      const answer = await getAIAnswer(text, userName);
+      const answer = await getAIAnswer(text, userName, userId);
       await sendMessage(chatId, answer);
       return NextResponse.json({ ok: true });
     }
 
     // ── 3. GROUP MESSAGES: Respond to questions & mentions ───────────────────
     if (chatType === "group" || chatType === "supergroup") {
-      const BOT_USERNAME = "XSpyAIBot";
-      
-      if (isQuestionForBot(text, BOT_USERNAME)) {
+      if (isQuestionForBot(text)) {
         // Clean the text (remove bot mention if present)
-        const cleanText = text.replace(new RegExp(`@${BOT_USERNAME}`, "gi"), "").trim();
+        let cleanText = text.replace(/@xspy_ai_bot/gi, "").replace(/@xspyaibot/gi, "").trim();
         
-        const answer = await getAIAnswer(cleanText || text, userName);
+        const answer = await getAIAnswer(cleanText || text, userName, userId);
         await sendMessage(chatId, answer, messageId);
       }
     }
