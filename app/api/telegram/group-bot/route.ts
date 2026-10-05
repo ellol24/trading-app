@@ -185,7 +185,7 @@ Reply professionally as the Xspy-Trader official support assistant.
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 600,
+            maxOutputTokens: 2500,
           },
         }),
       }
