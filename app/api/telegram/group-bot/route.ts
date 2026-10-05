@@ -126,36 +126,39 @@ async function banUserOnSite(telegramUserId: number) {
   return false;
 }
 
+function getKeywordFallback(userMessage: string): string {
+  const lower = userMessage.toLowerCase();
+
+  if (lower.includes("deposit") || lower.includes("إيداع") || lower.includes("fund") || lower.includes("ايداع")) {
+    return `📥 *How to Deposit on Xspy-Trader*\n\n1. Go to **Dashboard > Wallet > Deposit**\n2. Select your crypto network (USDT TRC20, BTC, ETH, etc.)\n3. Copy the wallet address shown\n4. Transfer the exact amount from your personal wallet\n5. Upload a payment screenshot and submit\n\n⏱ Deposits are approved manually within **5–15 minutes**.\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
+  }
+  if (lower.includes("withdraw") || lower.includes("سحب")) {
+    return `📤 *How to Withdraw on Xspy-Trader*\n\n1. Complete your profile first (required for withdrawals)\n2. Add a withdrawal wallet under **Wallet > Manage Wallets**\n3. Go to **Wallet > Withdraw**, select your wallet and enter the amount\n4. Verify with the 6-digit codes sent to your Email & Telegram\n\n⚠️ *Limits*: 1 withdrawal per day. A fee is deducted from the amount.\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
+  }
+  if (lower.includes("trade") || lower.includes("trading") || lower.includes("تداول")) {
+    return `📈 *How Trading Works on Xspy-Trader*\n\nXspy-Trader uses **Binary Options** trading:\n\n1. Go to **Dashboard > Trading**\n2. Select an asset (BTC/USD, EUR/USD, Gold, etc.)\n3. Enter your trade amount\n4. Predict: **HIGHER** 📈 or **LOWER** 📉\n5. Wait for the round to end — profits are credited automatically!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
+  }
+  if (lower.includes("package") || lower.includes("mining") || lower.includes("باقة") || lower.includes("استثمار")) {
+    return `⛏ *Mining Packages on Xspy-Trader*\n\nEarn **daily profits** with our investment packages:\n\n- Each package has a minimum/maximum investment and a daily ROI %\n- Profits are **auto-credited every day** to your balance\n- Only one active investment per package type is allowed\n\nGo to **Dashboard > Packages** to get started!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
+  }
+  if (lower.includes("referral") || lower.includes("refer") || lower.includes("invite") || lower.includes("إحالة") || lower.includes("احالة")) {
+    return `👥 *Referral Program on Xspy-Trader*\n\nEarn lifetime commissions on **3 levels**:\n\n- 🥇 Level 1: Your direct referrals\n- 🥈 Level 2: Referrals of your referrals\n- 🥉 Level 3: Third-degree network\n\nCommissions are paid on deposits, trades, and packages.\n\nGo to **Dashboard > Referrals** to get your link!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
+  }
+  if (lower.includes("register") || lower.includes("sign up") || lower.includes("account") || lower.includes("تسجيل") || lower.includes("حساب")) {
+    return `👤 *Create an Account on Xspy-Trader*\n\n1. Visit: https://xspy-trader.vercel.app/auth/register\n2. Fill in your details and verify your email\n3. Complete your profile (name, phone, country) to unlock all features\n\n✅ Verified profile = full access to withdrawals and trading!`;
+  }
+  if (lower.includes("2fa") || lower.includes("telegram") || lower.includes("otp") || lower.includes("security") || lower.includes("أمان") || lower.includes("امان") || lower.includes("حماية")) {
+    return `🔐 *Security & 2FA on Xspy-Trader*\n\nAll withdrawals require dual verification:\n\n1. A 6-digit code sent to your **Email**\n2. A 6-digit code sent to your **Telegram**\n\nTo link your Telegram:\n- Go to **Profile > Telegram** section\n- Message @XspyTraderOtp_bot and press START\n- Copy the Chat ID it gives you and paste it in your profile\n\n🌐 https://xspy-trader.vercel.app/dashboard/profile`;
+  }
+
+  // Generic fallback
+  return `👋 *Xspy-Trader Support*\n\nI can help you with:\n📥 Deposits • 📤 Withdrawals • 📈 Trading • ⛏ Packages • 👥 Referrals • 🔐 Security\n\nJust ask about any topic and I'll guide you!\n\n🌐 https://xspy-trader.vercel.app`;
+}
+
 // ─── AI Answer via Gemini ─────────────────────────────────────────────────────
 async function getAIAnswer(userMessage: string, userName: string): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    // Smart keyword-based fallback when no AI key is configured
-    const lower = userMessage.toLowerCase();
-
-    if (lower.includes("deposit") || lower.includes("إيداع") || lower.includes("fund")) {
-      return `📥 *How to Deposit on Xspy-Trader*\n\n1. Go to **Dashboard > Wallet > Deposit**\n2. Select your crypto network (USDT TRC20, BTC, ETH, etc.)\n3. Copy the wallet address shown\n4. Transfer the exact amount from your personal wallet\n5. Upload a payment screenshot and submit\n\n⏱ Deposits are approved manually within **5–15 minutes**.\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
-    }
-    if (lower.includes("withdraw") || lower.includes("سحب")) {
-      return `📤 *How to Withdraw on Xspy-Trader*\n\n1. Complete your profile first (required for withdrawals)\n2. Add a withdrawal wallet under **Wallet > Manage Wallets**\n3. Go to **Wallet > Withdraw**, select your wallet and enter the amount\n4. Verify with the 6-digit codes sent to your Email & Telegram\n\n⚠️ *Limits*: 1 withdrawal per day. A fee is deducted from the amount.\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
-    }
-    if (lower.includes("trade") || lower.includes("trading") || lower.includes("تداول")) {
-      return `📈 *How Trading Works on Xspy-Trader*\n\nXspy-Trader uses **Binary Options** trading:\n\n1. Go to **Dashboard > Trading**\n2. Select an asset (BTC/USD, EUR/USD, Gold, etc.)\n3. Enter your trade amount\n4. Predict: **HIGHER** 📈 or **LOWER** 📉\n5. Wait for the round to end — profits are credited automatically!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
-    }
-    if (lower.includes("package") || lower.includes("mining") || lower.includes("باقة") || lower.includes("استثمار")) {
-      return `⛏ *Mining Packages on Xspy-Trader*\n\nEarn **daily profits** with our investment packages:\n\n- Each package has a minimum/maximum investment and a daily ROI %\n- Profits are **auto-credited every day** to your balance\n- Only one active investment per package type is allowed\n\nGo to **Dashboard > Packages** to get started!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
-    }
-    if (lower.includes("referral") || lower.includes("refer") || lower.includes("invite") || lower.includes("إحالة")) {
-      return `👥 *Referral Program on Xspy-Trader*\n\nEarn lifetime commissions on **3 levels**:\n\n- 🥇 Level 1: Your direct referrals\n- 🥈 Level 2: Referrals of your referrals\n- 🥉 Level 3: Third-degree network\n\nCommissions are paid on deposits, trades, and packages.\n\nGo to **Dashboard > Referrals** to get your link!\n\n🌐 https://xspy-trader.vercel.app/dashboard`;
-    }
-    if (lower.includes("register") || lower.includes("sign up") || lower.includes("account") || lower.includes("تسجيل")) {
-      return `👤 *Create an Account on Xspy-Trader*\n\n1. Visit: https://xspy-trader.vercel.app/auth/register\n2. Fill in your details and verify your email\n3. Complete your profile (name, phone, country) to unlock all features\n\n✅ Verified profile = full access to withdrawals and trading!`;
-    }
-    if (lower.includes("2fa") || lower.includes("telegram") || lower.includes("otp") || lower.includes("security") || lower.includes("أمان")) {
-      return `🔐 *Security & 2FA on Xspy-Trader*\n\nAll withdrawals require dual verification:\n\n1. A 6-digit code sent to your **Email**\n2. A 6-digit code sent to your **Telegram**\n\nTo link your Telegram:\n- Go to **Profile > Telegram** section\n- Message @XspyTraderOtp_bot and press START\n- Copy the Chat ID it gives you and paste it in your profile\n\n🌐 https://xspy-trader.vercel.app/dashboard/profile`;
-    }
-
-    // Generic fallback
-    return `👋 *Xspy-Trader Support*\n\nI can help you with:\n📥 Deposits • 📤 Withdrawals • 📈 Trading • ⛏ Packages • 👥 Referrals • 🔐 Security\n\nJust ask about any topic and I'll guide you!\n\n🌐 https://xspy-trader.vercel.app`;
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "NOT SET") {
+    return getKeywordFallback(userMessage);
   }
 
   const prompt = `${PLATFORM_KNOWLEDGE}
@@ -189,11 +192,22 @@ Reply professionally as the Xspy-Trader official support assistant.
     );
 
     const data = await res.json();
+    
+    if (!res.ok) {
+      console.error("[GroupBot] Gemini API returned error:", data);
+      return getKeywordFallback(userMessage);
+    }
+    
     const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return answer || "I'm sorry, I couldn't generate a response. Please contact the admin directly.";
+    if (!answer) {
+      console.error("[GroupBot] Gemini API returned empty or malformed answer:", data);
+      return getKeywordFallback(userMessage);
+    }
+    
+    return answer;
   } catch (err) {
     console.error("[GroupBot] Gemini API error:", err);
-    return "I'm here to help! For specific questions, please visit https://xspy-trader.vercel.app";
+    return getKeywordFallback(userMessage);
   }
 }
 
