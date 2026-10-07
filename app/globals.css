@@ -338,7 +338,22 @@ body.goog-te-hl-active * {
 
 .animate-scroll {
   animation: scroll 30s linear infinite;
+  will-change: transform;
 }
+
+/* ─── Performance: GPU compositing hints ─────────────────────────────────── */
+/* Promotes fixed/sticky elements to their own GPU layer, eliminating repaint
+   during scroll. This is the single biggest scroll smoothness improvement. */
+nav, header {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Smooth momentum scrolling on iOS/mobile */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
 
 /* Light theme overrides */
 .light {

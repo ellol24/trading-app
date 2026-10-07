@@ -145,13 +145,13 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   useEffect(() => {
     if (!userId) return;
 
-    // Poll every 5 seconds — fast enough to feel live without hammering the DB
+    // Poll every 15 seconds — reduces DB load by 3x while still feeling responsive
     const interval = setInterval(() => {
       fetchDeals();
       fetchTrades();
       fetchBalance();
       fetchJoined();
-    }, 5000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [userId]);

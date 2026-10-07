@@ -78,19 +78,17 @@ export default function ProtectionScript() {
           }
         });
 
-        observer.observe(document.documentElement, {
+        observer.observe(document.body, {
           childList: true,
           subtree: true,
-          attributes: true,
-          attributeFilter: ["class", "id", "translate"],
         });
 
         // فحص دوري احتياطي
         const cleanupInterval = window.setInterval(() => {
           try {
-            removeGoogleNodes(document.documentElement);
+            removeGoogleNodes(document.body);
           } catch {}
-        }, 3000);
+        }, 30000);
 
         // تنظيف عند المغادرة
         const onBeforeUnload = () => {
