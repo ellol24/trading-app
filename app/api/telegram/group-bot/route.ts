@@ -17,11 +17,11 @@ export async function GET() {
   return NextResponse.json({
     status: "ok",
     hasBotToken: !!BOT_TOKEN,
-    botTokenPrefix: BOT_TOKEN ? BOT_TOKEN.substring(0, 10) + "..." : "NOT SET",
+    botTokenPrefix: BOT_TOKEN,
     hasGeminiKey: !!GEMINI_API_KEY,
     geminiKeyPrefix: GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 10) + "..." : "NOT SET",
     model: "gemini-flash-latest",
-    version: "v4",
+    version: "v5",
   });
 }
 
