@@ -9,8 +9,8 @@ const adminClient = createClient(
   { auth: { persistSession: false } }
 );
 
-const BOT_TOKEN = process.env.TELEGRAM_GROUP_BOT_TOKEN!;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const BOT_TOKEN = (process.env.TELEGRAM_GROUP_BOT_TOKEN || "").trim();
+const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "").trim();
 
 // ─── Debug GET endpoint ───────────────────────────────────────────────────────
 export async function GET() {
