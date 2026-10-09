@@ -291,24 +291,24 @@ export default function PackagesClient({ userId }: { userId: string }) {
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Wallet summary */}
           <Card className="trading-card" translate="no" data-react-protected>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2 text-white">
                 <Wallet className="h-5 w-5" />
                 <span>{t('packages.miningWallet')}</span>
               </CardTitle>
-              <Badge variant="outline" className="text-emerald-400 border-emerald-400 bg-emerald-400/10">
-                <PiggyBank className="h-4 w-4 mr-1" />
-                {t('packages.profitsAutoCredit')}
+              <Badge variant="outline" className="w-fit text-emerald-400 border-emerald-400 bg-emerald-400/10">
+                <PiggyBank className="h-4 w-4 mr-1 shrink-0" />
+                <span>{t('packages.profitsAutoCredit')}</span>
               </Badge>
             </CardHeader>
-            <CardContent className="flex items-center justify-between">
+            <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">{t('dashboard.availableBalance')}</p>
                 <p className="text-3xl font-bold text-white">{formatUSD(wallet)}</p>
               </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                {t('packages.profitsInfo')}
+              <div className="text-xs text-muted-foreground flex items-start sm:items-center gap-2 max-w-sm">
+                <Info className="h-4 w-4 shrink-0 mt-0.5 sm:mt-0" />
+                <span>{t('packages.profitsInfo')}</span>
               </div>
             </CardContent>
           </Card>

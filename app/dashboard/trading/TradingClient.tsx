@@ -226,12 +226,12 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
         <div className="lg:col-span-2 space-y-6">
           {/* Assets */}
           <Card className="trading-card" translate="no">
-            <CardHeader className="flex items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="text-white">{t('trading.selectAsset')}</CardTitle>
               {activeDeal ? (
-                <Badge className="bg-transparent border-green-400/40 text-green-300 animate-pulse">{t('trading.live')}</Badge>
+                <Badge className="bg-transparent border-green-400/40 text-green-300 animate-pulse w-fit">{t('trading.live')}</Badge>
               ) : (
-                <Badge className="bg-transparent border-slate-400/40 text-slate-200">{t('trading.waiting')}</Badge>
+                <Badge className="bg-transparent border-slate-400/40 text-slate-200 w-fit">{t('trading.waiting')}</Badge>
               )}
             </CardHeader>
             <CardContent className="space-y-6">
@@ -408,9 +408,9 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
           {/* Previous Trades */}
           <Card className="trading-card" translate="no">
-            <CardHeader className="flex items-center justify-between">
-              <CardTitle className="text-white">{t('trading.previousTrades')}</CardTitle>
-              <Link href="/dashboard/portfolio?tab=history">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-white truncate">{t('trading.previousTrades')}</CardTitle>
+              <Link href="/dashboard/portfolio?tab=history" className="shrink-0">
                 <Button variant="outline" size="sm" className="text-xs border-slate-600 text-slate-300 bg-transparent hover:bg-slate-700/60">
                   {t('dashboard.viewAll')}
                 </Button>

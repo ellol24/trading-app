@@ -179,12 +179,12 @@ export default function DepositClient({ user, profile }: any) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-20" translate="no">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white">{t("wallet.depositTitle")}</h1>
             <p className="text-blue-200 mt-1">{t("wallet.depositSubtitle")}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2">
               <span className="text-blue-300 text-sm">{t("common.balance")}</span>
               <span className="text-white font-bold">${liveBalance.toFixed(2)}</span>

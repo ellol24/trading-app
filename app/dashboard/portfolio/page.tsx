@@ -261,14 +261,14 @@ export default function PortfolioPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white">{t("portfolio.portfolioTitle")}</h1>
             <p className="text-blue-200 mt-1">{t("portfolio.trackPerformance")}</p>
           </div>
           <Badge
             variant="outline"
-            className={`${netPnL >= 0 ? "text-green-400 border-green-400 bg-green-400/10" : "text-red-400 border-red-400 bg-red-400/10"}`}
+            className={`w-fit ${netPnL >= 0 ? "text-green-400 border-green-400 bg-green-400/10" : "text-red-400 border-red-400 bg-red-400/10"}`}
           >
             {netPnL >= 0 ? <TrendingUp className="w-4 h-4 mr-2" /> : <TrendingDown className="w-4 h-4 mr-2" />}
             {netPnL >= 0 ? "+" : ""}${netPnL.toFixed(2)} Net PnL

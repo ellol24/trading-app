@@ -468,10 +468,10 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               {/* Profile Tab */}
               <TabsContent value="profile" translate="no">
                 <Card className="trading-card" translate="no" data-react-protected>
-                  <CardHeader className="flex items-center justify-between">
-                    <CardTitle className="text-white flex items-center"><User className="w-5 h-5 mr-2" />{t("profile.personalInformation")}</CardTitle>
-                    <div>
-                      <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="mr-2 border-slate-600 text-slate-300 bg-transparent">
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <CardTitle className="text-white flex items-center shrink-0"><User className="w-5 h-5 mr-2" />{t("profile.personalInformation")}</CardTitle>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="border-slate-600 text-slate-300 bg-transparent">
                         {isEditing ? <><X className="w-4 h-4 mr-2" />{t("common.cancel")}</> : <><Edit className="w-4 h-4 mr-2" />{t("profile.editProfile")}</>}
                       </Button>
                       {isEditing && (
