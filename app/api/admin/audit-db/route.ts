@@ -1,32 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET() {
-  const supabase = createClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
   
-  // Find users ordered by total_referrals
-  const { data: popularUsers } = await supabase
-    .from("user_profiles")
-    .select("uid, email, full_name, referral_code, total_referrals")
-    .order("total_referrals", { ascending: false })
-    .limit(5);
-
-  // find users with non-null referral_code_used
-  const { data: usedCodes } = await supabase
-    .from("user_profiles")
-    .select("uid, email, referral_code_used")
-    .not("referral_code_used", "is", null)
-    .limit(20);
-
-  // Check the referrals table
-  const { data: rawReferrals } = await supabase
-    .from("referrals")
-    .select("*")
-    .limit(20);
-
-  return NextResponse.json({
-    popularUsers,
-    usedCodes,
-    rawReferrals
-  });
+  const { data } = await supabase.from('deposits').select('*').limit(1);
+  return NextResponse.json({ keys: data ? Object.keys(data[0] || {}) : [], data });
 }

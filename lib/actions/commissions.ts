@@ -20,6 +20,7 @@ export async function processReferralCommissions(
     commissionType: "deposit" | "trade" | "package"
 ) {
     try {
+        console.log(`[Commissions] Starting ${commissionType} commission for user ${userId}, baseAmount: ${baseAmount}`);
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -35,16 +36,19 @@ export async function processReferralCommissions(
         // 1. Fetch all ancestor referrals for this user (up to 3 levels)
         const { data: ancestors, error: ancestorsErr } = await supabaseAdmin
             .from("referrals")
-            .select("id, referrer_id, level")
-            .eq("referred_id", userId)
-            .eq("status", "active");
+            .select("id, referrer_id, level, status")
+            .eq("referred_id", userId);
 
         if (ancestorsErr) {
             console.error("[Commissions] Error fetching ancestors:", ancestorsErr.message);
             return { success: false, error: ancestorsErr.message };
         }
 
-        if (!ancestors || ancestors.length === 0) {
+        // Filter active only (handle case variations just in case)
+        const activeAncestors = (ancestors || []).filter(a => a.status?.toLowerCase() === 'active');
+
+        if (!activeAncestors || activeAncestors.length === 0) {
+            console.log("[Commissions] No active referrers found for user", userId);
             return { success: true, message: "No active referrers found." };
         }
 
@@ -65,27 +69,33 @@ export async function processReferralCommissions(
             console.error(`[Commissions] Error fetching rates from ${rateTable}:`, ratesErr.message);
         }
 
-        // Default rates fallback
-        const defaultRates: Record<number, number> = { 1: 10, 2: 5, 3: 2 };
+        // Default rates fallback based on user requirements: 10%, 7%, 2%
+        const defaultRates: Record<number, number> = { 1: 10, 2: 7, 3: 2 };
         const rates: Record<number, number> = { ...defaultRates };
 
         if (dbRates && dbRates.length > 0) {
             dbRates.forEach((r: any) => {
-                rates[Number(r.level)] = Number(r.percentage);
+                if (r.percentage !== null && r.percentage !== undefined) {
+                    rates[Number(r.level)] = Number(r.percentage);
+                }
             });
         }
 
+        console.log(`[Commissions] Using rates: L1=${rates[1]}%, L2=${rates[2]}%, L3=${rates[3]}%`);
+
         // 3. Apply commissions for each ancestor level (max 3 levels)
         let commissionsGranted = 0;
-        for (const record of ancestors) {
+        for (const record of activeAncestors) {
             const lvl = Number(record.level ?? 1);
             if (lvl > 3) continue; // Only process up to 3 levels
 
             const percentage = rates[lvl] ?? 0;
-            if (!percentage) continue;
+            if (percentage <= 0) continue;
 
-            const commissionAmount = parseFloat(((baseAmount * percentage) / 100).toFixed(2));
-            if (commissionAmount <= 0) continue;
+            const commissionAmount = parseFloat(((Number(baseAmount) * percentage) / 100).toFixed(2));
+            if (isNaN(commissionAmount) || commissionAmount <= 0) continue;
+
+            console.log(`[Commissions] Granting L${lvl} to ${record.referrer_id}, amount: ${commissionAmount}`);
 
             // A. Insert into referral_commissions for tracking
             const { error: insertErr } = await supabaseAdmin
@@ -100,7 +110,7 @@ export async function processReferralCommissions(
                 });
 
             if (insertErr) {
-                console.error(`[Commissions] Error inserting commission record (L${lvl}):`, insertErr.message);
+                console.error(`[Commissions] Error inserting commission record (L${lvl}):`, insertErr.message, insertErr);
                 continue;
             }
 
@@ -129,7 +139,7 @@ export async function processReferralCommissions(
             } else {
                 commissionsGranted++;
                 console.log(
-                    `[Commissions] L${lvl} ${commissionType} commission: $${commissionAmount} → ${record.referrer_id}`
+                    `[Commissions] L${lvl} ${commissionType} commission: $${commissionAmount} -> ${record.referrer_id}`
                 );
             }
         }
