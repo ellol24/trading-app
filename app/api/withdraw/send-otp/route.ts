@@ -132,36 +132,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create OTP session" }, { status: 500 });
     }
 
-    // 8. Fire dual dispatch in parallel
+    // 8. Fire dual dispatch in parallel (Resend SDK + Telegram Bot)
     const hasTelegram = !!profile.telegram_chat_id;
-    const dispatches: Promise<any>[] = [
-      sendEmail({
-        to: user.email!,
-        subject: "🔐 Your Withdrawal Verification Code",
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:auto;background:#0f172a;color:#e2e8f0;padding:32px;border-radius:12px;">
-            <h2 style="color:#60a5fa;margin-bottom:8px;">Withdrawal Security Code</h2>
-            <p style="color:#94a3b8;">Hello ${profile.full_name || "Trader"},</p>
-            <p style="color:#94a3b8;">You requested a withdrawal. Enter the code below to confirm:</p>
-            <div style="background:#1e3a5f;border:1px solid #3b82f6;border-radius:10px;padding:24px;text-align:center;margin:24px 0;">
-              <span style="font-size:40px;font-weight:900;letter-spacing:12px;color:#ffffff;">${emailOtp}</span>
-            </div>
-            <p style="color:#94a3b8;font-size:13px;">This code expires in <strong style="color:#f59e0b;">5 minutes</strong>. If you did not request this, please contact support immediately.</p>
-            <hr style="border-color:#1e293b;margin:24px 0;" />
-            <p style="color:#475569;font-size:11px;">Xspy-Trader Security Team</p>
-          </div>
-        `,
-      }),
-    ];
-    if (hasTelegram) {
-      dispatches.push(sendTelegramOtp(profile.telegram_chat_id!, telegramOtp));
-    }
 
-    const results = await Promise.allSettled(dispatches);
-    const [emailResult, telegramResult] = results;
+    const emailPromise = sendEmail({
+      to: user.email!,
+      subject: "🔐 Your Withdrawal Verification Code – Xspy Trader",
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        <body style="margin:0;padding:0;background:#0a0f1e;font-family:'Segoe UI',Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0f1e;padding:40px 0;">
+            <tr><td align="center">
+              <table width="520" cellpadding="0" cellspacing="0" style="background:#0f172a;border-radius:16px;border:1px solid #1e293b;overflow:hidden;">
+                <!-- Header -->
+                <tr>
+                  <td style="background:linear-gradient(135deg,#1e3a5f,#0f172a);padding:28px 36px;text-align:center;border-bottom:1px solid #1e293b;">
+                    <p style="margin:0;font-size:22px;font-weight:700;color:#60a5fa;letter-spacing:1px;">🔐 Xspy Trader</p>
+                    <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Security Verification</p>
+                  </td>
+                </tr>
+                <!-- Body -->
+                <tr>
+                  <td style="padding:32px 36px;">
+                    <p style="margin:0 0 8px;font-size:15px;color:#cbd5e1;">Hello <strong style="color:#e2e8f0;">${profile.full_name || "Trader"}</strong>,</p>
+                    <p style="margin:0 0 24px;font-size:14px;color:#94a3b8;line-height:1.6;">
+                      A withdrawal request was initiated on your account. Use the one-time code below to confirm the transaction.
+                    </p>
+                    <!-- OTP Block -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#1e3a5f;border:1px solid #3b82f6;border-radius:12px;padding:28px;text-align:center;">
+                          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#60a5fa;letter-spacing:2px;text-transform:uppercase;">Your Verification Code</p>
+                          <p style="margin:12px 0 4px;font-size:48px;font-weight:900;letter-spacing:14px;color:#ffffff;font-variant-numeric:tabular-nums;">${emailOtp}</p>
+                          <p style="margin:8px 0 0;font-size:12px;color:#f59e0b;">⏱ Expires in 5 minutes</p>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:24px 0 0;font-size:13px;color:#64748b;line-height:1.6;">
+                      If you did not request this withdrawal, please <a href="https://xspy-trader.com/dashboard/support" style="color:#60a5fa;text-decoration:none;">contact our support team</a> immediately.
+                    </p>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="padding:20px 36px;border-top:1px solid #1e293b;text-align:center;">
+                    <p style="margin:0;font-size:11px;color:#334155;">© 2025 Xspy Trader · <a href="https://xspy-trader.com" style="color:#475569;text-decoration:none;">xspy-trader.com</a></p>
+                    <p style="margin:4px 0 0;font-size:10px;color:#1e293b;">Sent from no-reply@xspy-trader.com</p>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `,
+    });
+
+    const telegramPromise = hasTelegram
+      ? sendTelegramOtp(profile.telegram_chat_id!, telegramOtp)
+      : Promise.resolve({ ok: true, skipped: true });
+
+    const [emailResult, telegramResult] = await Promise.all([
+      emailPromise,
+      telegramPromise,
+    ]);
 
     console.log("[send-otp] Email result:", emailResult);
-    if (hasTelegram) console.log("[send-otp] Telegram result:", telegramResult);
+    console.log("[send-otp] Telegram result:", telegramResult);
 
     return NextResponse.json({
       sessionId: otpRow.id,
