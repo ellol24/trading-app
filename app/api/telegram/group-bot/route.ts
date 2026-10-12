@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PLATFORM_KNOWLEDGE, SITE_URL } from "@/lib/telegram-bot-knowledge";
 
-// ─── Admin Supabase Client ────────────────────────────────────────────────────
+// Admin Supabase Client
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -12,43 +12,44 @@ const adminClient = createClient(
 const BOT_TOKEN = (process.env.TELEGRAM_GROUP_BOT_TOKEN || "").trim();
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "").trim();
 
-// ─── Debug GET endpoint ───────────────────────────────────────────────────────
+// Debug GET endpoint
 export async function GET() {
   return NextResponse.json({
     status: "ok",
     hasBotToken: !!BOT_TOKEN,
-    botTokenPrefix: BOT_TOKEN,
+    botTokenPrefix: BOT_TOKEN ? BOT_TOKEN.substring(0, 10) + "..." : "NOT SET",
     hasGeminiKey: !!GEMINI_API_KEY,
     geminiKeyPrefix: GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 10) + "..." : "NOT SET",
     model: "gemini-flash-latest",
-    version: "v5",
+    version: "v6",
   });
 }
 
-// ─── URL Detection ────────────────────────────────────────────────────────────
+// URL Detection
 function containsExternalLink(text: string): boolean {
-  // Match http/https links or t.me links
   const urlRegex = /(https?:\/\/[^\s]+)|(t\.me\/[^\s]+)/gi;
   const matches = text.match(urlRegex) || [];
 
   for (const url of matches) {
     const lower = url.toLowerCase();
-    // Allow site URL and telegram group links
     if (
+      lower.includes("xspy-trader.com") ||
       lower.includes("xspy-trader.vercel.app") ||
       lower.includes("xspy_trader") ||
       lower.includes("xspytrader") ||
       lower.includes("t.me/xspytraderbot") ||
-      lower.includes("t.me/xspytraderotp_bot")
+      lower.includes("t.me/xspytraderotp_bot") ||
+      lower.includes("t.me/xspy_ai_bot") ||
+      lower.includes("t.me/xspyaibot")
     ) {
       continue;
     }
-    return true; // Found an external unrelated link
+    return true;
   }
   return false;
 }
 
-// ─── Telegram API Helper ──────────────────────────────────────────────────────
+// Telegram API Helper
 async function callTelegram(method: string, body: object) {
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
     method: "POST",
@@ -58,7 +59,7 @@ async function callTelegram(method: string, body: object) {
   return res.json();
 }
 
-// ─── Send Message ─────────────────────────────────────────────────────────────
+// Send Message
 async function sendMessage(chatId: number | string, text: string, replyToMessageId?: number) {
   let res = await callTelegram("sendMessage", {
     chat_id: chatId,
@@ -69,8 +70,6 @@ async function sendMessage(chatId: number | string, text: string, replyToMessage
   
   if (!res.ok) {
     console.warn(`[GroupBot] Markdown parsing failed, retrying in plaintext. Error:`, res);
-    // If Markdown parsing fails (e.g. unclosed asterisks, unescaped underscores),
-    // retry sending as plain text so the message isn't lost.
     res = await callTelegram("sendMessage", {
       chat_id: chatId,
       text,
@@ -80,7 +79,7 @@ async function sendMessage(chatId: number | string, text: string, replyToMessage
   return res;
 }
 
-// ─── Delete Message ───────────────────────────────────────────────────────────
+// Delete Message
 async function deleteMessage(chatId: number | string, messageId: number) {
   return callTelegram("deleteMessage", {
     chat_id: chatId,
@@ -88,9 +87,9 @@ async function deleteMessage(chatId: number | string, messageId: number) {
   });
 }
 
-// ─── Mute User (restrict for 24h) ────────────────────────────────────────────
+// Mute User (restrict for 24h)
 async function muteUser(chatId: number | string, userId: number) {
-  const until = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
+  const until = Math.floor(Date.now() / 1000) + 86400;
   return callTelegram("restrictChatMember", {
     chat_id: chatId,
     user_id: userId,
@@ -110,12 +109,11 @@ async function muteUser(chatId: number | string, userId: number) {
   });
 }
 
-// ─── Ban user on site for 24 hours ───────────────────────────────────────────
+// Ban user on site for 24 hours
 async function banUserOnSite(telegramUserId: number) {
   try {
     const bannedUntil = new Date(Date.now() + 86400 * 1000).toISOString();
     
-    // Find user by telegram_chat_id
     const { data: profile } = await adminClient
       .from("user_profiles")
       .select("uid")
@@ -139,43 +137,41 @@ async function banUserOnSite(telegramUserId: number) {
   return false;
 }
 
+// Fallback Keywords
 function getKeywordFallback(userMessage: string): string {
   const lower = userMessage.toLowerCase();
 
-  if (lower.includes("deposit") || lower.includes("?????") || lower.includes("fund") || lower.includes("?????")) {
-    return `?? *How to Deposit on XSPY Trader*\n\n*Minimum deposit: $51*\n\n1. Go to *Dashboard > Wallet > Deposit*\n2. Select your crypto network (USDT TRC20, BTC, ETH, etc.)\n3. Copy the wallet address shown\n4. Transfer the exact amount from your personal wallet\n5. Upload a payment screenshot and submit\n\n? Deposits are manually approved within *5�15 minutes*.\n\n?? https://www.xspy-trader.com/dashboard`;
+  if (lower.includes("deposit") || lower.includes("إيداع") || lower.includes("شحن") || lower.includes("fund")) {
+    return `💰 *How to Deposit on XSPY Trader*\n\n*Minimum deposit: $51*\n\n1. Go to *Dashboard > Wallet > Deposit*\n2. Select your crypto network (USDT TRC20, BTC, ETH, etc.)\n3. Copy the wallet address shown\n4. Transfer the exact amount from your personal wallet\n5. Upload a payment screenshot and submit\n\n⏱ Deposits are manually approved within *5–15 minutes*.\n\n🔗 https://www.xspy-trader.com/dashboard/deposit`;
   }
-  if (lower.includes("withdraw") || lower.includes("???")) {
-    return `?? *How to Withdraw on XSPY Trader*\n\n*Minimum: $21 | Fee: 10% | Processed within 24 hours*\n\n1. Complete your profile first (required)\n2. Add a withdrawal wallet under *Wallet > Manage Wallets*\n   _(New wallets have a 24-hour security freeze before first use)_\n3. Go to *Wallet > Withdraw*, select wallet and enter amount\n4. Verify with 6-digit codes sent to your Email & Telegram\n\n?? Only *1 withdrawal per day* allowed.\n\n?? https://www.xspy-trader.com/dashboard`;
+  if (lower.includes("withdraw") || lower.includes("سحب")) {
+    return `💸 *How to Withdraw on XSPY Trader*\n\n*Minimum: $21 | Fee: 10% | Processed within 24 hours*\n\n1. Complete your profile first (required)\n2. Add a withdrawal wallet under *Wallet > Manage Wallets*\n   _(New wallets have a 24-hour security freeze before first use)_\n3. Go to *Wallet > Withdraw*, select wallet and enter amount\n4. Verify with 6-digit codes sent to your Email & Telegram\n\n⚠️ Only *1 withdrawal per day* allowed.\n\n🔗 https://www.xspy-trader.com/dashboard/withdraw`;
   }
-  if (lower.includes("trade") || lower.includes("trading") || lower.includes("?????") || lower.includes("????")) {
-    return `?? *How Trading Works on XSPY Trader*\n\n?? *Important*: You cannot open a trade yourself � the admin opens them.\n\n*The process:*\n1. Admin opens *one trade per day* (Mon�Fri) and announces it here\n2. You go to *Dashboard > Trading* and JOIN the trade with your amount\n3. After the round ends, profits are credited automatically\n\n*Profit rates:*\n? 30-second trade: *2% profit*\n? 45-second trade: *2.5% profit*\n? 60-second trade: *3% profit*\n\n?? Example: $100 in a 60s trade = $3 profit on a win.\n\n?? https://www.xspy-trader.com/dashboard`;
+  if (lower.includes("trade") || lower.includes("trading") || lower.includes("تداول") || lower.includes("صفقة") || lower.includes("صفقات")) {
+    return `📊 *How Trading Works on XSPY Trader*\n\n⚠️ *Important*: You cannot open a trade yourself — the admin opens them.\n\n*The process:*\n1. Admin opens *one trade per day* (Mon–Fri) and announces it here\n2. You go to *Dashboard > Trading* and JOIN the trade with your amount\n3. After the round ends, profits are credited automatically\n\n*Profit rates:*\n⏱ 30-second trade: *2% profit*\n⏱ 45-second trade: *2.5% profit*\n⏱ 60-second trade: *3% profit*\n\n💡 Example: $100 in a 60s trade = $3 profit on a win.\n\n🔗 https://www.xspy-trader.com/dashboard/trading`;
   }
-  if (lower.includes("package") || lower.includes("mining") || lower.includes("????") || lower.includes("???????") || lower.includes("???????")) {
-    return `? *Mining Packages on XSPY Trader*\n\nActivate a package and earn *daily passive income*:\n\n?? *Beginner*: $51�$100 | *1.8%/day* | 15 days\n?? *Professional*: $101�$150 | *2%/day* | 30 days\n?? *VIP*: $151�$200 | *2.5%/day* | 45 days\n\n?? Example: $80 in Beginner ? $1.44/day � 15 days = $21.60 profit\n\n- Profits auto-credited daily\n- One active investment per package type at a time\n\n?? *Dashboard > Packages*\n\n?? https://www.xspy-trader.com/dashboard`;
+  if (lower.includes("package") || lower.includes("mining") || lower.includes("باقة") || lower.includes("باقات") || lower.includes("تعدين")) {
+    return `⛏️ *Mining Packages on XSPY Trader*\n\nActivate a package and earn *daily passive income*:\n\n1️⃣ *Beginner*: $51–$100 | *1.8%/day* | 15 days\n2️⃣ *Professional*: $101–$150 | *2%/day* | 30 days\n3️⃣ *VIP*: $151–$200 | *2.5%/day* | 45 days\n\n💡 Example: $80 in Beginner ➔ $1.44/day × 15 days = $21.60 profit\n\n- Profits auto-credited daily\n- One active investment per package type at a time\n\n🔗 *Dashboard > Packages*: https://www.xspy-trader.com/dashboard/packages`;
   }
-  if (lower.includes("referral") || lower.includes("refer") || lower.includes("invite") || lower.includes("?????") || lower.includes("?????") || lower.includes("????")) {
-    return `?? *Referral Program on XSPY Trader*\n\nEarn commissions on 3 levels from your team:\n\n?? Level 1 (direct invites): *10%*\n?? Level 2: *7%*\n?? Level 3: *2%*\n\n*You earn commissions on:*\n? Your team's Deposits\n? Your team's Trading profits\n? Your team's Mining package earnings\n\n?? Get your link: *Dashboard > Referrals*\n\n?? https://www.xspy-trader.com/dashboard`;
+  if (lower.includes("referral") || lower.includes("refer") || lower.includes("invite") || lower.includes("إحالة") || lower.includes("احالة") || lower.includes("فريق")) {
+    return `🤝 *Referral Program on XSPY Trader*\n\nEarn commissions on 3 levels from your team:\n\n🥇 Level 1 (direct invites): *10%*\n🥈 Level 2: *7%*\n🥉 Level 3: *2%*\n\n*You earn commissions on:*\n🎁 Your team's Deposits\n📈 Your team's Trading profits\n📦 Your team's Mining package earnings\n\n🔗 Get your link: *Dashboard > Referrals*: https://www.xspy-trader.com/dashboard/referrals`;
   }
-  if (lower.includes("register") || lower.includes("sign up") || lower.includes("?????") || lower.includes("??????")) {
-    return `?? *Create an Account on XSPY Trader*\n\n1. Visit: https://www.xspy-trader.com/auth/register\n2. Fill in your details and verify your email\n3. Complete your full profile to unlock withdrawals\n\n? Verified profile = full access to trading, packages & withdrawals!\n\n*Minimum to start*: $51 deposit`;
+  if (lower.includes("register") || lower.includes("sign up") || lower.includes("تسجيل") || lower.includes("حساب")) {
+    return `📝 *Create an Account on XSPY Trader*\n\n1. Visit: https://www.xspy-trader.com/auth/register\n2. Fill in your details and verify your email\n3. Complete your full profile to unlock withdrawals\n\n✅ Verified profile = full access to trading, packages & withdrawals!\n\n*Minimum to start*: $51 deposit`;
   }
-  if (lower.includes("2fa") || lower.includes("otp") || lower.includes("security") || lower.includes("????") || lower.includes("????") || lower.includes("?????") || lower.includes("???") || lower.includes("??????")) {
-    return `?? *Security & Telegram Linking on XSPY Trader*\n\nAll withdrawals require *dual 2FA verification*:\n1. A 6-digit code sent to your *Email*\n2. A 6-digit code sent to your *Telegram*\n\n*How to link Telegram:*\n1. Message @XspyTraderOtp\\_bot and press START\n2. Copy the Chat ID it gives you\n3. Paste it in your profile under the Telegram section\n\n?? https://www.xspy-trader.com/dashboard/profile`;
+  if (lower.includes("2fa") || lower.includes("otp") || lower.includes("security") || lower.includes("أمان") || lower.includes("امان") || lower.includes("توثيق") || lower.includes("كود")) {
+    return `🔐 *Security & Telegram Linking on XSPY Trader*\n\nAll withdrawals require *dual 2FA verification*:\n1. A 6-digit code sent to your *Email*\n2. A 6-digit code sent to your *Telegram*\n\n*How to link Telegram:*\n1. Message @XspyTraderOtp_bot and press START\n2. Copy the Chat ID it gives you\n3. Paste it in your profile under the Telegram section\n\n🔗 https://www.xspy-trader.com/dashboard/profile`;
   }
 
-  // Generic fallback
-  return `?? *XSPY Trader Official Support*\n\nI can help you with:\n?? *Deposits* | ?? *Withdrawals* | ?? *Trading* | ? *Packages* | ?? *Referrals* | ?? *Security*\n\nJust ask about any topic and I'll explain it clearly!\n\n?? https://www.xspy-trader.com`;
+  return `🤖 *XSPY Trader Official Support*\n\nI can help you with:\n💰 *Deposits* | 💸 *Withdrawals* | 📊 *Trading* | ⛏️ *Packages* | 🤝 *Referrals* | 🔐 *Security*\n\nJust ask about any topic and I'll explain it clearly!\n\n🌐 https://www.xspy-trader.com`;
 }
 
-
-// ─── AI Answer via Gemini ─────────────────────────────────────────────────────
+// AI Answer via Gemini
 async function getAIAnswer(userMessage: string, userName: string, userId: number): Promise<string> {
   if (!GEMINI_API_KEY || GEMINI_API_KEY === "NOT SET") {
     return getKeywordFallback(userMessage);
   }
 
-  // Check if user has linked their Telegram account to their platform profile
   let userInfoStr = "Status: Unlinked/Unknown (User has not linked their Telegram to the platform).";
   try {
     const { data: profile } = await adminClient
@@ -250,14 +246,12 @@ Reply professionally as the Xspy-Trader official support assistant.
   }
 }
 
-// ─── Is the message directed at the bot or a question? ───────────────────────
+// Is the message directed at the bot or a question?
 function isQuestionForBot(text: string): boolean {
   const lower = text.toLowerCase();
   
-  // Explicitly mentioned by either potential username
   if (lower.includes("@xspy_ai_bot") || lower.includes("@xspyaibot")) return true;
   
-  // Common question starters
   const questionWords = [
     "how", "what", "when", "where", "why", "can", "could", "do", "does", 
     "is", "are", "will", "كيف", "ما", "متى", "أين", "لماذا", "هل", "ما هو", "طريقة", "كيفية",
@@ -267,12 +261,11 @@ function isQuestionForBot(text: string): boolean {
   return questionWords.some(w => lower.startsWith(w)) || lower.includes("?") || lower.includes("؟");
 }
 
-// ─── Main Webhook Handler ─────────────────────────────────────────────────────
+// Main Webhook Handler
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // Only process regular messages (not edited, etc.)
     const message = body.message;
     if (!message) return NextResponse.json({ ok: true });
 
@@ -282,7 +275,7 @@ export async function POST(req: NextRequest) {
     const userName = message.from?.first_name || "User";
     const messageId = message.message_id;
 
-    // ── 0. NEW MEMBERS WELCOME ───────────────────────────────────────────────
+    // 0. NEW MEMBERS WELCOME
     if (message.new_chat_members && message.new_chat_members.length > 0) {
       for (const member of message.new_chat_members) {
         if (member.is_bot) continue;
@@ -293,10 +286,10 @@ export async function POST(req: NextRequest) {
           `I am the platform's AI Assistant. We offer professional binary options trading and high-yield mining packages.\n\n` +
           `🔒 *Important:* To enable withdrawals and secure your account, you must link your Telegram to your profile.\n` +
           `👉 *How to do it:*\n` +
-          `1. Message our security bot @XspyTraderOtp\\_bot and press START to get your ID.\n` +
+          `1. Message our security bot @XspyTraderOtp_bot and press START to get your ID.\n` +
           `2. Paste that ID in your Profile on the platform.\n\n` +
           `If you have any questions about deposits, trading, or anything else, just ask me here in the group!\n\n` +
-          `🌐 *Platform*: https://xspy-trader.vercel.app`
+          `🌐 *Platform*: https://www.xspy-trader.com`
         );
       }
       return NextResponse.json({ ok: true });
@@ -305,42 +298,33 @@ export async function POST(req: NextRequest) {
     const text = message.text || message.caption || "";
     if (!text || !userId) return NextResponse.json({ ok: true });
 
-    // ── 1. SPAM MODERATION: Detect external links in groups ──────────────────
+    // 1. SPAM MODERATION: Detect external links in groups
     if ((chatType === "group" || chatType === "supergroup") && containsExternalLink(text)) {
-      // Delete the message
       await deleteMessage(chatId, messageId);
-      
-      // Mute the user for 24 hours
       await muteUser(chatId, userId);
-      
-      // Try to ban them on the site
       const siteBanned = await banUserOnSite(userId);
-      
-      // Send warning
       await sendMessage(
         chatId,
         `⚠️ *Group Policy Violation*\n\n@${message.from?.username || userName} has been muted for *24 hours* for posting an external link.\n\n${siteBanned ? "🔒 Their platform account has also been temporarily suspended." : ""}\n\n_Only links related to Xspy-Trader are allowed in this group._`
       );
-      
       return NextResponse.json({ ok: true });
     }
 
-    // ── 2. PRIVATE MESSAGES: Always respond ──────────────────────────────────
+    // 2. PRIVATE MESSAGES: Always respond
     if (chatType === "private") {
-      // Handle /start command with a rich welcome message (no AI needed)
       if (text.trim() === "/start") {
         await sendMessage(chatId,
-          `👋 *Welcome to Xspy-Trader AI Support, ${userName}!*\n\n` +
+          `👋 *Welcome to Xspy-Trader AI Support, ${userName}!* 🚀\n\n` +
           `I'm the official support assistant for the **Xspy-Trader** trading platform. I can help you with:\n\n` +
           `📥 *Deposits* — How to fund your account\n` +
           `📤 *Withdrawals* — How to withdraw your earnings\n` +
           `📈 *Trading* — How binary options trading works\n` +
-          `⛏ *Mining Packages* — Daily ROI investment packages\n` +
+          `⛏️ *Mining Packages* — Daily ROI investment packages\n` +
           `👥 *Referrals* — Earn commissions by inviting friends\n` +
           `🔐 *Security & 2FA* — Keep your account safe\n` +
           `👤 *Account & Profile* — Registration, KYC, and profile setup\n\n` +
-          `Just ask me anything and I'll answer immediately! 🚀\n\n` +
-          `🌐 *Platform*: https://xspy-trader.vercel.app`
+          `Just ask me anything and I'll answer immediately! 💡\n\n` +
+          `🌐 *Platform*: https://www.xspy-trader.com`
         );
         return NextResponse.json({ ok: true });
       }
@@ -350,12 +334,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── 3. GROUP MESSAGES: Respond to questions & mentions ───────────────────
+    // 3. GROUP MESSAGES: Respond to questions & mentions
     if (chatType === "group" || chatType === "supergroup") {
       if (isQuestionForBot(text)) {
-        // Clean the text (remove bot mention if present)
         let cleanText = text.replace(/@xspy_ai_bot/gi, "").replace(/@xspyaibot/gi, "").trim();
-        
         const answer = await getAIAnswer(cleanText || text, userName, userId);
         await sendMessage(chatId, answer, messageId);
       }
