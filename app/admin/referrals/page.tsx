@@ -67,14 +67,24 @@ export default function AdminReferralsPage() {
 
     const handleSwitch = async () => {
         if (!selectedRef) return;
-        if (!newReferrerCode.trim()) {
+        const codeTrimmed = newReferrerCode.trim().toUpperCase();
+        if (!codeTrimmed) {
             toast.error("Please enter a new referral code.");
+            return;
+        }
+
+        if (selectedRef.referred_code && selectedRef.referred_code.toUpperCase() === codeTrimmed) {
+            toast.error(`A user cannot be their own referrer! Code "${codeTrimmed}" belongs to ${selectedRef.referred_name || selectedRef.referred_email}.`);
             return;
         }
 
         setSwitching(true);
         try {
-            await switchReferrer(selectedRef.id, selectedRef.referred_id, newReferrerCode.trim());
+            const res = await switchReferrer(selectedRef.id, selectedRef.referred_id, codeTrimmed);
+            if (!res.success) {
+                toast.error(res.error || "Failed to switch referrer.");
+                return;
+            }
             toast.success("Successfully transferred referral.");
             setSwitchModalOpen(false);
             setNewReferrerCode("");
@@ -219,21 +229,33 @@ export default function AdminReferralsPage() {
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <div className="bg-slate-900 p-3 rounded border border-slate-700">
-                            <p className="text-xs text-slate-400 mb-1">Current Referrer:</p>
-                            <p className="font-medium">{selectedRef?.referrer_email}</p>
-                            <p className="text-xs text-yellow-500 mt-1">Code: {selectedRef?.referrer_code}</p>
+                        <div className="bg-slate-900 p-3 rounded border border-slate-700 space-y-2">
+                            <div>
+                                <p className="text-xs text-slate-400 mb-0.5">Member (Downline):</p>
+                                <p className="font-medium text-white">{selectedRef?.referred_name || "Member"} ({selectedRef?.referred_email})</p>
+                                <p className="text-xs text-blue-400 mt-0.5">Member's Own Code: <code className="bg-slate-950 px-1 py-0.5 rounded">{selectedRef?.referred_code || "—"}</code></p>
+                            </div>
+                            <div className="pt-2 border-t border-slate-800">
+                                <p className="text-xs text-slate-400 mb-0.5">Current Parent Referrer:</p>
+                                <p className="font-medium">{selectedRef?.referrer_email}</p>
+                                <p className="text-xs text-yellow-500 mt-0.5">Code: {selectedRef?.referrer_code}</p>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">New Parent Referral Code</label>
                             <Input
                                 type="text"
-                                placeholder="Enter new referrer's exact code..."
+                                placeholder="Enter target parent's referral code..."
                                 value={newReferrerCode}
-                                onChange={(e) => setNewReferrerCode(e.target.value)}
-                                className="bg-slate-900 border-slate-700"
+                                onChange={(e) => setNewReferrerCode(e.target.value.toUpperCase())}
+                                className="bg-slate-900 border-slate-700 uppercase tracking-wider"
                             />
+                            {selectedRef?.referred_code && newReferrerCode.trim() === selectedRef.referred_code.toUpperCase() && (
+                                <p className="text-xs text-rose-400 font-medium">
+                                    ⚠️ This is the member's own code! A user cannot be their own referrer.
+                                </p>
+                            )}
                         </div>
                     </div>
 
