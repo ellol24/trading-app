@@ -149,8 +149,8 @@ export default function PackagesClient({ userId }: { userId: string }) {
       // تحديث محلي للواجهة
       setWallet((prev) => prev - amt)
 
-      // ✅ Grant Package commissions quietly
-      await processReferralCommissions(userId, amt, "package")
+      // NOTE: Package referral commissions are NOT granted at purchase time.
+      // They are granted when the investment completes, calculated on the PROFIT (not the principal).
 
       // إعادة جلب الاستثمارات لتحديث القائمة
       const { data: invs } = await supabase
@@ -206,6 +206,12 @@ export default function PackagesClient({ userId }: { userId: string }) {
 
       if (balUpdErr) console.error("Failed to update user balance:", balUpdErr)
       else setWallet(newBalance)
+
+      // ✅ Grant package referral commissions on the PROFIT only (not the principal investment)
+      // e.g. profit = $10.50 → Level 1 referrer earns 10% of $10.50 = $1.05
+      if (profit > 0) {
+        await processReferralCommissions(inv.user_id || userId, profit, "package")
+      }
 
       // إعادة تحميل الاستثمارات
       const { data: invs } = await supabase
