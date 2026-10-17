@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase/server"
 import LoginForm from "@/components/auth/login-form"
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams?: { email?: string; verify?: string } }) {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -17,7 +17,10 @@ export default async function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
-      <LoginForm />
+      <LoginForm
+        initialEmail={searchParams?.email}
+        initialVerify={searchParams?.verify === "true"}
+      />
     </div>
   )
 }

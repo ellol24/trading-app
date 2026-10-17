@@ -98,6 +98,19 @@ export interface Translation {
     inviteCode: string
     enterInviteCode: string
     agreeTermsStart: string
+    verifyEmail?: string
+    verifySubtitle?: string
+    verificationCode?: string
+    enterVerificationCode?: string
+    verifyButton?: string
+    verifying?: string
+    resendCode?: string
+    codeResent?: string
+    resendIn?: string
+    backToSignIn?: string
+    needVerification?: string
+    verifyAccountLink?: string
+    optionalPasswordToSignIn?: string
   }
 
   // Dashboard

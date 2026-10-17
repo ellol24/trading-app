@@ -59,9 +59,13 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
       formData.set("referralCode", referralCode);
       const result = await signUp(state, formData);
       setState(result);
-      
+
       if (result?.success) {
-        if (!result.success.toLowerCase().includes("verify")) {
+        if (result.requiresVerification && result.email) {
+          setTimeout(() => {
+            router.push(`/auth/login?email=${encodeURIComponent(result.email!)}&verify=true`);
+          }, 1500);
+        } else if (!result.success.toLowerCase().includes("verify")) {
           router.push("/dashboard");
         }
       }
@@ -86,8 +90,19 @@ export default function RegisterForm({ referralCode: referralCodeFromUrl }: Prop
           )}
 
           {state?.success && (
-            <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg text-sm">
-              {state.success}
+            <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg text-sm space-y-2">
+              <div className="font-medium">{state.success}</div>
+              {state.requiresVerification && (
+                <div className="text-xs text-slate-300">
+                  Redirecting to enter your verification code... Or{" "}
+                  <Link
+                    href={`/auth/login?email=${encodeURIComponent(state.email || "")}&verify=true`}
+                    className="text-blue-400 underline font-semibold hover:text-blue-300"
+                  >
+                    click here now
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
