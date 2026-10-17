@@ -26,11 +26,13 @@ async function sendTelegramOtp(chatId: string, otp: string) {
   }
 
   const text =
-    `🔐 *Xspy-Trader Withdrawal Verification*\n\n` +
-    `Your security code is:\n\n` +
-    `\`${otp}\`\n\n` +
-    `⏱ Expires in *5 minutes*.\n` +
-    `If you didn't request this, contact support immediately.`;
+    `🔐 *Xspy Trader Withdrawal Verification / تأكيد عملية السحب*\n\n` +
+    `Your one-time security code is:\n` +
+    `رمز الأمان الخاص بك لتأكيد السحب:\n\n` +
+    `\`${otp}\` _(tap to copy / اضغط لنسخ الكود)_\n\n` +
+    `⏱ Expires in *5 minutes* / صالح لمدة *5 دقائق* فقط.\n\n` +
+    `⚠️ If you did not request this withdrawal, please contact support immediately.\n` +
+    `إذا لم تكن أنت من طلب هذا السحب، يرجى التواصل مع الدعم الفني فوراً.`;
 
   const res = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,
