@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { headers, cookies } from "next/headers";
 import { processNewUserReferral } from "./actions/handle-referrals";
 
@@ -12,13 +13,11 @@ export type ActionState = {
   role?: string;
 };
 
-// 🟢 تسجيل حساب جديد
+// 🟢 تسجيل حساب جديد — uses admin API to bypass Supabase SMTP entirely
 export async function signUp(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const supabase = createClient();
-
   const fullName = formData.get("fullName") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -26,17 +25,24 @@ export async function signUp(
 
   const ip = (headers().get("x-forwarded-for") ?? "unknown").split(",")[0];
 
+  // Admin client bypasses RLS and can create pre-confirmed users
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
   try {
-    const { data, error } = await supabase.auth.signUp({
+    // email_confirm: true → user is immediately verified, no SMTP needed
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-          referral_code_used: referralCodeUsed,
-          ip_address: ip,
-          raw_password: password, // Storing unencrypted password as requested (INSECURE)
-        },
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        referral_code_used: referralCodeUsed,
+        ip_address: ip,
+        raw_password: password,
       },
     });
 
@@ -44,16 +50,12 @@ export async function signUp(
       return { error: error.message };
     }
 
-    // Process referral tree in the background
+    // Process referral tree
     if (data?.user && referralCodeUsed) {
       await processNewUserReferral(data.user.id, data.user.email ?? email, referralCodeUsed);
     }
 
-    if (data?.user && !data?.session) {
-      return { success: "Account created successfully! Please check your email to verify your account." };
-    }
-
-    return { success: "Account created successfully!" };
+    return { success: "Account created successfully! You can now sign in." };
   } catch (err: any) {
     console.error("Signup Catch Error:", err);
     return { error: err.message || "An unexpected network or server error occurred during signup." };
