@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 export default function AdminLayout({
   children,
@@ -36,7 +37,7 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [engagementOpen, setEngagementOpen] = useState(false)
+  const [engagementOpen, setEngagementOpen] = useState(true)
   const { t } = useLanguage()
 
   const coreItems = [
@@ -51,12 +52,12 @@ export default function AdminLayout({
   ]
 
   const engagementItems = [
-    { href: "/admin/referrals", icon: Users, label: "Referral Network" },
-    { href: "/admin/referrals-overview", icon: Trophy, label: "Referrals Overview" },
-    { href: "/admin/broadcast", icon: Megaphone, label: "Broadcast Center" },
-    { href: "/admin/notifications", icon: Bell, label: "Notification Center" },
-    { href: "/admin/users-activity", icon: Activity, label: "User Activity" },
-    { href: "/admin/impersonate", icon: Eye, label: "Switch to User View" },
+    { href: "/admin/referrals", icon: Users, label: t('admin.referralNetwork') || "Referral Network" },
+    { href: "/admin/referrals-overview", icon: Trophy, label: t('admin.referralsOverview') || "Referrals Overview" },
+    { href: "/admin/broadcast", icon: Megaphone, label: t('admin.broadcastCenter') || "Broadcast Center" },
+    { href: "/admin/notifications", icon: Bell, label: t('admin.notificationCenter') || "Notification Center" },
+    { href: "/admin/users-activity", icon: Activity, label: t('admin.usersActivity') || "User Activity" },
+    { href: "/admin/impersonate", icon: Eye, label: t('admin.switchToUserView') || "Switch to User View" },
   ]
 
   const handleWeeklyWinner = async () => {
@@ -89,9 +90,14 @@ export default function AdminLayout({
         )}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-800 shrink-0">
-          <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            {t('admin.adminPanel')}
-          </h2>
+          <div>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              {t('admin.adminPanel')}
+            </h2>
+            <div className="mt-1">
+              <LanguageSwitcher />
+            </div>
+          </div>
           <Button variant="ghost" size="sm" className="lg:hidden text-slate-400" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </Button>
@@ -124,7 +130,7 @@ export default function AdminLayout({
             >
               <span className="flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-purple-400" />
-                Engagement & Analytics
+                {t('admin.engagementAnalytics') || "Engagement & Analytics"}
               </span>
               {engagementOpen
                 ? <ChevronDown className="h-3.5 w-3.5" />
@@ -156,7 +162,7 @@ export default function AdminLayout({
                   className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ml-2 text-yellow-400 hover:bg-yellow-500/10 border border-transparent hover:border-yellow-500/20"
                 >
                   <Trophy className="h-4 w-4 shrink-0" />
-                  <span>Announce Weekly Winner</span>
+                  <span>{t('admin.announceWeeklyWinner') || "Announce Weekly Winner"}</span>
                 </button>
               </div>
             )}
@@ -183,7 +189,7 @@ export default function AdminLayout({
             <Menu className="h-5 w-5 text-slate-200" />
           </Button>
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{t('admin.adminPanel')}</h1>
-          <div className="w-8" /> {/* Spacer */}
+          <LanguageSwitcher />
         </div>
 
         <main className="min-h-screen bg-slate-950">{children}</main>

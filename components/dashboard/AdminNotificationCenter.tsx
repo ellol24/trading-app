@@ -5,6 +5,7 @@ import { Bell, CheckCheck, Gift, Info, AlertTriangle, Zap, Megaphone, X } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/language-context";
 
 type Notification = {
   id: string;
@@ -24,6 +25,7 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 };
 
 export default function AdminNotificationCenter() {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");

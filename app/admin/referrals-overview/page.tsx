@@ -10,6 +10,7 @@ import {
   RefreshCw, Trophy, BarChart3, Package, Zap, ChevronDown, ChevronRight, Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/language-context";
 
 type UserRow = {
   uid: string;
@@ -32,6 +33,7 @@ type UserRow = {
 };
 
 export default function AdminReferralsOverviewPage() {
+  const { t } = useLanguage();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [discrepancies, setDiscrepancies] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function AdminReferralsOverviewPage() {
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-400" />
-              Referrals Overview
+              {t('admin.referralsOverviewTitle') || "Referrals Overview"}
             </h1>
             <p className="text-slate-400 mt-1">Per-user earnings breakdown, active referrals, and discrepancy alerts.</p>
           </div>
@@ -116,10 +118,10 @@ export default function AdminReferralsOverviewPage() {
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total Referral Earnings", value: `$${totalStats.totalEarnings.toFixed(2)}`, icon: <DollarSign className="w-5 h-5 text-green-400" />, color: "bg-green-500/20" },
-            { label: "Total Referrals", value: totalStats.totalReferrals, icon: <Users className="w-5 h-5 text-blue-400" />, color: "bg-blue-500/20" },
-            { label: "Active Referrals", value: totalStats.activeReferrals, icon: <TrendingUp className="w-5 h-5 text-purple-400" />, color: "bg-purple-500/20" },
-            { label: "⚠️ Discrepancies", value: totalStats.discrepancyCount, icon: <AlertTriangle className="w-5 h-5 text-red-400" />, color: "bg-red-500/20", alert: totalStats.discrepancyCount > 0 },
+            { label: t('admin.totalCommissionEarned') || "Total Referral Earnings", value: `$${totalStats.totalEarnings.toFixed(2)}`, icon: <DollarSign className="w-5 h-5 text-green-400" />, color: "bg-green-500/20" },
+            { label: t('admin.totalReferrals') || "Total Referrals", value: totalStats.totalReferrals, icon: <Users className="w-5 h-5 text-blue-400" />, color: "bg-blue-500/20" },
+            { label: t('admin.totalActiveReferrers') || "Active Referrals", value: totalStats.activeReferrals, icon: <TrendingUp className="w-5 h-5 text-purple-400" />, color: "bg-purple-500/20" },
+            { label: t('admin.discrepancyAlertTitle') || "⚠️ Discrepancies", value: totalStats.discrepancyCount, icon: <AlertTriangle className="w-5 h-5 text-red-400" />, color: "bg-red-500/20", alert: totalStats.discrepancyCount > 0 },
           ].map((stat) => (
             <Card key={stat.label} className={`trading-card ${stat.alert ? "border-red-500/40" : ""}`}>
               <CardContent className="p-4 flex items-center gap-3">

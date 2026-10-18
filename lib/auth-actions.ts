@@ -198,16 +198,18 @@ export async function signUp(
           .single();
 
         if (welcomeSetting?.value?.enabled !== false) {
-          const title = welcomeSetting?.value?.title ?? "Welcome to Xspy Trader! 🚀";
-          const message = welcomeSetting?.value?.message ?? "We're excited to have you! Start earning today through trading sessions, investment packages, and our referral program.";
-          // Insert via service role directly (notifications table must exist)
+          const val = welcomeSetting?.value || {};
+          const title = val.title ?? "Welcome to Xspy Trader! 🚀";
+          const message = val.message ?? "We're excited to have you! Start earning today through trading sessions, investment packages, and our referral program.";
+          const translations = val.translations || null;
+          // Insert via service role directly
           await supabaseAdmin.from("notifications").insert({
             user_id: data.user.id,
             type: "welcome",
             title,
             message,
-            metadata: { type: "welcome" },
-          }).catch(() => {}); // Don't fail registration if notification insert fails
+            metadata: { type: "welcome", ...(translations ? { translations } : {}) },
+          });
         }
       } catch {
         // Silently ignore — welcome notification is non-critical

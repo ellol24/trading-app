@@ -23,6 +23,8 @@ async function verifyAdmin(supabase: ReturnType<typeof createClient>) {
   return session.user.id;
 }
 
+import { translateMessagePair } from "@/lib/translator";
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const adminId = await verifyAdmin(supabase);
@@ -30,9 +32,29 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const { title, message, target_type, target_user_id, notification_type } = body;
+  let translations = body.translations;
 
   if (!title || !message) {
     return NextResponse.json({ error: "Title and message are required" }, { status: 400 });
+  }
+
+  // If translations not provided or incomplete, auto-translate into en, ar, fr, de
+  if (!translations || !translations.en || !translations.ar || !translations.fr || !translations.de) {
+    try {
+      const generated = await translateMessagePair(title, message);
+      translations = {
+        ...generated,
+        ...(translations || {}),
+      };
+    } catch (err) {
+      console.warn("[Broadcast] Auto-translate failed, using fallback:", err);
+      translations = {
+        en: { title, message },
+        ar: { title, message },
+        fr: { title, message },
+        de: { title, message },
+      };
+    }
   }
 
   const db = adminClient();
@@ -60,7 +82,7 @@ export async function POST(req: Request) {
     userIds = (allUsers ?? []).map((u: any) => u.uid);
   }
 
-  // Insert notifications in batches of 100
+  // Insert notifications in batches of 100 with translations in metadata
   const batchSize = 100;
   let totalSent = 0;
   for (let i = 0; i < userIds.length; i += batchSize) {
@@ -70,13 +92,13 @@ export async function POST(req: Request) {
       type: notification_type ?? "broadcast",
       title,
       message,
-      metadata: { from_admin: true, admin_id: adminId },
+      metadata: { from_admin: true, admin_id: adminId, translations },
     }));
     const { error } = await db.from("notifications").insert(notifications);
     if (!error) totalSent += batch.length;
   }
 
-  return NextResponse.json({ success: true, sent_to: totalSent });
+  return NextResponse.json({ success: true, sent_to: totalSent, translations });
 }
 
 // Update system settings (welcome message, trading alert)
@@ -92,13 +114,28 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "key and value required" }, { status: 400 });
   }
 
+  // Auto-translate welcome_message or trading_alert if translations not present
+  if ((key === "welcome_message" || key === "trading_alert") && value.title && value.message) {
+    if (!value.translations || !value.translations.en || !value.translations.ar) {
+      try {
+        const autoTrans = await translateMessagePair(value.title, value.message);
+        value.translations = {
+          ...autoTrans,
+          ...(value.translations || {}),
+        };
+      } catch (err) {
+        console.warn("[SystemSettings] Auto-translate failed:", err);
+      }
+    }
+  }
+
   const db = adminClient();
   const { error } = await db
     .from("system_settings")
     .upsert({ key, value }, { onConflict: "key" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, value });
 }
 
 export async function GET() {

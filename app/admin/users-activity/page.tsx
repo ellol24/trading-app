@@ -9,6 +9,8 @@ import {
   RefreshCw, AlertTriangle, Zap, MessageCircle, Send, ChevronDown,
   Star, Target, Lightbulb,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useLanguage } from "@/contexts/language-context";
 
 type UserActivity = {
   uid: string;
@@ -34,6 +36,7 @@ type Stats = {
 };
 
 export default function AdminUsersActivityPage() {
+  const { t } = useLanguage();
   const [active, setActive] = useState<UserActivity[]>([]);
   const [inactive, setInactive] = useState<UserActivity[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -67,8 +70,9 @@ export default function AdminUsersActivityPage() {
       body: JSON.stringify({ title, message, target_type: "user", target_user_id: userId, notification_type: "info" }),
     });
     if (res.ok) {
-      // toast would need import; use alert as fallback
-      alert(`Notification sent to ${name}!`);
+      toast.success(`Re-engagement notification sent to ${name}!`);
+    } else {
+      toast.error("Failed to send notification");
     }
   };
 
@@ -81,7 +85,7 @@ export default function AdminUsersActivityPage() {
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-3">
               <Activity className="w-8 h-8 text-blue-400" />
-              User Activity Monitor
+              {t('admin.usersActivityTitle') || "User Activity Monitor"}
             </h1>
             <p className="text-slate-400 mt-1">Track active and inactive users with AI-powered re-engagement suggestions.</p>
           </div>
@@ -100,10 +104,10 @@ export default function AdminUsersActivityPage() {
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { label: "Total Users", value: stats.total, icon: <Users className="w-5 h-5 text-blue-400" />, color: "bg-blue-500/20" },
-              { label: "Active Users", value: stats.active, icon: <UserCheck className="w-5 h-5 text-green-400" />, color: "bg-green-500/20" },
-              { label: "Inactive Users", value: stats.inactive, icon: <UserX className="w-5 h-5 text-red-400" />, color: "bg-red-500/20", alert: stats.inactive > 0 },
-              { label: "New This Week", value: stats.new_this_week, icon: <TrendingUp className="w-5 h-5 text-purple-400" />, color: "bg-purple-500/20" },
+              { label: t('admin.totalUsers') || "Total Users", value: stats.total, icon: <Users className="w-5 h-5 text-blue-400" />, color: "bg-blue-500/20" },
+              { label: t('admin.activeUsers') || "Active Users", value: stats.active, icon: <UserCheck className="w-5 h-5 text-green-400" />, color: "bg-green-500/20" },
+              { label: t('admin.dormantUsers') || "Inactive Users", value: stats.inactive, icon: <UserX className="w-5 h-5 text-red-400" />, color: "bg-red-500/20", alert: stats.inactive > 0 },
+              { label: t('admin.activeThisWeek') || "New This Week", value: stats.new_this_week, icon: <TrendingUp className="w-5 h-5 text-purple-400" />, color: "bg-purple-500/20" },
               { label: "Week Deposits", value: `$${stats.total_deposited_this_week.toFixed(2)}`, icon: <Zap className="w-5 h-5 text-yellow-400" />, color: "bg-yellow-500/20" },
             ].map((s) => (
               <Card key={s.label} className={`trading-card ${s.alert ? "border-red-500/30" : ""}`}>
@@ -125,13 +129,13 @@ export default function AdminUsersActivityPage() {
             onClick={() => setTab("active")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${tab === "active" ? "bg-green-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white"}`}
           >
-            <UserCheck className="w-4 h-4" /> Active ({active.length})
+            <UserCheck className="w-4 h-4" /> {t('admin.active') || "Active"} ({active.length})
           </button>
           <button
             onClick={() => setTab("inactive")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${tab === "inactive" ? "bg-red-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white"}`}
           >
-            <UserX className="w-4 h-4" /> Inactive ({inactive.length})
+            <UserX className="w-4 h-4" /> {t('admin.dormantUsers') || "Inactive"} ({inactive.length})
           </button>
         </div>
 

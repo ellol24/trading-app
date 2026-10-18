@@ -14,6 +14,7 @@ import enPackages from '../locales/en/packages.json'
 import enReferrals from '../locales/en/referrals.json'
 import enProfile from '../locales/en/profile.json'
 import enWallet from '../locales/en/wallet.json'
+import enAdmin from '../locales/en/admin.json'
 
 import arNav from '../locales/ar/nav.json'
 import arCommon from '../locales/ar/common.json'
@@ -24,6 +25,7 @@ import arPackages from '../locales/ar/packages.json'
 import arReferrals from '../locales/ar/referrals.json'
 import arProfile from '../locales/ar/profile.json'
 import arWallet from '../locales/ar/wallet.json'
+import arAdmin from '../locales/ar/admin.json'
 
 import frNav from '../locales/fr/nav.json'
 import frCommon from '../locales/fr/common.json'
@@ -34,6 +36,7 @@ import frPackages from '../locales/fr/packages.json'
 import frReferrals from '../locales/fr/referrals.json'
 import frProfile from '../locales/fr/profile.json'
 import frWallet from '../locales/fr/wallet.json'
+import frAdmin from '../locales/fr/admin.json'
 
 import deNav from '../locales/de/nav.json'
 import deCommon from '../locales/de/common.json'
@@ -44,13 +47,14 @@ import dePackages from '../locales/de/packages.json'
 import deReferrals from '../locales/de/referrals.json'
 import deProfile from '../locales/de/profile.json'
 import deWallet from '../locales/de/wallet.json'
+import deAdmin from '../locales/de/admin.json'
 
 // Build a merged translation object per locale
 const localeData: Record<string, Record<string, any>> = {
-  en: { nav: enNav, common: enCommon, auth: enAuth, dashboard: enDashboard, trading: enTrading, packages: enPackages, referrals: enReferrals, profile: enProfile, wallet: enWallet },
-  ar: { nav: arNav, common: arCommon, auth: arAuth, dashboard: arDashboard, trading: arTrading, packages: arPackages, referrals: arReferrals, profile: arProfile, wallet: arWallet },
-  fr: { nav: frNav, common: frCommon, auth: frAuth, dashboard: frDashboard, trading: frTrading, packages: frPackages, referrals: frReferrals, profile: frProfile, wallet: frWallet },
-  de: { nav: deNav, common: deCommon, auth: deAuth, dashboard: deDashboard, trading: deTrading, packages: dePackages, referrals: deReferrals, profile: deProfile, wallet: deWallet },
+  en: { nav: enNav, common: enCommon, auth: enAuth, dashboard: enDashboard, trading: enTrading, packages: enPackages, referrals: enReferrals, profile: enProfile, wallet: enWallet, admin: enAdmin },
+  ar: { nav: arNav, common: arCommon, auth: arAuth, dashboard: arDashboard, trading: arTrading, packages: arPackages, referrals: arReferrals, profile: arProfile, wallet: arWallet, admin: arAdmin },
+  fr: { nav: frNav, common: frCommon, auth: frAuth, dashboard: frDashboard, trading: frTrading, packages: frPackages, referrals: frReferrals, profile: frProfile, wallet: frWallet, admin: frAdmin },
+  de: { nav: deNav, common: deCommon, auth: deAuth, dashboard: deDashboard, trading: deTrading, packages: dePackages, referrals: deReferrals, profile: deProfile, wallet: deWallet, admin: deAdmin },
 }
 
 interface LanguageContextType {

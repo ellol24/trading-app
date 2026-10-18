@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, Search, ArrowLeft, ShieldAlert, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function ImpersonatePage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -76,12 +78,12 @@ export default function ImpersonatePage() {
             onClick={() => router.push("/admin/dashboard")}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Admin
+            {t('common.back') || "Back to Admin"}
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               <Eye className="w-6 h-6 text-blue-400" />
-              Switch to User View
+              {t('admin.switchToUserView') || "Switch to User View"}
             </h1>
           </div>
         </div>
