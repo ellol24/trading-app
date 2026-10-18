@@ -28,20 +28,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch auth users
-    const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers({
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search") ?? "";
+    const limit = parseInt(searchParams.get("limit") ?? "1000", 10);
+    const uid = searchParams.get("uid");
+
+    // Build profile query
+    let query = adminClient
+      .from("user_profiles")
+      .select("uid, full_name, email, role, balance, status, referral_code, created_at");
+
+    if (uid) {
+      query = query.eq("uid", uid);
+    } else if (search) {
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+
+    const { data: profiles, error: dbError } = await query.limit(limit);
+    if (dbError) throw new Error(dbError.message);
+
+    // If it's a simple search/lookup, return lightweight response
+    if (search || uid) {
+      return NextResponse.json({ users: profiles ?? [] });
+    }
+
+    // Full list: fetch auth users + deposits for enriched data
+    const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
     if (authError) throw new Error(authError.message);
 
-    // Fetch profiles
-    const { data: profiles, error: dbError } = await adminClient
-      .from("user_profiles")
-      .select("*");
-    if (dbError) throw new Error(dbError.message);
-
-    // Fetch deposits
     const { data: deposits } = await adminClient
       .from("deposits")
       .select("user_id, amount, status");
@@ -53,8 +70,8 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const mergedUsers = profiles.map((profile: any) => {
-      const authUser = users.find((u) => u.id === profile.uid);
+    const mergedUsers = (profiles ?? []).map((profile: any) => {
+      const authUser = authUsers.find((u) => u.id === profile.uid);
       return {
         ...profile,
         email: authUser?.email || profile.email,
@@ -63,7 +80,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json(mergedUsers);
+    return NextResponse.json({ users: mergedUsers });
   } catch (err: any) {
     console.error("[admin/users] Error:", err);
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });

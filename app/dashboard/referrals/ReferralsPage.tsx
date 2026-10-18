@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Share, Users, DollarSign, Copy, Trophy,
   TrendingUp, Package, BarChart3, Wallet,
   Check, MessageCircle, Send, Link2,
+  Gift, Star, Zap, Lock, CheckCircle, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
@@ -25,7 +27,6 @@ type ReferralHistory = {
   status: string;
   balance?: number;
   totalDeposits?: number;
-  totalReferrals?: number;
   yourCommission: number;
   level: number;
 };
@@ -44,6 +45,7 @@ type ReferralStats = {
 type TopReferrer = {
   rank: number;
   username: string;
+  referral_code?: string;
   referrals: number;
   earnings: number;
   avatar: string;
@@ -57,6 +59,14 @@ type CommissionLevel = {
   earnings: number;
 };
 
+type MilestoneData = {
+  count: number;
+  reward: number;
+  reached: boolean;
+  claimed: boolean;
+  claimed_at: string | null;
+};
+
 type ReferralsPageProps = {
   user: any;
   profile: any;
@@ -67,6 +77,16 @@ type ReferralsPageProps = {
   stats: ReferralStats;
   rates: number[];
 };
+
+// ─── Milestone config ─────────────────────────────────────────────────────────
+const MILESTONES: { count: number; reward: number }[] = [
+  { count: 5,   reward: 2    },
+  { count: 10,  reward: 5    },
+  { count: 20,  reward: 12   },
+  { count: 50,  reward: 35   },
+  { count: 100, reward: 80   },
+  { count: 200, reward: 200  },
+];
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 const STAT_ICON_CLASSES: Record<string, string> = {
@@ -96,21 +116,105 @@ function StatCard({ title, value, icon, color, isMoney = true }: {
   );
 }
 
-// Commission structure moved inside component for translations
+// ─── Milestone Card ───────────────────────────────────────────────────────────
+function MilestoneCard({
+  milestone, activeCount, onClaim, claiming,
+}: {
+  milestone: MilestoneData;
+  activeCount: number;
+  onClaim: (count: number) => void;
+  claiming: boolean;
+}) {
+  const progress = Math.min(100, (activeCount / milestone.count) * 100);
+  const locked = !milestone.reached && !milestone.claimed;
+  const canClaim = milestone.reached && !milestone.claimed;
+
+  return (
+    <div className={`relative p-4 rounded-2xl border transition-all ${
+      milestone.claimed
+        ? "border-green-500/40 bg-green-500/10"
+        : canClaim
+          ? "border-blue-500/50 bg-blue-500/10 shadow-lg shadow-blue-500/10"
+          : "border-slate-700 bg-slate-800/30"
+    }`}>
+      {/* Badge */}
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-xl ${milestone.claimed ? "bg-green-500/20" : canClaim ? "bg-blue-500/20" : "bg-slate-700/50"}`}>
+          {milestone.claimed
+            ? <CheckCircle className="w-5 h-5 text-green-400" />
+            : canClaim
+              ? <Gift className="w-5 h-5 text-blue-400" />
+              : <Lock className="w-5 h-5 text-slate-500" />}
+        </div>
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+          milestone.claimed ? "bg-green-500/20 text-green-400"
+          : canClaim ? "bg-blue-500/20 text-blue-300"
+          : "bg-slate-700 text-slate-400"
+        }`}>
+          {milestone.claimed ? "✅ Claimed" : canClaim ? "Ready!" : `${activeCount}/${milestone.count}`}
+        </span>
+      </div>
+
+      {/* Reward */}
+      <p className={`text-2xl font-bold mb-1 ${milestone.claimed ? "text-green-400" : canClaim ? "text-white" : "text-slate-400"}`}>
+        ${milestone.reward.toFixed(2)}
+      </p>
+      <p className="text-xs text-slate-400 mb-3">
+        {milestone.count} active referrals
+      </p>
+
+      {/* Progress bar */}
+      <div className="space-y-1">
+        <Progress
+          value={progress}
+          className="h-2 bg-slate-700"
+        />
+        <p className="text-[10px] text-slate-500">
+          {Math.min(activeCount, milestone.count)}/{milestone.count} active referrals
+        </p>
+      </div>
+
+      {/* Claim button */}
+      {canClaim && (
+        <Button
+          size="sm"
+          className="w-full mt-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold"
+          onClick={() => onClaim(milestone.count)}
+          disabled={claiming}
+        >
+          {claiming ? (
+            <><Clock className="w-3.5 h-3.5 mr-1.5 animate-spin" />Claiming...</>
+          ) : (
+            <><Gift className="w-3.5 h-3.5 mr-1.5" />Claim ${milestone.reward}</>
+          )}
+        </Button>
+      )}
+      {milestone.claimed && milestone.claimed_at && (
+        <p className="text-[10px] text-green-600 mt-2 text-center">
+          Claimed on {new Date(milestone.claimed_at).toLocaleDateString()}
+        </p>
+      )}
+    </div>
+  );
+}
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function ReferralsPage({
-  user, profile, history, topReferrers, commissionLevels, stats, rates
+  user, profile, history, topReferrers, commissionLevels, stats, rates,
 }: ReferralsPageProps) {
   const { t } = useLanguage();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [milestones, setMilestones] = useState<MilestoneData[]>([]);
+  const [activeCount, setActiveCount] = useState(0);
+  const [claiming, setClaiming] = useState<number | null>(null);
+  const [claimedHistory, setClaimedHistory] = useState<MilestoneData[]>([]);
 
   // Commission structure
   const COMMISSION_STRUCTURE = useMemo(() => [
     { level: 1, pct: `${rates?.[0] ?? 10}%`, emoji: "🥇", description: t("referrals.directReferrals") },
-    { level: 2, pct: `${rates?.[1] ?? 7}%`, emoji: "🥈", description: t("referrals.secondDegreeReferrals") },
-    { level: 3, pct: `${rates?.[2] ?? 3}%`, emoji: "🥉", description: t("referrals.thirdDegreeReferrals") },
+    { level: 2, pct: `${rates?.[1] ?? 7}%`,  emoji: "🥈", description: t("referrals.secondDegreeReferrals") },
+    { level: 3, pct: `${rates?.[2] ?? 3}%`,  emoji: "🥉", description: t("referrals.thirdDegreeReferrals") },
   ], [t, rates]);
 
   const referralLink = useMemo(() =>
@@ -120,7 +224,32 @@ export default function ReferralsPage({
     [profile?.referral_code]
   );
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // Fetch milestone status
+  const fetchMilestones = useCallback(async () => {
+    try {
+      const res = await fetch("/api/referrals/claim-milestone");
+      if (res.ok) {
+        const data = await res.json();
+        setMilestones(data.milestones ?? []);
+        setActiveCount(data.activeCount ?? 0);
+        setClaimedHistory((data.milestones ?? []).filter((m: MilestoneData) => m.claimed));
+      }
+    } catch {
+      // use local MILESTONES as fallback
+      setMilestones(MILESTONES.map((m) => ({
+        count: m.count,
+        reward: m.reward,
+        reached: (stats.activeReferrals ?? 0) >= m.count,
+        claimed: false,
+        claimed_at: null,
+      })));
+      setActiveCount(stats.activeReferrals ?? 0);
+    }
+  }, [stats.activeReferrals]);
+
+  useEffect(() => { fetchMilestones(); }, [fetchMilestones]);
+
+  // Helpers
   const maskEmail = useCallback((email: string | null) => {
     if (!email) return "";
     const [name, domain] = email.split("@");
@@ -151,44 +280,45 @@ export default function ReferralsPage({
     window.open(urls[platform], "_blank");
   }, [referralLink, t]);
 
-  // ─── Real-time: trigger server-component refresh on new referral/commission ─
+  const claimMilestone = useCallback(async (count: number) => {
+    setClaiming(count);
+    try {
+      const res = await fetch("/api/referrals/claim-milestone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ milestone_count: count }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`🎉 ${data.message}`);
+        fetchMilestones();
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Failed to claim");
+      }
+    } catch { toast.error("Network error"); }
+    finally { setClaiming(null); }
+  }, [fetchMilestones, router]);
+
+  // Real-time
   useEffect(() => {
     if (!user?.id) return;
-
     const referralsChannel = supabase
       .channel(`referrals-rt-${user.id}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "referrals", filter: `referrer_id=eq.${user.id}` },
-        () => {
-          toast.info("🔔 New referral activity detected!");
-          router.refresh();
-        }
-      )
-      .subscribe();
+        () => { toast.info("🔔 New referral activity detected!"); router.refresh(); fetchMilestones(); }
+      ).subscribe();
+    return () => { supabase.removeChannel(referralsChannel); };
+  }, [user?.id, router, fetchMilestones]);
 
-    const commissionsChannel = supabase
-      .channel(`commissions-rt-${user.id}`)
-      .on("postgres_changes",
-        { event: "INSERT", schema: "public", table: "referral_commissions" },
-        () => {
-          router.refresh();
-        }
-      )
-      .subscribe();
+  const historyByLevel = useMemo(() =>
+    [1, 2, 3].map((level) => ({ level, refs: history.filter((r) => r.level === level) })),
+    [history]
+  );
 
-    return () => {
-      supabase.removeChannel(referralsChannel);
-      supabase.removeChannel(commissionsChannel);
-    };
-  }, [user?.id, router]);
-
-  // ─── Grouped history by level (memoized) ──────────────────────────────────
-  const historyByLevel = useMemo(() => {
-    return [1, 2, 3].map((level) => ({
-      level,
-      refs: history.filter((r) => r.level === level),
-    }));
-  }, [history]);
+  const nextMilestone = milestones.find((m) => !m.claimed);
+  const progressToNext = nextMilestone ? Math.min(100, (activeCount / nextMilestone.count) * 100) : 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pb-24" translate="no">
@@ -214,12 +344,65 @@ export default function ReferralsPage({
           <StatCard title={t("referrals.totalEarnings")} value={stats.totalEarnings} icon={<BarChart3 className="w-5 h-5" />} color="green" />
         </div>
 
+        {/* ── MILESTONE REWARDS ── */}
+        <Card className="trading-card">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400" />
+              Milestone Rewards
+              {activeCount > 0 && (
+                <Badge className="ml-auto bg-blue-500/20 text-blue-300 border-blue-500/30">
+                  {activeCount} active referrals
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Overall progress bar to next milestone */}
+            {nextMilestone && !milestones.every((m) => m.claimed) && (
+              <div className="p-3 rounded-xl bg-slate-800/50 border border-slate-700 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Progress to next reward</span>
+                  <span className="text-blue-400 font-medium">{activeCount}/{nextMilestone.count} referrals → ${nextMilestone.reward} reward</span>
+                </div>
+                <Progress value={progressToNext} className="h-3 bg-slate-700" />
+                <p className="text-xs text-slate-500">
+                  {nextMilestone.count - activeCount > 0
+                    ? `${nextMilestone.count - activeCount} more active referrals needed`
+                    : "🎉 Claim your reward below!"}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {milestones.map((m) => (
+                <MilestoneCard
+                  key={m.count}
+                  milestone={m}
+                  activeCount={activeCount}
+                  onClaim={claimMilestone}
+                  claiming={claiming === m.count}
+                />
+              ))}
+            </div>
+
+            <p className="text-xs text-slate-500 text-center">
+              An "active referral" is a Level 1 referral who has made at least one approved deposit.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Referral Link + Share Buttons */}
         <Card className="trading-card">
           <CardHeader>
             <CardTitle className="text-white flex items-center space-x-2">
               <Link2 className="h-5 w-5" />
               <span>{t("referrals.yourReferralLink")}</span>
+              {profile?.referral_code && (
+                <Badge className="ml-auto bg-yellow-500/20 text-yellow-300 border-yellow-500/30 font-mono">
+                  Code: {profile.referral_code}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -234,25 +417,14 @@ export default function ReferralsPage({
               </Button>
             </div>
             <div className="flex gap-3 flex-wrap">
-              <Button
-                onClick={() => shareVia("whatsapp")}
-                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                size="sm"
-              >
-                <MessageCircle className="w-4 h-4" />
-                {t("referrals.shareOnWhatsApp")}
+              <Button onClick={() => shareVia("whatsapp")} className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2" size="sm">
+                <MessageCircle className="w-4 h-4" /> {t("referrals.shareOnWhatsApp")}
               </Button>
-              <Button
-                onClick={() => shareVia("telegram")}
-                className="bg-sky-500 hover:bg-sky-600 text-white flex items-center gap-2"
-                size="sm"
-              >
-                <Send className="w-4 h-4" />
-                {t("referrals.shareOnTelegram")}
+              <Button onClick={() => shareVia("telegram")} className="bg-sky-500 hover:bg-sky-600 text-white flex items-center gap-2" size="sm">
+                <Send className="w-4 h-4" /> {t("referrals.shareOnTelegram")}
               </Button>
               <Button onClick={copyLink} variant="outline" className="border-slate-600 text-slate-300 bg-transparent flex items-center gap-2" size="sm">
-                <Share className="w-4 h-4" />
-                {t("referrals.copyLinkBtn")}
+                <Share className="w-4 h-4" /> {t("referrals.copyLinkBtn")}
               </Button>
             </div>
           </CardContent>
@@ -294,11 +466,10 @@ export default function ReferralsPage({
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Leaderboard */}
+          {/* Leaderboard — shows full referral codes, masked names */}
           <Card className="trading-card">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-400" />
                 <Trophy className="w-5 h-5 text-yellow-400" />
                 {t("referrals.topReferrersBoard")}
               </CardTitle>
@@ -313,7 +484,7 @@ export default function ReferralsPage({
                     className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${ref.isCurrentUser
                       ? "border-blue-500/50 bg-blue-500/10"
                       : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/50"
-                      }`}
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl w-8 text-center">{ref.avatar}</span>
@@ -321,6 +492,11 @@ export default function ReferralsPage({
                         <p className="text-white text-sm font-medium">
                           {ref.isCurrentUser ? t("common.youStar") : maskName(ref.username)}
                         </p>
+                        {ref.referral_code && (
+                          <code className="text-[10px] text-yellow-400/80 bg-slate-900 px-1 py-0.5 rounded">
+                            {ref.referral_code}
+                          </code>
+                        )}
                         <p className="text-slate-400 text-xs">{t("common.referralsCount").replace('{n}', ref.referrals.toString())}</p>
                       </div>
                     </div>
@@ -354,10 +530,7 @@ export default function ReferralsPage({
                     <p className="text-slate-500 text-xs mb-3">{t("referrals.noReferralsAtLevel")}</p>
                   ) : (
                     refs.map((ref) => (
-                      <div
-                        key={ref.id}
-                        className="flex justify-between items-center p-3 rounded-lg bg-slate-700/30 border border-slate-600 mb-2 hover:bg-slate-700/50 transition"
-                      >
+                      <div key={ref.id} className="flex justify-between items-center p-3 rounded-lg bg-slate-700/30 border border-slate-600 mb-2 hover:bg-slate-700/50 transition">
                         <div>
                           <p className="text-white text-sm font-medium">{maskName(ref.username)}</p>
                           <p className="text-slate-400 text-xs">{maskEmail(ref.referred_email ?? null)}</p>
@@ -367,12 +540,8 @@ export default function ReferralsPage({
                         </div>
                         <div className="flex flex-col items-end space-y-1">
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="text-slate-400">Total Deposits:</span>
+                            <span className="text-slate-400">Deposits:</span>
                             <span className="text-blue-400 font-medium">${(ref.totalDeposits ?? 0).toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-slate-400">User Balance:</span>
-                            <span className="text-yellow-400 font-medium">${(ref.balance ?? 0).toFixed(2)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs">
                             <span className="text-slate-400">You Earned:</span>
@@ -388,6 +557,39 @@ export default function ReferralsPage({
             </CardContent>
           </Card>
         </div>
+
+        {/* ── Milestone Earnings History ── */}
+        {claimedHistory.length > 0 && (
+          <Card className="trading-card">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Gift className="w-5 h-5 text-green-400" />
+                Milestone Bonus History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {claimedHistory.map((m) => (
+                  <div key={m.count} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                      <div>
+                        <p className="text-white text-sm font-medium">{m.count} Active Referrals Milestone</p>
+                        {m.claimed_at && (
+                          <p className="text-slate-400 text-xs">Claimed {new Date(m.claimed_at).toLocaleDateString()}</p>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-green-400 font-bold">+${m.reward.toFixed(2)}</p>
+                  </div>
+                ))}
+                <p className="text-slate-500 text-xs text-center pt-1">
+                  Total milestone bonuses: ${claimedHistory.reduce((s, m) => s + m.reward, 0).toFixed(2)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -205,15 +205,17 @@ export default async function Page() {
   if (topIds.length > 0) {
     const { data: tp } = await supabaseAdmin
       .from("user_profiles")
-      .select("uid, full_name")
+      .select("uid, full_name, referral_code, role")
       .in("uid", topIds);
-    (tp || []).forEach((p: any) => (topProfilesMap[p.uid] = p));
+    // Exclude admins from leaderboard
+    (tp || []).filter((p: any) => p.role !== "admin").forEach((p: any) => (topProfilesMap[p.uid] = p));
   }
 
   const topReferrers = Object.entries(topMap)
     .map(([id, d], idx) => ({
       rank: 0,
       username: obscureName(topProfilesMap[id]?.full_name ?? "Unknown"),
+      referral_code: topProfilesMap[id]?.referral_code ?? null,
       referrals: d.referrals,
       earnings: d.earnings,
       avatar: idx === 0 ? "👑" : idx === 1 ? "🏆" : idx === 2 ? "⭐" : "💎",

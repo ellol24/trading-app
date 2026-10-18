@@ -81,7 +81,7 @@ export default function AdminUsersPage() {
         throw new Error(err.error || "Failed to fetch users");
       }
       const data = await res.json();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : (data.users ?? []));
     } catch (err: any) {
       setError(err.message);
       toast.error("Failed to fetch users: " + err.message);

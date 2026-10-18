@@ -21,6 +21,7 @@ import Link from "next/link";
 import { marketDataService, type MarketData } from "@/lib/market-data";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/contexts/language-context";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 
 // ------------------ Interfaces ------------------
 interface UserProfile {
@@ -94,6 +95,20 @@ export default function DashboardClient({
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [liveBalance, setLiveBalance] = useState<number>(initialBalance);
   const [loading, setLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  // Check if admin is viewing as user
+  useEffect(() => {
+    const flag = localStorage.getItem("_admin_impersonating");
+    if (flag) setIsImpersonating(true);
+  }, []);
+
+  const returnToAdmin = async () => {
+    localStorage.removeItem("_admin_impersonating");
+    localStorage.removeItem("_admin_impersonating_name");
+    window.location.href = "/admin/dashboard";
+  };
+
 
   // ------------------ Fetch Data ------------------
   const fetchUserData = async () => {
@@ -275,14 +290,35 @@ export default function DashboardClient({
     >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Header */}
-        <div className="text-center space-y-2" translate="no">
-          <h1 className="text-3xl font-bold text-white">
-            {t('dashboard.welcomeBackUser').replace('{name}', userName)}
-          </h1>
-          <p className="text-blue-200">
-            {t('dashboard.overviewSubtitle')}
-          </p>
+        <div className="flex items-start justify-between" translate="no">
+          <div className="text-center space-y-2 flex-1">
+            <h1 className="text-3xl font-bold text-white">
+              {t('dashboard.welcomeBackUser').replace('{name}', userName)}
+            </h1>
+            <p className="text-blue-200">
+              {t('dashboard.overviewSubtitle')}
+            </p>
+          </div>
+          <div className="shrink-0 mt-1">
+            <NotificationBell userId={userId} />
+          </div>
         </div>
+
+        {/* Admin Impersonation Banner */}
+        {isImpersonating && (
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-orange-500/15 border border-orange-500/40">
+            <div className="flex items-center gap-2">
+              <span className="text-orange-400 text-sm font-semibold">👁 Admin View Mode</span>
+              <span className="text-orange-300/70 text-xs">You are viewing this dashboard as the user above.</span>
+            </div>
+            <button
+              onClick={returnToAdmin}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 hover:bg-orange-500/30 transition-colors"
+            >
+              ← Return to Admin Panel
+            </button>
+          </div>
+        )}
 
         {/* Onboarding Banner — shown only to new users */}
         {showOnboarding && (

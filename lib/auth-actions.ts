@@ -188,6 +188,32 @@ export async function signUp(
       await processNewUserReferral(data.user.id, data.user.email ?? email, referralCodeUsed);
     }
 
+    // Send welcome notification (after profile is created by trigger)
+    if (data?.user) {
+      try {
+        const { data: welcomeSetting } = await supabaseAdmin
+          .from("system_settings")
+          .select("value")
+          .eq("key", "welcome_message")
+          .single();
+
+        if (welcomeSetting?.value?.enabled !== false) {
+          const title = welcomeSetting?.value?.title ?? "Welcome to Xspy Trader! 🚀";
+          const message = welcomeSetting?.value?.message ?? "We're excited to have you! Start earning today through trading sessions, investment packages, and our referral program.";
+          // Insert via service role directly (notifications table must exist)
+          await supabaseAdmin.from("notifications").insert({
+            user_id: data.user.id,
+            type: "welcome",
+            title,
+            message,
+            metadata: { type: "welcome" },
+          }).catch(() => {}); // Don't fail registration if notification insert fails
+        }
+      } catch {
+        // Silently ignore — welcome notification is non-critical
+      }
+    }
+
     // Send verification email via Resend
     await sendVerificationEmail(email, fullName, otp);
 
