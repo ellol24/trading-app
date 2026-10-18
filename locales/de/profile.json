@@ -54,7 +54,7 @@
   "telegramLinking": "Telegram 2FA-Verknüpfung",
   "telegramChatId": "Telegram Chat-ID (numerisch)",
   "telegramChatIdPlaceholder": "z.B. 123456789",
-  "telegramChatIdHint": "Um 2FA-Codes zu erhalten, senden Sie eine Nachricht an unseren offiziellen Sicherheits-Bot @XspyTraderOtp_bot und dr�cken Sie START. Der Bot antwortet sofort mit Ihrer numerischen Chat-ID. F�gen Sie diese hier ein.",
+  "telegramChatIdHint": "Um 2FA-Codes für Auszahlungen zu erhalten, senden Sie eine Nachricht an unseren offiziellen Sicherheits-Bot @XSpyTraderOtp_bot und drücken Sie START. Der Bot antwortet sofort mit Ihrer numerischen Chat-ID. Fügen Sie diese hier ein.",
   "saveOtpNotice": "Ein 6-stelliger Verifizierungscode wird an Ihre E-Mail gesendet, um diese Änderungen zu bestätigen, bevor sie gespeichert werden.",
   "verifyIdentity": "Identität bestätigen",
   "otpSentToEmail": "Ein 6-stelliger Code wurde an {email} gesendet. Geben Sie ihn unten ein, um Ihre Profiländerungen zu bestätigen.",
@@ -67,5 +67,11 @@
   "verifying": "Wird verifiziert…",
   "verificationFailed": "Verifizierung fehlgeschlagen",
   "noActivityYet": "Noch keine Aktivität",
-  "sending": "Wird gesendet…"
+  "sending": "Wird gesendet…",
+  "accuracyNoticeTitle": "Genauigkeitshinweis:",
+  "accuracyNoticeDesc": "Bitte stellen Sie sicher, dass alle Angaben wahrheitsgemäß und korrekt sind. Falsche Angaben – einschließlich Land, Telefonnummer oder Name – können zur vorübergehenden Sperrung oder Einfrierung Ihres Kontos führen, bis eine Identitätsprüfung über den Support abgeschlossen ist.",
+  "detectedIp": "IP: {country}",
+  "statusVerified": "Verifiziert",
+  "statusActive": "Aktiv",
+  "statusBanned": "Gesperrt"
 }

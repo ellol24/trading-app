@@ -16,7 +16,9 @@ import { ProfessionalButton } from "@/components/ui/professional-button";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
-import { Percent, Package, Gift } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Percent, Package, Gift, Star } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 
 export default function AdminPlatformControlsPage() {
@@ -195,6 +197,27 @@ export default function AdminPlatformControlsPage() {
           {t('admin.platformSettingsDesc') || "Manage welcome bonuses and multi-level referral commissions globally across your platform."}
         </p>
       </div>
+
+      {/* 🌟 Referral Milestone Rewards Quick Card */}
+      <Card className="bg-amber-950/20 backdrop-blur-md border-amber-500/30 shadow-lg shadow-amber-500/10">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Star className="w-5 h-5 text-amber-400" />
+              {t('admin.referralMilestonesTitle') || "Referral Milestone Rewards"}
+            </CardTitle>
+            <CardDescription className="text-amber-200/80 text-xs mt-1">
+              {t('admin.referralMilestonesSubtitle') || "Configure automatic cash rewards unlocked when users reach active referral goals."}
+            </CardDescription>
+          </div>
+          <Link href="/admin/referrals">
+            <Button className="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-bold text-xs shrink-0">
+              <Star className="w-4 h-4 mr-1.5" />
+              {t('admin.manageMilestonesBtn') || "Manage Milestone Tiers →"}
+            </Button>
+          </Link>
+        </CardHeader>
+      </Card>
 
       {/* 🎁 Welcome Bonus Section */}
       <Card className="bg-indigo-950/30 backdrop-blur-md border-indigo-500/30 shadow-lg shadow-indigo-500/10">

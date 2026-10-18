@@ -118,16 +118,19 @@ function StatCard({ title, value, icon, color, isMoney = true }: {
 
 // ─── Milestone Card ───────────────────────────────────────────────────────────
 function MilestoneCard({
-  milestone, activeCount, onClaim, claiming,
+  milestone, activeCount, onClaim, claiming, t,
 }: {
   milestone: MilestoneData;
   activeCount: number;
   onClaim: (count: number) => void;
   claiming: boolean;
+  t: (key: string) => string;
 }) {
   const progress = Math.min(100, (activeCount / milestone.count) * 100);
   const locked = !milestone.reached && !milestone.claimed;
   const canClaim = milestone.reached && !milestone.claimed;
+
+  const activeRefText = t("referrals.activeReferrals") || "active referrals";
 
   return (
     <div className={`relative p-4 rounded-2xl border transition-all ${
@@ -151,7 +154,7 @@ function MilestoneCard({
           : canClaim ? "bg-blue-500/20 text-blue-300"
           : "bg-slate-700 text-slate-400"
         }`}>
-          {milestone.claimed ? "✅ Claimed" : canClaim ? "Ready!" : `${activeCount}/${milestone.count}`}
+          {milestone.claimed ? `✅ ${t("referrals.claimed") || "Claimed"}` : canClaim ? (t("referrals.readyToClaim") || "Ready!") : `${activeCount}/${milestone.count}`}
         </span>
       </div>
 
@@ -160,7 +163,7 @@ function MilestoneCard({
         ${milestone.reward.toFixed(2)}
       </p>
       <p className="text-xs text-slate-400 mb-3">
-        {milestone.count} active referrals
+        {milestone.count} {activeRefText}
       </p>
 
       {/* Progress bar */}
@@ -170,7 +173,7 @@ function MilestoneCard({
           className="h-2 bg-slate-700"
         />
         <p className="text-[10px] text-slate-500">
-          {Math.min(activeCount, milestone.count)}/{milestone.count} active referrals
+          {Math.min(activeCount, milestone.count)}/{milestone.count} {activeRefText}
         </p>
       </div>
 
@@ -183,15 +186,15 @@ function MilestoneCard({
           disabled={claiming}
         >
           {claiming ? (
-            <><Clock className="w-3.5 h-3.5 mr-1.5 animate-spin" />Claiming...</>
+            <><Clock className="w-3.5 h-3.5 mr-1.5 animate-spin" />{t("referrals.claimingBtn") || "Claiming..."}</>
           ) : (
-            <><Gift className="w-3.5 h-3.5 mr-1.5" />Claim ${milestone.reward}</>
+            <><Gift className="w-3.5 h-3.5 mr-1.5" />{(t("referrals.claimMilestoneBtn") || "Claim ${reward} Reward").replace("${reward}", milestone.reward.toString())}</>
           )}
         </Button>
       )}
       {milestone.claimed && milestone.claimed_at && (
         <p className="text-[10px] text-green-600 mt-2 text-center">
-          Claimed on {new Date(milestone.claimed_at).toLocaleDateString()}
+          {(t("referrals.claimedOn") || "Claimed {date}").replace("{date}", new Date(milestone.claimed_at).toLocaleDateString())}
         </p>
       )}
     </div>
@@ -349,10 +352,10 @@ export default function ReferralsPage({
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Star className="w-5 h-5 text-yellow-400" />
-              Milestone Rewards
+              {t("referrals.milestoneRewards") || "Milestone Rewards"}
               {activeCount > 0 && (
                 <Badge className="ml-auto bg-blue-500/20 text-blue-300 border-blue-500/30">
-                  {activeCount} active referrals
+                  {(t("referrals.activeReferralsCount") || "{n} active referrals").replace("{n}", activeCount.toString())}
                 </Badge>
               )}
             </CardTitle>
@@ -362,14 +365,19 @@ export default function ReferralsPage({
             {nextMilestone && !milestones.every((m) => m.claimed) && (
               <div className="p-3 rounded-xl bg-slate-800/50 border border-slate-700 space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Progress to next reward</span>
-                  <span className="text-blue-400 font-medium">{activeCount}/{nextMilestone.count} referrals → ${nextMilestone.reward} reward</span>
+                  <span className="text-slate-400">{t("referrals.progressToNextReward") || "Progress to next reward"}</span>
+                  <span className="text-blue-400 font-medium">
+                    {(t("referrals.milestoneProgressDesc") || "{current}/{target} referrals → ${reward} reward")
+                      .replace("{current}", activeCount.toString())
+                      .replace("{target}", nextMilestone.count.toString())
+                      .replace("{reward}", nextMilestone.reward.toString())}
+                  </span>
                 </div>
                 <Progress value={progressToNext} className="h-3 bg-slate-700" />
                 <p className="text-xs text-slate-500">
                   {nextMilestone.count - activeCount > 0
-                    ? `${nextMilestone.count - activeCount} more active referrals needed`
-                    : "🎉 Claim your reward below!"}
+                    ? (t("referrals.moreReferralsNeeded") || "{n} more active referrals needed").replace("{n}", (nextMilestone.count - activeCount).toString())
+                    : (t("referrals.claimRewardBelow") || "🎉 Claim your reward below!")}
                 </p>
               </div>
             )}
@@ -382,12 +390,13 @@ export default function ReferralsPage({
                   activeCount={activeCount}
                   onClaim={claimMilestone}
                   claiming={claiming === m.count}
+                  t={t}
                 />
               ))}
             </div>
 
             <p className="text-xs text-slate-500 text-center">
-              An "active referral" is a Level 1 referral who has made at least one approved deposit.
+              {t("referrals.activeReferralDefinition") || "An 'active referral' is a Level 1 referral who has made at least one approved deposit."}
             </p>
           </CardContent>
         </Card>
@@ -540,11 +549,11 @@ export default function ReferralsPage({
                         </div>
                         <div className="flex flex-col items-end space-y-1">
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="text-slate-400">Deposits:</span>
+                            <span className="text-slate-400">{t("referrals.depositsLabel") || "Deposits:"}</span>
                             <span className="text-blue-400 font-medium">${(ref.totalDeposits ?? 0).toFixed(2)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="text-slate-400">You Earned:</span>
+                            <span className="text-slate-400">{t("referrals.youEarnedLabel") || "You Earned:"}</span>
                             <span className="text-green-400 font-bold">${(ref.yourCommission ?? 0).toFixed(2)}</span>
                           </div>
                           <Badge className="bg-green-600 text-white text-[10px] uppercase">{ref.status}</Badge>
@@ -564,7 +573,7 @@ export default function ReferralsPage({
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Gift className="w-5 h-5 text-green-400" />
-                Milestone Bonus History
+                {t("referrals.milestoneBonusHistory") || "Milestone Bonus History"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -574,9 +583,13 @@ export default function ReferralsPage({
                     <div className="flex items-center gap-3">
                       <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
                       <div>
-                        <p className="text-white text-sm font-medium">{m.count} Active Referrals Milestone</p>
+                        <p className="text-white text-sm font-medium">
+                          {(t("referrals.milestoneItemTitle") || "{count} Active Referrals Milestone").replace("{count}", m.count.toString())}
+                        </p>
                         {m.claimed_at && (
-                          <p className="text-slate-400 text-xs">Claimed {new Date(m.claimed_at).toLocaleDateString()}</p>
+                          <p className="text-slate-400 text-xs">
+                            {(t("referrals.claimedOn") || "Claimed {date}").replace("{date}", new Date(m.claimed_at).toLocaleDateString())}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -584,7 +597,7 @@ export default function ReferralsPage({
                   </div>
                 ))}
                 <p className="text-slate-500 text-xs text-center pt-1">
-                  Total milestone bonuses: ${claimedHistory.reduce((s, m) => s + m.reward, 0).toFixed(2)}
+                  {(t("referrals.totalMilestoneBonuses") || "Total milestone bonuses: ${amount}").replace("{amount}", claimedHistory.reduce((s, m) => s + m.reward, 0).toFixed(2))}
                 </p>
               </div>
             </CardContent>

@@ -39,5 +39,22 @@
   "shareOnTelegram": "Auf Telegram teilen",
   "copyLinkBtn": "Link kopieren",
   "levelLabel": "Ebene {n}",
-  "usersCount": "{n} Nutzer"
+  "usersCount": "{n} Nutzer",
+  "milestoneRewards": "Meilenstein-Belohnungen",
+  "activeReferralsCount": "{n} aktive Empfehlungen",
+  "progressToNextReward": "Fortschritt zur nächsten Belohnung",
+  "milestoneProgressDesc": "{current}/{target} Empfehlungen → ${reward} Belohnung",
+  "moreReferralsNeeded": "Noch {n} aktive Empfehlungen erforderlich",
+  "claimRewardBelow": "🎉 Fordern Sie Ihre Belohnung unten an!",
+  "activeReferralDefinition": "Eine „aktive Empfehlung“ ist ein Partner der Ebene 1, der mindestens eine genehmigte Einzahlung getätigt hat.",
+  "claimed": "Eingelöst",
+  "readyToClaim": "Bereit!",
+  "claimMilestoneBtn": "${reward} Belohnung anfordern",
+  "claimingBtn": "Wird angefordert...",
+  "depositsLabel": "Einzahlungen:",
+  "youEarnedLabel": "Ihr Verdienst:",
+  "milestoneBonusHistory": "Meilenstein-Bonusverlauf",
+  "milestoneItemTitle": "Meilenstein von {count} aktiven Empfehlungen",
+  "claimedOn": "Eingelöst am {date}",
+  "totalMilestoneBonuses": "Gesamte Meilenstein-Boni: ${amount}"
 }

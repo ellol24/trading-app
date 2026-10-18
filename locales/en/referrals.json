@@ -39,5 +39,22 @@
   "shareOnTelegram": "Share on Telegram",
   "copyLinkBtn": "Copy Link",
   "levelLabel": "Level {n}",
-  "usersCount": "{n} users"
+  "usersCount": "{n} users",
+  "milestoneRewards": "Milestone Rewards",
+  "activeReferralsCount": "{n} active referrals",
+  "progressToNextReward": "Progress to next reward",
+  "milestoneProgressDesc": "{current}/{target} referrals → ${reward} reward",
+  "moreReferralsNeeded": "{n} more active referrals needed",
+  "claimRewardBelow": "🎉 Claim your reward below!",
+  "activeReferralDefinition": "An \"active referral\" is a Level 1 referral who has made at least one approved deposit.",
+  "claimed": "Claimed",
+  "readyToClaim": "Ready!",
+  "claimMilestoneBtn": "Claim ${reward} Reward",
+  "claimingBtn": "Claiming...",
+  "depositsLabel": "Deposits:",
+  "youEarnedLabel": "You Earned:",
+  "milestoneBonusHistory": "Milestone Bonus History",
+  "milestoneItemTitle": "{count} Active Referrals Milestone",
+  "claimedOn": "Claimed {date}",
+  "totalMilestoneBonuses": "Total milestone bonuses: ${amount}"
 }

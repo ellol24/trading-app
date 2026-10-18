@@ -503,7 +503,15 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t("common.status")}</span>
                   <Badge className="bg-green-600 text-white">
-                    {profile?.status === "active" ? t("common.status_active") : profile?.status === "pending" ? t("common.pending") : profile?.status || t("common.status_active")}
+                    {profile?.status === "active"
+                      ? (t("profile.statusActive") || t("common.status_active") || "Active")
+                      : profile?.status === "verified"
+                        ? (t("profile.statusVerified") || "Verified")
+                        : profile?.status === "pending"
+                          ? (t("profile.statusPending") || t("common.pending") || "Pending")
+                          : profile?.status === "banned"
+                            ? (t("profile.statusBanned") || "Suspended")
+                            : (profile?.status || t("profile.statusActive") || "Active")}
                   </Badge>
                 </div>
 
@@ -602,7 +610,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                               title="Detected from your IP address"
                             >
                               <MapPin className="w-2.5 h-2.5 mr-1" />
-                              IP: {ipLocation.country}
+                              {t("profile.detectedIp") ? t("profile.detectedIp").replace("{country}", ipLocation.country) : `IP: ${ipLocation.country}`}
                             </Badge>
                           )}
                         </Label>
@@ -683,7 +691,8 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                       <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
                         <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                         <p className="text-amber-200 text-xs leading-relaxed">
-                          <strong className="text-amber-300">Accuracy Notice:</strong> Please ensure all information you provide is accurate and truthful. Submitting false details — including your country, phone number, or name — may result in your account being <strong className="text-amber-300">suspended or frozen</strong> until identity verification is completed by contacting our support team.
+                          <strong className="text-amber-300">{t("profile.accuracyNoticeTitle") || "Accuracy Notice:"}</strong>{" "}
+                          {t("profile.accuracyNoticeDesc") || "Please ensure all information you provide is accurate and truthful. Submitting false details — including your country, phone number, or name — may result in your account being suspended or frozen until identity verification is completed by contacting our support team."}
                         </p>
                       </div>
                     )}

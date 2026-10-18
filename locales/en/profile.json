@@ -67,5 +67,12 @@
   "verifying": "Verifying…",
   "verificationFailed": "Verification failed",
   "noActivityYet": "No activity yet",
-  "sending": "Sending…"
+  "sending": "Sending…",
+  "accuracyNoticeTitle": "Accuracy Notice:",
+  "accuracyNoticeDesc": "Please ensure all information you provide is accurate and truthful. Submitting false details — including your country, phone number, or name — may result in your account being suspended or frozen until identity verification is completed by contacting our support team.",
+  "detectedIp": "IP: {country}",
+  "statusVerified": "Verified",
+  "statusActive": "Active",
+  "statusBanned": "Suspended",
+  "statusPending": "Pending"
 }

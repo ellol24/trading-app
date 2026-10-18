@@ -39,5 +39,22 @@
   "shareOnTelegram": "Share on Telegram",
   "copyLinkBtn": "Copy Link",
   "levelLabel": "Level {n}",
-  "usersCount": "{n} users"
+  "usersCount": "{n} users",
+  "milestoneRewards": "Récompenses d'étapes",
+  "activeReferralsCount": "{n} filleuls actifs",
+  "progressToNextReward": "Progression vers la prochaine récompense",
+  "milestoneProgressDesc": "{current}/{target} filleuls → récompense de ${reward}",
+  "moreReferralsNeeded": "Encore {n} filleuls actifs requis",
+  "claimRewardBelow": "🎉 Réclamez votre récompense ci-dessous !",
+  "activeReferralDefinition": "Un « filleul actif » est un filleul de niveau 1 ayant effectué au moins un dépôt approuvé.",
+  "claimed": "Réclamé",
+  "readyToClaim": "Prêt !",
+  "claimMilestoneBtn": "Réclamer la récompense de ${reward}",
+  "claimingBtn": "Réclamation en cours...",
+  "depositsLabel": "Dépôts :",
+  "youEarnedLabel": "Vous avez gagné :",
+  "milestoneBonusHistory": "Historique des bonus d'étapes",
+  "milestoneItemTitle": "Étape de {count} filleuls actifs",
+  "claimedOn": "Réclamé le {date}",
+  "totalMilestoneBonuses": "Total des bonus d'étapes : ${amount}"
 }

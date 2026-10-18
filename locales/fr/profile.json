@@ -54,7 +54,7 @@
   "telegramLinking": "Liaison Telegram pour la 2FA",
   "telegramChatId": "ID de chat Telegram (numérique)",
   "telegramChatIdPlaceholder": "ex: 123456789",
-  "telegramChatIdHint": "Pour recevoir les codes 2FA, envoyez un message � notre bot de s�curit� officiel @XspyTraderOtp_bot et appuyez sur START. Le bot vous r�pondra instantan�ment avec votre Chat ID num�rique. Collez-le ici.",
+  "telegramChatIdHint": "Pour recevoir les codes 2FA de retrait, envoyez un message à notre bot de sécurité officiel @XSpyTraderOtp_bot et appuyez sur START. Le bot vous répondra instantanément avec votre Chat ID numérique. Collez-le ici.",
   "saveOtpNotice": "Un code à 6 chiffres sera envoyé à votre email pour confirmer ces modifications avant qu'elles ne soient sauvegardées.",
   "verifyIdentity": "Vérifiez votre identité",
   "otpSentToEmail": "Un code à 6 chiffres a été envoyé à {email}. Entrez-le ci-dessous pour confirmer les modifications de votre profil.",
@@ -67,5 +67,11 @@
   "verifying": "Vérification en cours…",
   "verificationFailed": "Échec de la vérification",
   "noActivityYet": "Aucune activité pour le moment",
-  "sending": "Envoi en cours…"
+  "sending": "Envoi en cours…",
+  "accuracyNoticeTitle": "Avis d'exactitude :",
+  "accuracyNoticeDesc": "Veuillez vous assurer que toutes les informations fournies sont exactes et véridiques. La soumission de fausses données — y compris votre pays, numéro de téléphone ou nom — peut entraîner la suspension ou le gel de votre compte jusqu'à vérification d'identité auprès de notre assistance.",
+  "detectedIp": "IP : {country}",
+  "statusVerified": "Vérifié",
+  "statusActive": "Actif",
+  "statusBanned": "Suspendu"
 }

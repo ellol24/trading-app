@@ -39,5 +39,22 @@
   "shareOnTelegram": "مشاركة على تيليغرام",
   "copyLinkBtn": "نسخ الرابط",
   "levelLabel": "المستوى {n}",
-  "usersCount": "{n} مستخدم"
+  "usersCount": "{n} مستخدم",
+  "milestoneRewards": "مكافآت مستويات الإحالة",
+  "activeReferralsCount": "{n} إحالات نشطة",
+  "progressToNextReward": "التقدم نحو المكافأة التالية",
+  "milestoneProgressDesc": "{current}/{target} إحالة ← مكافأة ${reward}",
+  "moreReferralsNeeded": "مطلوب {n} إحالات نشطة إضافية",
+  "claimRewardBelow": "🎉 طالب بمكافأتك أدناه!",
+  "activeReferralDefinition": "\"الإحالة النشطة\" هي إحالة من المستوى 1 قامت بإيداع معتمد واحد على الأقل.",
+  "claimed": "تم الاستلام",
+  "readyToClaim": "جاهز للاستلام!",
+  "claimMilestoneBtn": "استلام مكافأة ${reward}",
+  "claimingBtn": "جارٍ الاستلام...",
+  "depositsLabel": "الإيداعات:",
+  "youEarnedLabel": "أرباحك:",
+  "milestoneBonusHistory": "سجل مكافآت المستويات",
+  "milestoneItemTitle": "مكافأة إنجاز {count} إحالات نشطة",
+  "claimedOn": "تم الاستلام في {date}",
+  "totalMilestoneBonuses": "إجمالي مكافآت الإنجاز: ${amount}"
 }
