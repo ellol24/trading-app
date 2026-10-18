@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Plus, Edit, Trash2, Percent, Calendar, Coins, Users, DollarSign, TrendingUp, Package } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/language-context";
 
 type DBPackage = {
   id: string;
@@ -49,6 +50,7 @@ type PackageItem = {
 const BUCKET = "package-images";
 
 export default function AdminPackagesPage() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<PackageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -278,15 +280,15 @@ export default function AdminPackagesPage() {
     <div className="min-h-screen p-6 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">إدارة الباقات</h1>
-          <p className="text-sm text-blue-200">أنشئ وحرِّر الباقات الاستثمارية هنا</p>
+          <h1 className="text-2xl font-bold">{t('admin.packagesTitle') || "Investment Packages Management"}</h1>
+          <p className="text-sm text-blue-200">{t('admin.packagesSubtitle') || "Create, edit and manage investment packages."}</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={startCreate}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
           >
-            <Plus className="w-4 h-4" /> إضافة باقة
+            <Plus className="w-4 h-4" /> {t('admin.addPackageBtn') || "Add Package"}
           </button>
         </div>
       </div>
@@ -295,29 +297,29 @@ export default function AdminPackagesPage() {
         <div className="bg-slate-800 p-4 rounded border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-blue-200">إجمالي الباقات</div>
+              <div className="text-sm text-blue-200">{t('admin.totalPackages') || "Total Packages"}</div>
               <div className="text-2xl font-bold">{loading ? "—" : statistics.totalPackages}</div>
             </div>
             <Package className="w-6 h-6 text-blue-300" />
           </div>
-          <div className="text-sm text-blue-200 mt-2">{loading ? "—" : statistics.activePackages} مفعلة</div>
+          <div className="text-sm text-blue-200 mt-2">{loading ? "—" : statistics.activePackages} {t('admin.activePackages') || "Active"}</div>
         </div>
 
         <div className="bg-slate-800 p-4 rounded border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-blue-200">إجمالي المشتريات</div>
+              <div className="text-sm text-blue-200">{t('admin.totalPurchases') || "Total Purchases"}</div>
               <div className="text-2xl font-bold">{loading ? "—" : statistics.totalPurchases}</div>
             </div>
             <Users className="w-6 h-6 text-blue-300" />
           </div>
-          <div className="text-sm text-blue-200 mt-2">كل الأوقات</div>
+          <div className="text-sm text-blue-200 mt-2">{t('common.allTime') || "All time"}</div>
         </div>
 
         <div className="bg-slate-800 p-4 rounded border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-blue-200">إجمالي الإيرادات</div>
+              <div className="text-sm text-blue-200">{t('admin.totalRevenue') || "Total Revenue"}</div>
               <div className="text-2xl font-bold">{loading ? "—" : `$${(statistics.totalRevenue ?? 0).toLocaleString()}`}</div>
             </div>
             <DollarSign className="w-6 h-6 text-blue-300" />
@@ -327,7 +329,7 @@ export default function AdminPackagesPage() {
         <div className="bg-slate-800 p-4 rounded border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-blue-200">متوسط الاستثمار</div>
+              <div className="text-sm text-blue-200">{t('admin.earningsBreakdown') || "Average Investment"}</div>
               <div className="text-2xl font-bold">
                 {loading ? "—" : `$${statistics.totalPurchases ? Math.round((statistics.totalRevenue ?? 0) / statistics.totalPurchases) : 0}`}
               </div>
@@ -340,9 +342,9 @@ export default function AdminPackagesPage() {
       {/* قائمة الباقات */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <div>جاري التحميل...</div>
+          <div>{t('common.loading') || "Loading..."}</div>
         ) : items.length === 0 ? (
-          <div className="text-slate-300">لا توجد باقات</div>
+          <div className="text-slate-300">{t('common.noData') || "No packages found"}</div>
         ) : (
           items.map((p) => (
             <div key={p.id} className="bg-slate-800 rounded p-4 border border-slate-700 shadow">
@@ -352,26 +354,26 @@ export default function AdminPackagesPage() {
                   <div className="flex justify-between items-start">
                     <h3 className="font-semibold text-white">{p.title}</h3>
                     <span className={`px-2 py-1 text-xs rounded ${p.active ? "bg-green-600 text-green-100" : "bg-red-600 text-red-100"}`}>
-                      {p.active ? "مفعل" : "معطل"}
+                      {p.active ? (t('admin.active') || "Active") : (t('admin.inactive') || "Disabled")}
                     </span>
                   </div>
                   <p className="text-sm text-slate-300 mt-1">{p.description}</p>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-blue-200">
-                    <div>⏳ {p.durationDays} يوم</div>
-                    <div>📈 {p.roiDailyPercent}% يومياً</div>
-                    <div>💰 {p.minInvestment} - {p.maxInvestment} $</div>
-                    <div>🔢 مشتريات: {p.totalPurchases || 0}</div>
+                    <div>⏳ {p.durationDays} {t('admin.days') || "days"}</div>
+                    <div>📈 {p.roiDailyPercent}% {t('admin.dailyRoi') || "Daily"}</div>
+                    <div>💰 ${p.minInvestment} - ${p.maxInvestment}</div>
+                    <div>🔢 {t('admin.totalPurchases') || "Purchases"}: {p.totalPurchases || 0}</div>
                   </div>
 
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => startEdit(p)} className="flex-1 px-3 py-2 bg-yellow-600 rounded hover:bg-yellow-700 text-sm">
-                      <Edit className="inline w-4 h-4 mr-1" /> تعديل
+                      <Edit className="inline w-4 h-4 mr-1" /> {t('admin.editPackage') || "Edit"}
                     </button>
                     <button onClick={() => toggleActive(p)} className="flex-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700 text-sm">
-                      {p.active ? "تعطيل" : "تفعيل"}
+                      {p.active ? (t('admin.deactivate') || "Disable") : (t('admin.activate') || "Enable")}
                     </button>
                     <button onClick={() => remove(p.id)} className="flex-1 px-3 py-2 bg-red-600 rounded hover:bg-red-700 text-sm">
-                      <Trash2 className="inline w-4 h-4 mr-1" /> حذف
+                      <Trash2 className="inline w-4 h-4 mr-1" /> {t('admin.deletePackage') || "Delete"}
                     </button>
                   </div>
                 </div>
@@ -387,38 +389,38 @@ export default function AdminPackagesPage() {
           <div className="w-full max-w-2xl rounded-xl bg-slate-900 border border-slate-700 shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700">
-              <h2 className="text-lg font-semibold">{editing ? "تعديل باقة" : "إضافة باقة"}</h2>
-              <button onClick={() => setOpen(false)} className="px-3 py-1 rounded border border-slate-600 hover:bg-slate-800">إغلاق</button>
+              <h2 className="text-lg font-semibold">{editing ? (t('admin.editPackage') || "Edit Package") : (t('admin.addPackageBtn') || "Add Package")}</h2>
+              <button onClick={() => setOpen(false)} className="px-3 py-1 rounded border border-slate-600 hover:bg-slate-800">{t('common.close') || "Close"}</button>
             </div>
 
             {/* Body */}
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[65vh] overflow-y-auto">
-              <TextField label="الاسم" value={form.title} onChange={(v) => setForm({ ...form, title: v })} required />
-              <NumberField label="المدة (يوم)" value={form.durationDays} onChange={(v) => setForm({ ...form, durationDays: v })} />
-              <NumberField label="النسبة اليومية %" value={form.roiDailyPercent} onChange={(v) => setForm({ ...form, roiDailyPercent: v })} />
-              <NumberField label="الحد الأدنى" value={form.minInvestment} onChange={(v) => setForm({ ...form, minInvestment: v })} />
-              <NumberField label="الحد الأقصى" value={form.maxInvestment} onChange={(v) => setForm({ ...form, maxInvestment: v })} />
-              <NumberField label="الحد الأقصى لكل مستخدم" value={form.maxPurchasesPerUser} onChange={(v) => setForm({ ...form, maxPurchasesPerUser: v })} />
-              <NumberField label="السعة الإجمالية" value={form.totalCapacity} onChange={(v) => setForm({ ...form, totalCapacity: v })} />
+              <TextField label={t('admin.packageName') || "Name"} value={form.title} onChange={(v) => setForm({ ...form, title: v })} required />
+              <NumberField label={`${t('admin.duration') || "Duration"} (${t('admin.days') || "days"})`} value={form.durationDays} onChange={(v) => setForm({ ...form, durationDays: v })} />
+              <NumberField label={`${t('admin.dailyRoi') || "Daily ROI"} %`} value={form.roiDailyPercent} onChange={(v) => setForm({ ...form, roiDailyPercent: v })} />
+              <NumberField label={t('admin.minInvestment') || "Min Investment"} value={form.minInvestment} onChange={(v) => setForm({ ...form, minInvestment: v })} />
+              <NumberField label={t('admin.maxInvestment') || "Max Investment"} value={form.maxInvestment} onChange={(v) => setForm({ ...form, maxInvestment: v })} />
+              <NumberField label="Max Per User" value={form.maxPurchasesPerUser} onChange={(v) => setForm({ ...form, maxPurchasesPerUser: v })} />
+              <NumberField label={t('admin.capacity') || "Capacity"} value={form.totalCapacity} onChange={(v) => setForm({ ...form, totalCapacity: v })} />
               <div className="md:col-span-2">
-                <label className="block text-sm mb-1">رابط الصورة</label>
+                <label className="block text-sm mb-1">Image URL</label>
                 <input className="w-full p-2 rounded bg-slate-800 border border-slate-700" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
                 <input type="file" className="mt-2" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage(f); }} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm mb-1">الوصف</label>
+                <label className="block text-sm mb-1">{t('admin.packageDescription') || "Description"}</label>
                 <textarea className="w-full p-2 rounded bg-slate-800 border border-slate-700" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="flex items-center gap-2 md:col-span-2">
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-                <span>تفعيل الباقة</span>
+                <span>{t('admin.activate') || "Enable Package"}</span>
               </div>
             </div>
 
             {/* Footer */}
             <div className="flex justify-end gap-3 px-5 py-3 border-t border-slate-700">
-              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded border border-slate-600 hover:bg-slate-800">إلغاء</button>
-              <button onClick={save} disabled={processing} className="px-4 py-2 rounded bg-green-600 hover:bg-green-700">{processing ? "جارٍ الحفظ..." : "حفظ"}</button>
+              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded border border-slate-600 hover:bg-slate-800">{t('common.cancel') || "Cancel"}</button>
+              <button onClick={save} disabled={processing} className="px-4 py-2 rounded bg-green-600 hover:bg-green-700">{processing ? (t('admin.saving') || "Saving...") : (t('common.save') || "Save")}</button>
             </div>
           </div>
         </div>

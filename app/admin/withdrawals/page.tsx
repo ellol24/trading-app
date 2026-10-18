@@ -14,6 +14,7 @@ import { CopyButton } from "@/components/ui/copy-button"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase/client"
+import { useLanguage } from "@/contexts/language-context"
 
 type Withdrawal = {
   id: string
@@ -44,6 +45,7 @@ type OtpRequest = {
 }
 
 export default function AdminWithdrawalsPage() {
+  const { t } = useLanguage()
   const [status, setStatus] = useState<"all" | Withdrawal["status"]>("all")
   const [query, setQuery] = useState("")
   const [items, setItems] = useState<Withdrawal[]>([])
@@ -270,24 +272,24 @@ export default function AdminWithdrawalsPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Withdrawals & Security Logs</h1>
+        <h1 className="text-2xl font-bold">{t('admin.withdrawalsTitle') || "Withdrawals & Security Logs"}</h1>
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
             className={withdrawalsEnabled ? "text-green-600 border-green-600" : "text-red-600 border-red-600"}
           >
-            {withdrawalsEnabled ? "Withdrawals: Enabled" : "Withdrawals: Disabled"}
+            {withdrawalsEnabled ? (t('admin.withdrawalsEnabled') || "Withdrawals: Enabled") : (t('admin.withdrawalsDisabled') || "Withdrawals: Disabled")}
           </Badge>
           <Button variant={withdrawalsEnabled ? "destructive" : "default"} onClick={() => setWithdrawalsEnabled((v) => !v)}>
-            {withdrawalsEnabled ? "Disable Withdrawals" : "Enable Withdrawals"}
+            {withdrawalsEnabled ? (t('admin.disableWithdrawals') || "Disable Withdrawals") : (t('admin.enableWithdrawals') || "Enable Withdrawals")}
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="requests" className="space-y-4">
         <TabsList className="bg-muted/50 border">
-          <TabsTrigger value="requests">Finalized Requests</TabsTrigger>
-          <TabsTrigger value="otps">OTP Security Logs</TabsTrigger>
+          <TabsTrigger value="requests">{t('admin.finalizedRequests') || "Finalized Requests"}</TabsTrigger>
+          <TabsTrigger value="otps">{t('admin.otpSecurityLogs') || "OTP Security Logs"}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-6">
@@ -295,7 +297,7 @@ export default function AdminWithdrawalsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Filter className="w-4 h-4" /> Filters
+                <Filter className="w-4 h-4" /> {t('admin.filters') || "Filters"}
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-3">
@@ -303,7 +305,7 @@ export default function AdminWithdrawalsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
-                    placeholder="Search by username, email, request ID or address..."
+                    placeholder={t('admin.searchWithdrawalsPlaceholder') || "Search by username, email, request ID or address..."}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     className="pl-9"
@@ -313,15 +315,15 @@ export default function AdminWithdrawalsPage() {
               <div>
                 <Select value={status} onValueChange={(v) => setStatus(v as any)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder={t('admin.status') || "Status"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="all">{t('admin.all') || "All"}</SelectItem>
+                    <SelectItem value="pending">{t('admin.pending') || "Pending"}</SelectItem>
+                    <SelectItem value="approved">{t('admin.approved') || "Approved"}</SelectItem>
+                    <SelectItem value="processing">{t('admin.processing') || "Processing"}</SelectItem>
+                    <SelectItem value="paid">{t('admin.paid') || "Paid"}</SelectItem>
+                    <SelectItem value="rejected">{t('admin.rejected') || "Rejected"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -332,7 +334,7 @@ export default function AdminWithdrawalsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <DollarSign className="w-4 h-4 mr-2" /> Requests ({filtered.length})
+                <DollarSign className="w-4 h-4 mr-2" /> {t('admin.requestsCount') || "Requests"} ({filtered.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -347,13 +349,13 @@ export default function AdminWithdrawalsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-blue-600 border-blue-600">
-                        ${w.requestedAmount} requested
+                        ${w.requestedAmount} {t('admin.requested') || "requested"}
                       </Badge>
                       <Badge variant="outline" className="text-red-600 border-red-600">
-                        Fee {w.feePct}%
+                        {t('admin.fee') || "Fee"} {w.feePct}%
                       </Badge>
                       <Badge variant="outline" className="text-green-600 border-green-600">
-                        Net ${w.netAmount}
+                        {t('admin.netAmount') || "Net"} ${w.netAmount}
                       </Badge>
                     </div>
                   </div>
@@ -363,7 +365,7 @@ export default function AdminWithdrawalsPage() {
                       <StatusBadge value={w.status} />
                       <Badge variant="outline" className={w.otpVerified ? "text-green-600 border-green-600" : "text-yellow-600 border-yellow-600"}>
                         <ShieldAlert className="w-3 h-3 mr-1" />
-                        OTP {w.otpVerified ? "Verified" : "Unverified"}
+                        OTP {w.otpVerified ? (t('admin.approved') || "Verified") : "Unverified"}
                       </Badge>
                       <Badge
                         variant="outline"
@@ -386,16 +388,16 @@ export default function AdminWithdrawalsPage() {
                           <span className="flex items-center gap-1">
                             <Wallet className="h-3.5 w-3.5" /> {w.asset} • {w.walletLabel}
                           </span>
-                          <CopyButton value={w.address} tooltip="Copy address" aria-label="Copy address" />
+                          <CopyButton value={w.address} tooltip={t('admin.copyAddress') || "Copy address"} aria-label="Copy address" />
                         </div>
                         <div className="mt-1 font-mono text-sm break-all">{w.address}</div>
                       </div>
                       <div className="rounded-md border bg-muted/30 p-2">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Hash className="h-3.5 w-3.5" /> Request ID
+                            <Hash className="h-3.5 w-3.5" /> {t('admin.requestId') || "Request ID"}
                           </span>
-                          <CopyButton value={w.id} tooltip="Copy request ID" aria-label="Copy request ID" />
+                          <CopyButton value={w.id} tooltip={t('admin.copyAddress') || "Copy request ID"} aria-label="Copy request ID" />
                         </div>
                         <div className="mt-1 font-mono text-sm">{w.id}</div>
                       </div>
@@ -404,28 +406,28 @@ export default function AdminWithdrawalsPage() {
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => openAction(w, "approve")}>
-                      <CheckCircle2 className="w-4 h-4 mr-1" /> Approve
+                      <CheckCircle2 className="w-4 h-4 mr-1" /> {t('admin.approveBtn') || "Approve"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openAction(w, "processing")}>
-                      <Clock className="w-4 h-4 mr-1" /> Mark Processing
+                      <Clock className="w-4 h-4 mr-1" /> {t('admin.markProcessingBtn') || "Mark Processing"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openAction(w, "paid")}>
-                      <Send className="w-4 h-4 mr-1" /> Mark Paid
+                      <Send className="w-4 h-4 mr-1" /> {t('admin.markPaidBtn') || "Mark Paid"}
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => openAction(w, "reject")}>
-                      <XCircle className="w-4 h-4 mr-1" /> Reject
+                      <XCircle className="w-4 h-4 mr-1" /> {t('admin.rejectBtn') || "Reject"}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setDetailsFor(w)}>
-                      <FileText className="w-4 h-4 mr-1" /> View Details
+                      <FileText className="w-4 h-4 mr-1" /> {t('admin.viewDetailsBtn') || "View Details"}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setUserFor(w)}>
-                      <Info className="w-4 h-4 mr-1" /> User Info
+                      <Info className="w-4 h-4 mr-1" /> {t('admin.userInfoBtn') || "User Info"}
                     </Button>
                   </div>
                 </div>
               ))}
 
-              {!filtered.length && <p className="text-sm text-muted-foreground">No withdrawals match your filters.</p>}
+              {!filtered.length && <p className="text-sm text-muted-foreground">{t('admin.noWithdrawalsMatch') || "No withdrawals match your filters."}</p>}
             </CardContent>
           </Card>
         </TabsContent>

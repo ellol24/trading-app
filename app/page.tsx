@@ -23,7 +23,7 @@ async function getHomePageData() {
     ])
 
     // Calculate total trading volume from completed deposits
-    const totalVolume = depositsResult.data?.reduce((sum, deposit) => sum + (deposit.amount || 0), 0) || 0
+    const totalVolume = depositsResult.data?.reduce((sum: number, deposit: any) => sum + (deposit.amount || 0), 0) || 0
 
     // Get recent testimonials from user reviews (if any)
     const { data: testimonials } = await supabase
@@ -109,7 +109,7 @@ export default async function HomePage() {
 
   const testimonials =
     data.testimonials.length > 0
-      ? data.testimonials.map((t, idx) => ({
+      ? data.testimonials.map((t: any, idx: number) => ({
           name: `${t.first_name} ${t.last_name}`,
           role: "Platform User",
           content: `Great experience with ${BRAND_NAME}. Highly recommended!`,
@@ -206,7 +206,7 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {data.packages.slice(0, 3).map((pkg, idx) => (
+              {data.packages.slice(0, 3).map((pkg: any, idx: number) => (
                 <Card key={idx} className="trading-card">
                   <CardHeader>
                     <CardTitle className="text-white">{pkg.name}</CardTitle>
@@ -246,7 +246,7 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {testimonials.map((t, idx) => (
+            {testimonials.map((t: any, idx: number) => (
               <Card key={idx} className="trading-card">
                 <CardHeader>
                   <div className="mb-4 flex items-center space-x-1">
@@ -266,7 +266,7 @@ export default async function HomePage() {
                       <span className="text-sm font-semibold text-white">
                         {t.name
                           .split(" ")
-                          .map((n) => n[0])
+                          .map((n: string) => n[0])
                           .join("")}
                       </span>
                     </div>

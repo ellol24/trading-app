@@ -17,7 +17,7 @@ type RealDeposit = {
   id: string;
   user_id: string;
   amount: number;
-  status: "pending" | "confirmed" | "rejected" | "expired";
+  status: "pending" | "confirmed" | "rejected" | "expired" | "approved";
   payment_method: string;
   transaction_id: string | null;
   proof_url: string | null;

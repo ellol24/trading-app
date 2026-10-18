@@ -17,8 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Percent, Package, Gift } from "lucide-react";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function AdminPlatformControlsPage() {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -162,7 +164,7 @@ export default function AdminPlatformControlsPage() {
         {[1, 2, 3].map((level) => (
           <div key={`${type}-${level}`} className="grid gap-2 md:grid-cols-[220px_1fr] items-center">
             <Label htmlFor={`${type}-${level}`} className="flex items-center gap-2 text-slate-300">
-              <Icon className="w-4 h-4 text-blue-400" /> Level {level} (%)
+              <Icon className="w-4 h-4 text-blue-400" /> {t('admin.level') || "Level"} {level} (%)
             </Label>
             <div className="flex items-center gap-2">
               <Input
@@ -186,8 +188,12 @@ export default function AdminPlatformControlsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 bg-slate-900 min-h-screen text-white">
       <div>
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 mb-2">Platform Controls & Settings</h1>
-        <p className="text-slate-400">Manage welcome bonuses and multi-level referral commissions globally across your platform.</p>
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 mb-2">
+          {t('admin.platformSettingsTitle') || "Platform Controls & Settings"}
+        </h1>
+        <p className="text-slate-400">
+          {t('admin.platformSettingsDesc') || "Manage welcome bonuses and multi-level referral commissions globally across your platform."}
+        </p>
       </div>
 
       {/* 🎁 Welcome Bonus Section */}
@@ -195,16 +201,16 @@ export default function AdminPlatformControlsPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Gift className="w-5 h-5 text-indigo-400" /> 
-            Welcome Registration Bonus
+            {t('admin.welcomeBonusTitle') || "Welcome Registration Bonus"}
           </CardTitle>
           <CardDescription className="text-indigo-200">
-            Define a reward amount that is instantly credited to a new user's balance upon completing registration.
+            {t('admin.welcomeBonusDesc') || "Define a reward amount that is instantly credited to a new user's balance upon completing registration."}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 md:grid-cols-[220px_1fr] items-center">
           <div className="space-y-4">
             <Label className="flex items-center justify-between text-slate-300">
-              <span className="font-semibold text-lg">Enable Bonus</span>
+              <span className="font-semibold text-lg">{t('admin.enableBonus') || "Enable Bonus"}</span>
               <Switch 
                 checked={welcomeBonus.enabled}
                 onCheckedChange={(checked) => setWelcomeBonus(prev => ({ ...prev, enabled: checked }))}
@@ -214,7 +220,7 @@ export default function AdminPlatformControlsPage() {
             </Label>
           </div>
           <div className="space-y-2 max-w-xs">
-            <Label className="text-slate-300">Reward Amount ($)</Label>
+            <Label className="text-slate-300">{t('admin.rewardAmount') || "Reward Amount ($)"}</Label>
             <div className="flex items-center gap-2">
               <span className="text-green-400 font-bold">$</span>
               <Input
@@ -227,7 +233,6 @@ export default function AdminPlatformControlsPage() {
                 disabled={loading || !welcomeBonus.enabled}
               />
             </div>
-            {!welcomeBonus.enabled && <p className="text-xs text-slate-500">Enable the switch to activate the bonus.</p>}
           </div>
         </CardContent>
       </Card>
@@ -235,24 +240,24 @@ export default function AdminPlatformControlsPage() {
       {/* 💰 Deposit Commission */}
       <CommissionSection
         type="deposit"
-        title="Deposit Referral Commissions"
-        description="Set referral commission rates for deposits at each level."
+        title={t('admin.depositCommissions') || "Deposit Referral Commissions"}
+        description={t('admin.depositCommissionsDesc') || "Set referral commission rates for deposits at each level."}
         icon={Percent}
       />
 
       {/* 📈 Trade Profit Commission */}
       <CommissionSection
         type="trade"
-        title="Trading Profit Referral Commissions"
-        description="Define commission percentages from users’ trading profits."
+        title={t('admin.tradeCommissions') || "Trading Profit Referral Commissions"}
+        description={t('admin.tradeCommissionsDesc') || "Define commission percentages from users’ trading profits."}
         icon={Percent}
       />
 
       {/* 💼 Package Commission */}
       <CommissionSection
         type="package"
-        title="Package Referral Commissions"
-        description="Define commission rates for referral earnings from investment packages."
+        title={t('admin.packageCommissions') || "Package Referral Commissions"}
+        description={t('admin.packageCommissionsDesc') || "Define commission rates for referral earnings from investment packages."}
         icon={Package}
       />
 
@@ -263,7 +268,7 @@ export default function AdminPlatformControlsPage() {
           loading={loading}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 text-lg shadow-xl shadow-blue-600/20"
         >
-          💾 Save All Platform Settings
+          💾 {t('admin.saveSettingsBtn') || "Save Platform Settings"}
         </ProfessionalButton>
       </div>
 

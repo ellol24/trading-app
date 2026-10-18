@@ -376,6 +376,8 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
     profileData.country?.trim()
   );
 
+  const isAdmin = profile?.role === "admin" || (typeof window !== "undefined" && !!localStorage.getItem("_admin_impersonating"));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 pb-24" data-react-protected>
       <div className="max-w-6xl mx-auto space-y-6" translate="no" data-react-protected>
@@ -406,7 +408,16 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center flex-wrap gap-3">
+            {isAdmin && (
+              <Button
+                onClick={() => router.push("/admin/dashboard")}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-purple-600/20"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                {t("admin.returnToAdmin") || "Return to Admin Panel"}
+              </Button>
+            )}
             <LanguageSwitcher />
             <Button
               variant="outline"
@@ -422,7 +433,27 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6" translate="no">
           {/* Sidebar */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
+            {isAdmin && (
+              <Card className="trading-card border-purple-500/40 bg-purple-950/20">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-purple-300 font-semibold text-sm">
+                    <Shield className="w-4 h-4 text-purple-400" />
+                    {t("admin.adminPanel") || "Administrator Access"}
+                  </div>
+                  <p className="text-xs text-purple-300/80">
+                    {t("admin.returnToAdminDesc") || "You have administrative access to the platform."}
+                  </p>
+                  <Button
+                    onClick={() => router.push("/admin/dashboard")}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs h-9 font-medium"
+                  >
+                    <Shield className="w-3.5 h-3.5 mr-1.5" />
+                    {t("admin.returnToAdmin") || "Return to Admin Panel"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card className="trading-card" translate="no" data-react-protected>
               <CardHeader>
                 <CardTitle className="text-white text-lg">{t("profile.accountOverview")}</CardTitle>

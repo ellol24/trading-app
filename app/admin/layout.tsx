@@ -43,6 +43,7 @@ export default function AdminLayout({
   const coreItems = [
     { href: "/admin/dashboard", icon: LayoutDashboard, label: t('admin.dashboard') },
     { href: "/admin/users", icon: Users, label: t('admin.userManagement') },
+    { href: "/admin/impersonate", icon: Eye, label: t('admin.testAsUser') || "Switch to User View" },
     { href: "/admin/packages", icon: Package, label: t('admin.packageManagement') },
     { href: "/admin/trading", icon: TrendingUp, label: t('admin.tradingControls') },
     { href: "/admin/withdrawals", icon: DollarSign, label: t('admin.withdrawals') },
@@ -57,7 +58,6 @@ export default function AdminLayout({
     { href: "/admin/broadcast", icon: Megaphone, label: t('admin.broadcastCenter') || "Broadcast Center" },
     { href: "/admin/notifications", icon: Bell, label: t('admin.notificationCenter') || "Notification Center" },
     { href: "/admin/users-activity", icon: Activity, label: t('admin.usersActivity') || "User Activity" },
-    { href: "/admin/impersonate", icon: Eye, label: t('admin.switchToUserView') || "Switch to User View" },
   ]
 
   const handleWeeklyWinner = async () => {
@@ -89,18 +89,29 @@ export default function AdminLayout({
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-800 shrink-0">
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-              {t('admin.adminPanel')}
-            </h2>
-            <div className="mt-1">
-              <LanguageSwitcher />
+        <div className="p-4 border-b border-gray-200 dark:border-slate-800 shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                {t('admin.adminPanel')}
+              </h2>
+              <div className="mt-1">
+                <LanguageSwitcher />
+              </div>
             </div>
+            <Button variant="ghost" size="sm" className="lg:hidden text-slate-400" onClick={() => setSidebarOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" className="lg:hidden text-slate-400" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+
+          <Link
+            href="/admin/impersonate"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 border border-blue-500/30 text-blue-300 text-xs font-semibold shadow-sm transition-all"
+          >
+            <Eye className="w-3.5 h-3.5 text-blue-400" />
+            <span>{t('admin.testAsUser') || "Switch to User View (Test)"}</span>
+          </Link>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -184,12 +195,21 @@ export default function AdminLayout({
       {/* Main content */}
       <div className="lg:pl-64 transition-all duration-200">
         {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-30">
+        <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-30 gap-2">
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5 text-slate-200" />
           </Button>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{t('admin.adminPanel')}</h1>
-          <LanguageSwitcher />
+          <h1 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{t('admin.adminPanel')}</h1>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/impersonate"
+              className="p-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-semibold flex items-center gap-1"
+              title={t('admin.testAsUser') || "Switch to User View"}
+            >
+              <Eye className="w-4 h-4 text-blue-400" />
+            </Link>
+            <LanguageSwitcher />
+          </div>
         </div>
 
         <main className="min-h-screen bg-slate-950">{children}</main>

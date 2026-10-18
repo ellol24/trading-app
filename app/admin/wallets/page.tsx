@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { QrCode, Plus, Eye, EyeOff, Copy } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@supabase/supabase-js"
+import { useLanguage } from "@/contexts/language-context"
 
 // ✅ Supabase client
 const supabase = createClient(
@@ -29,6 +30,7 @@ type PlatformWallet = {
 }
 
 export default function AdminWalletsPage() {
+  const { t } = useLanguage()
   const [wallets, setWallets] = useState<PlatformWallet[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<{ asset: PlatformWallet["asset"] | ""; address: string }>({ asset: "", address: "" })
@@ -94,21 +96,21 @@ export default function AdminWalletsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Wallet Management</h1>
+        <h1 className="text-2xl font-bold">{t('admin.walletManagementTitle') || "Wallet Management"}</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" /> Add Wallet</Button>
+            <Button><Plus className="w-4 h-4 mr-2" /> {t('admin.addWalletBtn') || "Add Wallet"}</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Deposit Wallet</DialogTitle>
-              <DialogDescription>These wallets are displayed to users for deposits.</DialogDescription>
+              <DialogTitle>{t('admin.addNewDepositWallet') || "Add Deposit Wallet"}</DialogTitle>
+              <DialogDescription>{t('admin.depositWalletsDesc') || "These wallets are displayed to users for deposits."}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-3 py-3">
               <div className="space-y-2">
-                <Label>Asset</Label>
+                <Label>{t('admin.asset') || "Asset"}</Label>
                 <Select value={form.asset} onValueChange={(v) => setForm(prev => ({ ...prev, asset: v as any }))}>
-                  <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin.selectAssetPlaceholder') || "Select asset"} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="USDT(TRC20)">USDT(TRC20)</SelectItem>
                     <SelectItem value="USDT(BEB20)">USDT(BEB20)</SelectItem>
@@ -116,13 +118,13 @@ export default function AdminWalletsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Address</Label>
-                <Input placeholder="Enter address" value={form.address} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} />
+                <Label>{t('admin.address') || "Address"}</Label>
+                <Input placeholder={t('admin.walletAddress') || "Enter address"} value={form.address} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={add} disabled={!form.asset || !form.address || loading}>Save</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>{t('common.cancel') || "Cancel"}</Button>
+              <Button onClick={add} disabled={!form.asset || !form.address || loading}>{t('common.save') || "Save"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -132,29 +134,29 @@ export default function AdminWalletsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card/50 backdrop-blur-md">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Total Wallets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin.totalWallets') || "Total Wallets"}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{wallets.length}</div>
-            <p className="text-xs text-muted-foreground">Total deposit wallets configured</p>
+            <p className="text-xs text-muted-foreground">{t('admin.totalDepositWalletsConfig') || "Total deposit wallets configured"}</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 backdrop-blur-md">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Visible Wallets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin.visibleWallets') || "Visible Wallets"}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{wallets.filter(w => w.visible).length}</div>
-            <p className="text-xs text-muted-foreground">Currently visible to users</p>
+            <p className="text-xs text-muted-foreground">{t('admin.currentlyVisibleToUsers') || "Currently visible to users"}</p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 backdrop-blur-md">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Supported Assets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin.supportedAssets') || "Supported Assets"}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{new Set(wallets.map(w => w.asset)).size}</div>
-            <p className="text-xs text-muted-foreground">Different crypto types</p>
+            <p className="text-xs text-muted-foreground">{t('admin.differentCryptoTypes') || "Different crypto types"}</p>
           </CardContent>
         </Card>
       </div>
@@ -162,11 +164,11 @@ export default function AdminWalletsPage() {
       {/* جدول المحافظ */}
       <Card className="bg-card/50 backdrop-blur-md">
         <CardHeader>
-          <CardTitle>Deposit Wallets</CardTitle>
-          <CardDescription>Manage the cryptocurrency deposit addresses.</CardDescription>
+          <CardTitle>{t('admin.depositWallets') || "Deposit Wallets"}</CardTitle>
+          <CardDescription>{t('admin.depositWalletsDesc') || "Manage the cryptocurrency deposit addresses."}</CardDescription>
           <div className="relative mt-4">
             <Input
-              placeholder="Search wallets by asset or address..."
+              placeholder={t('admin.searchWalletsPlaceholder') || "Search wallets by asset or address..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -177,18 +179,18 @@ export default function AdminWalletsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Asset</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>QR Code</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('admin.asset') || "Asset"}</TableHead>
+                <TableHead>{t('admin.address') || "Address"}</TableHead>
+                <TableHead>{t('admin.qrCode') || "QR Code"}</TableHead>
+                <TableHead>{t('admin.status') || "Status"}</TableHead>
+                <TableHead className="text-right">{t('admin.actions') || "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredWallets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No wallets found.
+                    {t('common.noData') || "No wallets found."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -212,15 +214,15 @@ export default function AdminWalletsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={wallet.visible ? "text-green-600 border-green-600" : "text-gray-500 border-gray-500"}>
-                        {wallet.visible ? "Visible" : "Hidden"}
+                        {wallet.visible ? (t('admin.visible') || "Visible") : (t('admin.hidden') || "Hidden")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => toggleVisible(wallet.id)}>
-                        {wallet.visible ? <><EyeOff className="w-4 h-4 mr-1" /> Hide</> : <><Eye className="w-4 h-4 mr-1" /> Show</>}
+                        {wallet.visible ? <><EyeOff className="w-4 h-4 mr-1" /> {t('admin.hide') || "Hide"}</> : <><Eye className="w-4 h-4 mr-1" /> {t('admin.unhide') || "Show"}</>}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDeleteWallet(wallet.id)} className="text-destructive">
-                        Delete
+                        {t('admin.delete') || "Delete"}
                       </Button>
                     </TableCell>
                   </TableRow>

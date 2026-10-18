@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/language-context";
 
 type Deposit = {
   id: string;
@@ -31,6 +32,7 @@ type DepositSettings = {
 };
 
 export default function AdminDepositsPage() {
+  const { t } = useLanguage();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -211,8 +213,8 @@ export default function AdminDepositsPage() {
       <Card className="border-border bg-background/40">
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
-            <span>Deposit Settings</span>
-            <Button onClick={saveSettings}>Save Changes</Button>
+            <span>{t('admin.depositSettings') || "Deposit Settings"}</span>
+            <Button onClick={saveSettings}>{t('common.save') || "Save Changes"}</Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid md:grid-cols-3 gap-4">
@@ -223,10 +225,10 @@ export default function AdminDepositsPage() {
                 setSettings((s) => ({ ...s, is_enabled: v }))
               }
             />
-            <Label>Deposits Enabled</Label>
+            <Label>{t('admin.depositsEnabled') || "Deposits Enabled"}</Label>
           </div>
           <div>
-            <Label>Minimum Deposit (USD)</Label>
+            <Label>{t('admin.minDeposit') || "Minimum Deposit (USD)"}</Label>
             <Input
               type="number"
               value={settings.min_deposit_amount}
@@ -238,9 +240,6 @@ export default function AdminDepositsPage() {
               }
             />
           </div>
-          <div className="text-sm text-muted-foreground">
-            Last Updated: {new Date().toLocaleString()}
-          </div>
         </CardContent>
       </Card>
 
@@ -249,7 +248,7 @@ export default function AdminDepositsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Total Deposits
+              {t('admin.totalDeposits') || "Total Deposits"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -259,7 +258,7 @@ export default function AdminDepositsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Total Amount
+              {t('admin.totalRevenue') || "Total Amount"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -269,7 +268,7 @@ export default function AdminDepositsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Today Deposits
+              {t('admin.todayDeposits') || "Today Deposits"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -279,7 +278,7 @@ export default function AdminDepositsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Today Amount
+              {t('admin.todayAmount') || "Today Amount"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -290,9 +289,9 @@ export default function AdminDepositsPage() {
 
       {/* البحث */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Deposit Requests</h1>
+        <h1 className="text-2xl font-bold">{t('admin.depositRequests') || "Deposit Requests"}</h1>
         <Input
-          placeholder="Search by username, email or ID"
+          placeholder={t('admin.searchDepositsPlaceholder') || "Search by username, email or ID..."}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-80"
@@ -300,7 +299,7 @@ export default function AdminDepositsPage() {
       </div>
 
       {/* قائمة الإيداعات */}
-      {loading && <p className="text-muted-foreground">Loading...</p>}
+      {loading && <p className="text-muted-foreground">{t('common.loading') || "Loading..."}</p>}
 
       <div className="grid gap-4">
         {filteredDeposits.map((dep) => (
@@ -325,13 +324,13 @@ export default function AdminDepositsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p>
-                <strong>Asset:</strong> {dep.deposit_wallets?.asset ?? "-"}
+                <strong>{t('admin.asset') || "Asset"}:</strong> {dep.deposit_wallets?.asset ?? "-"}
               </p>
               <p>
-                <strong>Address:</strong> {dep.deposit_wallets?.address ?? "-"}
+                <strong>{t('admin.address') || "Address"}:</strong> {dep.deposit_wallets?.address ?? "-"}
               </p>
               <p>
-                <strong>Amount:</strong> ${dep.amount}
+                <strong>{t('dashboard.amount') || "Amount"}:</strong> ${dep.amount}
               </p>
               <p>
                 <strong>Date:</strong>{" "}
@@ -341,11 +340,11 @@ export default function AdminDepositsPage() {
               {dep.proof_base64 && (
                 <div>
                   <p className="mb-1">
-                    <strong>Proof:</strong>
+                    <strong>{t('admin.proof') || "Proof"}:</strong>
                   </p>
                   <img
                     src={dep.proof_base64}
-                    alt="Deposit Proof"
+                    alt={t('admin.depositProof') || "Deposit Proof"}
                     className="w-64 rounded border"
                   />
                 </div>
@@ -357,13 +356,13 @@ export default function AdminDepositsPage() {
                     onClick={() => approveDeposit(dep)}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    Approve
+                    {t('admin.approveBtn') || "Approve"}
                   </Button>
                   <Button
                     onClick={() => rejectDeposit(dep)}
                     className="bg-red-600 hover:bg-red-700"
                   >
-                    Reject
+                    {t('admin.rejectBtn') || "Reject"}
                   </Button>
                 </div>
               )}

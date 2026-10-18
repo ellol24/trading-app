@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { processReferralCommissions } from "@/lib/actions/commissions";
+import { useLanguage } from "@/contexts/language-context";
 
 type TradeRound = {
   id: string;
@@ -33,6 +34,7 @@ type Outcome = "win" | "lose" | "draw";
 
 export default function AdminTradingControlsPage() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [rounds, setRounds] = useState<TradeRound[]>([]);
   const [symbol, setSymbol] = useState("EUR/USD");
   const [duration, setDuration] = useState(60);
@@ -294,13 +296,13 @@ export default function AdminTradingControlsPage() {
         <Card className="bg-slate-800/60 border-blue-500/30 shadow-xl shadow-blue-900/20">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-white flex items-center gap-2">
-              🎛️ Global Trading Configuration
+              🎛️ {t('admin.globalTradingConfig') || "Global Trading Configuration"}
             </CardTitle>
-            <p className="text-sm text-slate-400">Set the minimum entry amount and suggested quick-amounts for all users on the trading page.</p>
+            <p className="text-sm text-slate-400">{t('admin.globalTradingConfigDesc') || "Set the minimum entry amount and suggested quick-amounts for all users on the trading page."}</p>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label className="text-white font-semibold">Minimum Entry Amount ($)</Label>
+              <Label className="text-white font-semibold">{t('admin.minEntryAmount') || "Minimum Entry Amount ($)"}</Label>
               <Input
                 type="number"
                 min={0.1}
@@ -309,17 +311,17 @@ export default function AdminTradingControlsPage() {
                 value={minTradeAmount}
                 onChange={(e) => setMinTradeAmount(Number(e.target.value))}
               />
-              <p className="text-xs text-slate-500">Users cannot trade below this amount.</p>
+              <p className="text-xs text-slate-500">{t('admin.minEntryAmountDesc') || "Users cannot trade below this amount."}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-white font-semibold">Suggested Quick Amounts (comma-separated)</Label>
+              <Label className="text-white font-semibold">{t('admin.suggestedQuickAmounts') || "Suggested Quick Amounts (comma-separated)"}</Label>
               <Input
                 className="bg-slate-900 border-slate-700 text-white"
                 placeholder="10, 25, 50, 100, 250, 500"
                 value={suggestedAmounts}
                 onChange={(e) => setSuggestedAmounts(e.target.value)}
               />
-              <p className="text-xs text-slate-500">These appear as quick-select buttons on the trading page.</p>
+              <p className="text-xs text-slate-500">{t('admin.suggestedQuickAmountsDesc') || "These appear as quick-select buttons on the trading page."}</p>
             </div>
             <div className="md:col-span-2 flex justify-end">
               <Button
@@ -327,22 +329,22 @@ export default function AdminTradingControlsPage() {
                 disabled={savingLimits}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-2 shadow-lg shadow-blue-600/20"
               >
-                {savingLimits ? "Saving..." : "💾 Save Trading Limits"}
+                {savingLimits ? t('admin.saving') || "Saving..." : `💾 ${t('admin.saveTradingLimits') || "Save Trading Limits"}`}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* إنشاء جولة جديدة */}
+        {/* Create New Round */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-white">
-              Create New Round
+              {t('admin.createNewRound') || "Create New Round"}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-white">Symbol</Label>
+              <Label className="text-white">{t('admin.symbol') || "Symbol"}</Label>
               <Select value={symbol} onValueChange={setSymbol}>
                 <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
@@ -356,7 +358,7 @@ export default function AdminTradingControlsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Duration (seconds)</Label>
+              <Label className="text-white">{t('admin.durationSeconds') || "Duration (seconds)"}</Label>
               <Input
                 type="number"
                 min={10}
@@ -366,7 +368,7 @@ export default function AdminTradingControlsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Payout % (ROI)</Label>
+              <Label className="text-white">{t('admin.payoutROI') || "Payout % (ROI)"}</Label>
               <Input
                 type="number"
                 min={0}
@@ -377,7 +379,7 @@ export default function AdminTradingControlsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Entry Window (sec)</Label>
+              <Label className="text-white">{t('admin.entryWindowSec') || "Entry Window (sec)"}</Label>
               <Input
                 type="number"
                 min={5}
@@ -387,7 +389,7 @@ export default function AdminTradingControlsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white">Admin Direction</Label>
+              <Label className="text-white">{t('admin.adminDirection') || "Admin Direction"}</Label>
               <Select
                 value={direction}
                 onValueChange={(v: "buy" | "sell") => setDirection(v)}
@@ -396,30 +398,30 @@ export default function AdminTradingControlsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="buy">Buy</SelectItem>
-                  <SelectItem value="sell">Sell</SelectItem>
+                  <SelectItem value="buy">{t('admin.buy') || "Buy"}</SelectItem>
+                  <SelectItem value="sell">{t('admin.sell') || "Sell"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-end">
               <Button onClick={createRound} disabled={loading} className="w-full">
-                {loading ? "Creating..." : "Create Round"}
+                {loading ? t('admin.creating') || "Creating..." : t('admin.createRoundBtn') || "Create Round"}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* لائحة الجولات */}
+        {/* Rounds List */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg md:text-xl text-white">
-              Rounds
+              {t('admin.rounds') || "Rounds"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {rounds.length === 0 ? (
-              <p className="text-blue-200">No rounds yet.</p>
+              <p className="text-blue-200">{t('admin.noRoundsYet') || "No rounds yet."}</p>
             ) : (
               rounds.map((r) => (
                 <div
@@ -429,9 +431,8 @@ export default function AdminTradingControlsPage() {
                   <div className="space-y-1">
                     <p className="text-white font-semibold">{r.symbol}</p>
                     <p className="text-blue-300 text-sm">
-                      {r.status.toUpperCase()} • {r.duration_sec}s • Payout{" "}
-                      {r.payout_percent}% • Entry ±{r.entry_window_sec}s •
-                      Direction: {r.admin_direction}
+                      {r.status.toUpperCase()} • {r.duration_sec}s • {t('admin.payoutROI') || "Payout"}{" "}
+                      {r.payout_percent}% • ±{r.entry_window_sec}s • {t('admin.adminDirection') || "Direction"}: {r.admin_direction}
                     </p>
                   </div>
 
@@ -443,20 +444,20 @@ export default function AdminTradingControlsPage() {
                       }
                     >
                       <SelectTrigger className="bg-slate-800 border-slate-700 text-white w-[140px]">
-                        <SelectValue placeholder="Select Outcome" />
+                        <SelectValue placeholder={t('admin.selectOutcome') || "Select Outcome"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="win">Win</SelectItem>
-                        <SelectItem value="lose">Lose</SelectItem>
+                        <SelectItem value="win">{t('admin.win') || "Win"}</SelectItem>
+                        <SelectItem value="lose">{t('admin.lose') || "Lose"}</SelectItem>
                         <SelectItem value="draw">
-                          Draw (refund only)
+                          {t('admin.draw') || "Draw"}
                         </SelectItem>
                       </SelectContent>
                     </Select>
 
                     {r.status === "scheduled" && (
                       <Button size="sm" onClick={() => activateRound(r.id)}>
-                        Start
+                        {t('admin.startRound') || "Start"}
                       </Button>
                     )}
 
@@ -466,7 +467,7 @@ export default function AdminTradingControlsPage() {
                         variant="destructive"
                         onClick={() => completeRoundWithOutcome(r.id)}
                       >
-                        Complete & Set Outcome
+                        {t('admin.completeRound') || "Complete & Set Outcome"}
                       </Button>
                     )}
 

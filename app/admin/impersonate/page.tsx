@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,31 @@ export default function ImpersonatePage() {
   const [loading, setLoading] = useState(false);
   const [impersonating, setImpersonating] = useState<string | null>(null);
 
+  useEffect(() => {
+    const loadInitialUsers = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/users?limit=15`);
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data.users ?? data ?? []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitialUsers();
+  }, []);
+
   const searchUsers = async () => {
-    if (!search.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}&limit=10`);
+      const url = search.trim()
+        ? `/api/admin/users?search=${encodeURIComponent(search)}&limit=15`
+        : `/api/admin/users?limit=15`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users ?? data ?? []);
@@ -51,13 +71,13 @@ export default function ImpersonatePage() {
       // Store admin impersonation flag
       localStorage.setItem("_admin_impersonating", uid);
       localStorage.setItem("_admin_impersonating_name", name);
-      toast.success(`Switching to: ${name}...`);
+      toast.success(`${t('admin.viewAsUser') || "Switching to"}: ${name}...`);
 
       // If we got an action link, navigate to it (magic link login)
       if (data.action_link) {
         window.location.href = data.action_link;
       } else {
-        // Fallback: just go to dashboard (may use existing session)
+        // Fallback: just go to dashboard
         router.push("/dashboard");
       }
     } catch {
@@ -83,19 +103,18 @@ export default function ImpersonatePage() {
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               <Eye className="w-6 h-6 text-blue-400" />
-              {t('admin.switchToUserView') || "Switch to User View"}
+              {t('admin.impersonateTitle') || "Switch to User View (Testing)"}
             </h1>
           </div>
         </div>
 
-        {/* Warning */}
+        {/* Warning / Explanation */}
         <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
           <ShieldAlert className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-yellow-300 font-semibold text-sm">Admin Only Feature</p>
+            <p className="text-yellow-300 font-semibold text-sm">{t('admin.fullControl') || "Admin Only Feature"}</p>
             <p className="text-yellow-400/80 text-xs mt-0.5">
-              This allows you to view the platform from a specific user's perspective. You will be viewing their dashboard.
-              To return to admin mode, use the "Return to Admin" button in the user dashboard.
+              {t('admin.impersonateDesc') || "Allows administrators to view the platform from any user's perspective for testing and support. You can return to admin anytime via the Return to Admin button."}
             </p>
           </div>
         </div>
@@ -104,7 +123,7 @@ export default function ImpersonatePage() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Users className="w-5 h-5 text-blue-400" />
-              Search User
+              {t('admin.recentUsers') || "Search & Select User"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -112,7 +131,7 @@ export default function ImpersonatePage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <Input
-                  placeholder="Search by name or email..."
+                  placeholder={t('admin.searchUserPlaceholder') || "Search by name or email..."}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && searchUsers()}
@@ -124,7 +143,7 @@ export default function ImpersonatePage() {
                 disabled={loading}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {loading ? "Searching..." : "Search"}
+                {loading ? (t('common.loading') || "Searching...") : (t('common.search') || "Search")}
               </Button>
             </div>
 
@@ -154,15 +173,15 @@ export default function ImpersonatePage() {
                       disabled={impersonating === u.uid}
                     >
                       <Eye className="w-4 h-4 mr-1.5" />
-                      {impersonating === u.uid ? "Switching..." : "View as User"}
+                      {impersonating === u.uid ? (t('common.loading') || "Switching...") : (t('admin.viewAsUser') || "View as User")}
                     </Button>
                   </div>
                 ))}
               </div>
             )}
 
-            {users.length === 0 && search && !loading && (
-              <p className="text-slate-400 text-sm text-center py-4">No users found matching "{search}"</p>
+            {users.length === 0 && !loading && (
+              <p className="text-slate-400 text-sm text-center py-4">{t('common.noData') || "No users found"}</p>
             )}
           </CardContent>
         </Card>

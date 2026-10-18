@@ -350,27 +350,39 @@ export default function AdminUsersPage() {
                         ${user.balance.toFixed(2)}
                       </td>
                       <td className="p-4 text-center">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-slate-800" />
-                            <DropdownMenuItem onClick={() => { setSelectedUser(user); setActionModalOpen(true); }} className="cursor-pointer hover:bg-slate-800">
-                              Manage User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleImpersonate(user.uid)} className="cursor-pointer hover:bg-slate-800">
-                              <LogIn className="w-3.5 h-3.5 mr-2" /> Login as User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2.5 text-blue-400 hover:text-blue-300 hover:bg-blue-600/20 border border-blue-500/20"
+                            onClick={() => handleImpersonate(user.uid)}
+                            title={t('admin.viewAsUser') || "Test as User"}
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            <span className="text-xs font-semibold">{t('admin.quickTest') || "Test"}</span>
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
+                              <DropdownMenuLabel>{t('admin.actions') || "Actions"}</DropdownMenuLabel>
+                              <DropdownMenuSeparator className="bg-slate-800" />
+                              <DropdownMenuItem onClick={() => { setSelectedUser(user); setActionModalOpen(true); }} className="cursor-pointer hover:bg-slate-800">
+                                {t('admin.manageUser') || "Manage User"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleImpersonate(user.uid)} className="cursor-pointer hover:bg-slate-800">
+                                <LogIn className="w-3.5 h-3.5 mr-2" /> {t('admin.viewAsUser') || "Login as User"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </td>
                     </tr>
                   ))

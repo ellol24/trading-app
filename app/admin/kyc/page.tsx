@@ -22,7 +22,9 @@ export default function AdminKycPage() {
   useEffect(() => {
     setRecords(listKyc())
     const unsub = subscribeKyc(() => setRecords(listKyc()))
-    return () => unsub()
+    return () => {
+      unsub();
+    };
   }, [])
 
   const filtered = useMemo(() => {

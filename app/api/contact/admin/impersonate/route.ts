@@ -60,8 +60,8 @@ export async function POST(req: Request) {
     // Return the magic link for the client to use
     return NextResponse.json({
       success: true,
-      action_link: linkData.properties?.action_link ?? linkData.properties?.email_otp_link,
-      hashed_token: linkData.properties?.hashed_token,
+      action_link: (linkData.properties as any)?.action_link ?? (linkData.properties as any)?.email_otp_link,
+      hashed_token: (linkData.properties as any)?.hashed_token,
     });
   } catch (e: any) {
     console.error("[impersonate]", e);
