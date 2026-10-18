@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     // Build profile query
     let query = adminClient
       .from("user_profiles")
-      .select("uid, full_name, email, role, balance, status, referral_code, created_at");
+      .select("uid, full_name, email, role, balance, status, referral_code, created_at, country, ip_address, ip_country, ip_country_code, ip_city, ip_isp, last_seen_at");
 
     if (uid) {
       query = query.eq("uid", uid);

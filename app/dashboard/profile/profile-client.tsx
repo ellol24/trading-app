@@ -20,11 +20,12 @@ import {
   InputOTP, InputOTPGroup, InputOTPSlot,
 } from "@/components/ui/input-otp";
 import {
-  Mail, CheckCircle, LogOut, User, Shield, Bell,
+  Mail, CheckCircle, LogOut, User, Shield,
   Activity, Edit, Save, X, Eye, EyeOff,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, AlertCircle,
-  MessageCircle, Loader2, ShieldCheck, Info,
+  MessageCircle, Loader2, ShieldCheck, Info, MapPin, AlertTriangle,
 } from "lucide-react";
+import { CountrySelect } from "@/components/ui/country-select";
 
 interface ProfileClientProps {
   user: any | null;
@@ -211,6 +212,42 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+
+  // IP / detected location state
+  const [ipLocation, setIpLocation] = useState<{
+    country: string | null;
+    countryCode: string | null;
+    city: string | null;
+    loaded: boolean;
+  }>({
+    country: profile?.ip_country ?? null,
+    countryCode: profile?.ip_country_code ?? null,
+    city: profile?.ip_city ?? null,
+    loaded: !!(profile?.ip_country),
+  });
+
+  // Log IP once per session on mount
+  useEffect(() => {
+    if (!user) return;
+    const key = `_ip_logged_${user.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+
+    fetch("/api/geo/log-ip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && d.country) {
+          setIpLocation({ country: d.country, countryCode: null, city: null, loaded: true });
+        }
+      })
+      .catch(() => {
+        // Non-critical — silently ignore
+      });
+  }, [user]);
 
   // Populate state from props
   useEffect(() => {
@@ -518,24 +555,78 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { id: "firstName", label: t("auth.firstName"), key: "firstName" },
-                        { id: "lastName", label: t("auth.lastName"), key: "lastName" },
-                        { id: "phone", label: t("auth.phone"), key: "phone" },
-                        { id: "country", label: t("auth.country"), key: "country" },
-                        { id: "city", label: t("profile.city"), key: "city" },
-                      ].map(({ id, label, key }) => (
-                        <div key={id} className="space-y-2">
-                          <Label htmlFor={id} className="text-slate-300">{label}</Label>
-                          <Input
-                            id={id}
-                            value={(profileData as any)[key]}
-                            onChange={(e) => setProfileData({ ...profileData, [key]: e.target.value })}
-                            disabled={!isEditing}
-                            className="bg-slate-800/50 border-slate-600 text-white"
-                          />
-                        </div>
-                      ))}
+                      {/* Name Fields */}
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName" className="text-slate-300">{t("auth.firstName")}</Label>
+                        <Input
+                          id="firstName"
+                          value={profileData.firstName}
+                          onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                          disabled={!isEditing}
+                          className="bg-slate-800/50 border-slate-600 text-white"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName" className="text-slate-300">{t("auth.lastName")}</Label>
+                        <Input
+                          id="lastName"
+                          value={profileData.lastName}
+                          onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                          disabled={!isEditing}
+                          className="bg-slate-800/50 border-slate-600 text-white"
+                        />
+                      </div>
+
+                      {/* Phone */}
+                      <div className="space-y-2">
+                        <Label htmlFor="phone" className="text-slate-300">{t("auth.phone")}</Label>
+                        <Input
+                          id="phone"
+                          value={profileData.phone}
+                          onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                          disabled={!isEditing}
+                          placeholder="+1 555 000 0000"
+                          className="bg-slate-800/50 border-slate-600 text-white"
+                        />
+                      </div>
+
+                      {/* Country — searchable dropdown */}
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 flex items-center gap-1.5">
+                          {t("auth.country")}
+                          {/* IP badge */}
+                          {ipLocation.loaded && ipLocation.country && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-normal border-blue-500/50 text-blue-400 bg-blue-500/10 ml-1"
+                              title="Detected from your IP address"
+                            >
+                              <MapPin className="w-2.5 h-2.5 mr-1" />
+                              IP: {ipLocation.country}
+                            </Badge>
+                          )}
+                        </Label>
+                        <CountrySelect
+                          value={profileData.country}
+                          onChange={(country) => setProfileData({ ...profileData, country })}
+                          disabled={!isEditing}
+                          placeholder={t("auth.country") || "Select your country..."}
+                        />
+                      </div>
+
+                      {/* City */}
+                      <div className="space-y-2">
+                        <Label htmlFor="city" className="text-slate-300">{t("profile.city")}</Label>
+                        <Input
+                          id="city"
+                          value={profileData.city}
+                          onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
+                          disabled={!isEditing}
+                          className="bg-slate-800/50 border-slate-600 text-white"
+                        />
+                      </div>
+
+                      {/* Email (read-only) */}
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-slate-300">{t("auth.email")}</Label>
                         <Input id="email" type="email" value={profileData.email} disabled className="bg-slate-800/50 border-slate-600 text-white opacity-60" />
@@ -586,6 +677,16 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                         />
                       </div>
                     </div>
+
+                    {/* ── Integrity Warning (shown when editing) ──────────────── */}
+                    {isEditing && (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                        <p className="text-amber-200 text-xs leading-relaxed">
+                          <strong className="text-amber-300">Accuracy Notice:</strong> Please ensure all information you provide is accurate and truthful. Submitting false details — including your country, phone number, or name — may result in your account being <strong className="text-amber-300">suspended or frozen</strong> until identity verification is completed by contacting our support team.
+                        </p>
+                      </div>
+                    )}
 
                     {/* OTP Security Notice */}
                     {isEditing && (

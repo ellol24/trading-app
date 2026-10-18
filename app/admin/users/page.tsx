@@ -274,6 +274,7 @@ export default function AdminUsersPage() {
                     <th className="p-4 whitespace-nowrap">Password</th>
                     <th className="p-4 whitespace-nowrap">{t('admin.role')}</th>
                     <th className="p-4 whitespace-nowrap">{t('admin.status')}</th>
+                    <th className="p-4 whitespace-nowrap">IP / Location</th>
                     <th className="p-4 text-right whitespace-nowrap">{t('admin.balance')}</th>
                     <th className="p-4 text-center whitespace-nowrap">{t('admin.actions_th')}</th>
                   </tr>
@@ -345,6 +346,37 @@ export default function AdminUsersPage() {
                         `}>
                           {user.status || "active"}
                         </Badge>
+                      </td>
+                      {/* IP / Location Cell */}
+                      <td className="p-4">
+                        {(user as any).ip_address ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-xs text-slate-400">
+                                {(user as any).ip_address}
+                              </span>
+                              {/* Mismatch badge */}
+                              {(user as any).ip_country &&
+                                (user as any).ip_country !== (user as any).country &&
+                                (user as any).country && (
+                                  <span
+                                    title={`Declared: ${(user as any).country} | IP: ${(user as any).ip_country}`}
+                                    className="text-amber-400 text-xs flex items-center gap-0.5 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 rounded"
+                                  >
+                                    ⚠️ Mismatch
+                                  </span>
+                                )}
+                            </div>
+                            {(user as any).ip_country && (
+                              <div className="text-xs text-slate-500">
+                                📍 {(user as any).ip_country}
+                                {(user as any).ip_city ? `, ${(user as any).ip_city}` : ""}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 text-xs italic">Not recorded</span>
+                        )}
                       </td>
                       <td className="p-4 text-right font-mono text-emerald-400 font-bold">
                         ${user.balance.toFixed(2)}
