@@ -43,6 +43,72 @@ type WalletFormState = {
 
 const emptyForm: WalletFormState = { asset: "", address: "", label: "", admin_notes: "" }
 
+// ── Defined OUTSIDE AdminWalletsPage so React never remounts it on re-render ──
+type WalletFormFieldsProps = {
+  form: WalletFormState
+  setForm: React.Dispatch<React.SetStateAction<WalletFormState>>
+  t: (key: string) => string
+}
+
+function WalletFormFields({ form, setForm, t }: WalletFormFieldsProps) {
+  return (
+    <div className="grid gap-4 py-3">
+      <div className="space-y-2">
+        <Label>{t("admin.asset") || "Asset / Network"}</Label>
+        <Select
+          value={form.asset}
+          onValueChange={(v) => setForm(prev => ({ ...prev, asset: v as PlatformWallet["asset"] }))}
+        >
+          <SelectTrigger><SelectValue placeholder={t("admin.selectAssetPlaceholder") || "Select asset"} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="USDT(TRC20)">USDT (TRC20)</SelectItem>
+            <SelectItem value="USDT(BEB20)">USDT (BEP20)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>{t("admin.address") || "Wallet Address"}</Label>
+        <Input
+          placeholder={t("admin.walletAddress") || "Enter wallet address"}
+          value={form.address}
+          onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
+          className="font-mono text-sm"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5">
+          <StickyNote className="w-3.5 h-3.5 text-blue-400" />
+          {t("admin.walletLabel") || "Label (Admin only)"}
+        </Label>
+        <Input
+          placeholder={t("admin.walletLabelPlaceholder") || 'e.g. "Bybit Main", "Binance Backup"'}
+          value={form.label}
+          onChange={(e) => setForm(prev => ({ ...prev, label: e.target.value }))}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.walletLabelHint") || "A short friendly name visible only to admins."}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5">
+          <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+          {t("admin.walletNotes") || "Admin Notes (internal only)"}
+        </Label>
+        <Textarea
+          placeholder={t("admin.walletNotesPlaceholder") || "e.g. Rotation schedule, source exchange, remarks..."}
+          value={form.admin_notes}
+          onChange={(e) => setForm(prev => ({ ...prev, admin_notes: e.target.value }))}
+          rows={3}
+          className="resize-none text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("admin.walletNotesHint") || "These notes are never shown to users — only visible to admins."}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminWalletsPage() {
   const { t } = useLanguage()
   const [wallets, setWallets] = useState<PlatformWallet[]>([])
@@ -154,64 +220,6 @@ export default function AdminWalletsPage() {
     (w.label ?? "").toLowerCase().includes(searchTerm.toLowerCase())
   ), [wallets, searchTerm])
 
-  // ── Shared form fields (used in both Add and Edit dialogs) ──────────────────
-  const WalletFormFields = () => (
-    <div className="grid gap-4 py-3">
-      <div className="space-y-2">
-        <Label>{t("admin.asset") || "Asset / Network"}</Label>
-        <Select
-          value={form.asset}
-          onValueChange={(v) => setForm(prev => ({ ...prev, asset: v as PlatformWallet["asset"] }))}
-        >
-          <SelectTrigger><SelectValue placeholder={t("admin.selectAssetPlaceholder") || "Select asset"} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="USDT(TRC20)">USDT (TRC20)</SelectItem>
-            <SelectItem value="USDT(BEB20)">USDT (BEP20)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>{t("admin.address") || "Wallet Address"}</Label>
-        <Input
-          placeholder={t("admin.walletAddress") || "Enter wallet address"}
-          value={form.address}
-          onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
-          className="font-mono text-sm"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label className="flex items-center gap-1.5">
-          <StickyNote className="w-3.5 h-3.5 text-blue-400" />
-          {t("admin.walletLabel") || "Label (Admin only)"}
-        </Label>
-        <Input
-          placeholder={t("admin.walletLabelPlaceholder") || 'e.g. "Bybit Main", "Binance Backup"'}
-          value={form.label}
-          onChange={(e) => setForm(prev => ({ ...prev, label: e.target.value }))}
-        />
-        <p className="text-xs text-muted-foreground">
-          {t("admin.walletLabelHint") || "A short friendly name visible only to admins."}
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label className="flex items-center gap-1.5">
-          <StickyNote className="w-3.5 h-3.5 text-amber-400" />
-          {t("admin.walletNotes") || "Admin Notes (internal only)"}
-        </Label>
-        <Textarea
-          placeholder={t("admin.walletNotesPlaceholder") || "e.g. Rotation schedule, source exchange, remarks..."}
-          value={form.admin_notes}
-          onChange={(e) => setForm(prev => ({ ...prev, admin_notes: e.target.value }))}
-          rows={3}
-          className="resize-none text-sm"
-        />
-        <p className="text-xs text-muted-foreground">
-          {t("admin.walletNotesHint") || "These notes are never shown to users — only visible to admins."}
-        </p>
-      </div>
-    </div>
-  )
-
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
       {/* ── Header ── */}
@@ -228,7 +236,7 @@ export default function AdminWalletsPage() {
               <DialogTitle>{t("admin.addNewDepositWallet") || "Add New Deposit Wallet"}</DialogTitle>
               <DialogDescription>{t("admin.depositWalletsDesc") || "Manage wallet addresses shown to users for deposits."}</DialogDescription>
             </DialogHeader>
-            <WalletFormFields />
+            <WalletFormFields form={form} setForm={setForm} t={t} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>{t("common.cancel") || "Cancel"}</Button>
               <Button onClick={handleAdd} disabled={!form.asset || !form.address.trim() || loading}>
@@ -416,7 +424,7 @@ export default function AdminWalletsPage() {
               {t("admin.editWalletDesc") || "Update wallet details. Changes apply immediately."}
             </DialogDescription>
           </DialogHeader>
-          <WalletFormFields />
+          <WalletFormFields form={form} setForm={setForm} t={t} />
           <DialogFooter>
             <Button variant="outline" onClick={() => { setEditTarget(null); setForm(emptyForm) }}>
               {t("common.cancel") || "Cancel"}
