@@ -19,7 +19,7 @@ function generateOtp(): string {
 
 
 async function sendTelegramOtp(chatId: string, otp: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN || "8935322771:AAF6RrJLk-qpzg9cqcLLM2D-Y_J6LotQBZI";
+  const token = process.env.TELEGRAM_BOT_TOKEN || "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
   if (!token) {
     console.warn("[send-otp] TELEGRAM_BOT_TOKEN not set — skipping Telegram.");
     return { ok: true, skipped: true };

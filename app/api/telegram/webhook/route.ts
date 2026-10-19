@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BOT_TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
-  "8935322771:AAF6RrJLk-qpzg9cqcLLM2D-Y_J6LotQBZI";
+  "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
 
 const SITE_URL = "https://www.xspy-trader.com";
 
@@ -210,14 +210,62 @@ async function callTelegramApi(method: string, body: object) {
   return res.json();
 }
 
-// ─── Debug GET endpoint ───────────────────────────────────────────────────────
-export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    bot: "XSpyTraderOtp_bot (Verification Bot)",
-    version: "v4",
-    webhook: `${SITE_URL}/api/telegram/webhook`,
-  });
+// ─── Debug & Webhook Setup GET endpoint ───────────────────────────────────────
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const action = searchParams.get("action");
+
+  // Force setup if requested: ?action=setup
+  if (action === "setup") {
+    const res = await callTelegramApi("setWebhook", {
+      url: `${SITE_URL}/api/telegram/webhook`,
+      drop_pending_updates: true,
+    });
+    const info = await callTelegramApi("getWebhookInfo", {});
+    return NextResponse.json({
+      status: "setup_executed",
+      setWebhookResult: res,
+      webhookInfo: info,
+      webhookUrl: `${SITE_URL}/api/telegram/webhook`,
+    });
+  }
+
+  // Inspect bot & webhook status
+  try {
+    const [me, webhookInfo] = await Promise.all([
+      callTelegramApi("getMe", {}).catch(() => ({ ok: false })),
+      callTelegramApi("getWebhookInfo", {}).catch(() => ({ ok: false })),
+    ]);
+
+    // If webhook is not configured or pointing elsewhere, automatically set it
+    let autoSetResult = null;
+    const currentUrl = webhookInfo?.result?.url || "";
+    const targetUrl = `${SITE_URL}/api/telegram/webhook`;
+
+    if (currentUrl !== targetUrl) {
+      autoSetResult = await callTelegramApi("setWebhook", {
+        url: targetUrl,
+        drop_pending_updates: true,
+      }).catch(() => null);
+    }
+
+    return NextResponse.json({
+      status: "ok",
+      bot: "Xspy Trader Security (@XspyTraderOtp_bot)",
+      version: "v5",
+      botDetails: me?.result || null,
+      targetWebhookUrl: targetUrl,
+      currentWebhookInfo: webhookInfo?.result || null,
+      autoConfigured: !!autoSetResult,
+      autoSetResult,
+    });
+  } catch (err: any) {
+    return NextResponse.json({
+      status: "error",
+      message: err.message || "Failed to contact Telegram API",
+      targetWebhookUrl: `${SITE_URL}/api/telegram/webhook`,
+    });
+  }
 }
 
 // ─── Main Webhook Handler ─────────────────────────────────────────────────────
