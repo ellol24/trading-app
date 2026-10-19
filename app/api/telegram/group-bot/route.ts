@@ -9,7 +9,10 @@ const adminClient = createClient(
   { auth: { persistSession: false } }
 );
 
-const BOT_TOKEN = (process.env.TELEGRAM_GROUP_BOT_TOKEN || "").trim();
+const BOT_TOKEN = (
+  process.env.TELEGRAM_GROUP_BOT_TOKEN ||
+  "8255653698:AAGYOKx-s7rclcq4FbCx5edlM0WQxg0Guu8"
+).trim();
 const OTP_BOT_USERNAME = "@XSpyTraderOtp_bot";
 const GEMINI_API_KEY = (
   process.env.GEMINI_API_KEY ||

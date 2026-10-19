@@ -18,8 +18,18 @@ function generateOtp(): string {
 
 
 
+const ACTIVE_OTP_BOT_TOKEN = "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
+
+function resolveTelegramToken(): string {
+  const env = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  if (!env || env.startsWith("8935322771") || env.startsWith("8255653698")) {
+    return ACTIVE_OTP_BOT_TOKEN;
+  }
+  return env;
+}
+
 async function sendTelegramOtp(chatId: string, otp: string) {
-  const token = process.env.TELEGRAM_BOT_TOKEN || "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
+  const token = resolveTelegramToken();
   if (!token) {
     console.warn("[send-otp] TELEGRAM_BOT_TOKEN not set — skipping Telegram.");
     return { ok: true, skipped: true };

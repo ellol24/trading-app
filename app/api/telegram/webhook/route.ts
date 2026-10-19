@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BOT_TOKEN =
-  process.env.TELEGRAM_BOT_TOKEN ||
-  "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
+const ACTIVE_OTP_BOT_TOKEN = "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
+
+function resolveBotToken(): string {
+  const env = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  // If env is empty or points to deleted/legacy bot tokens, use current active token
+  if (!env || env.startsWith("8935322771") || env.startsWith("8255653698")) {
+    return ACTIVE_OTP_BOT_TOKEN;
+  }
+  return env;
+}
+
+const BOT_TOKEN = resolveBotToken();
 
 const SITE_URL = "https://www.xspy-trader.com";
 
@@ -252,7 +261,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       status: "ok",
       bot: "Xspy Trader Security (@XspyTraderOtp_bot)",
-      version: "v5",
+      version: "v6",
+      tokenMasked: `${BOT_TOKEN.slice(0, 10)}...${BOT_TOKEN.slice(-5)}`,
       botDetails: me?.result || null,
       targetWebhookUrl: targetUrl,
       currentWebhookInfo: webhookInfo?.result || null,
