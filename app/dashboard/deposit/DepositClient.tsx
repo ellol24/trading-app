@@ -53,7 +53,7 @@ export default function DepositClient({ user, profile }: any) {
       .then(({ data }) => {
         if (data) { setIsEnabled(data.is_enabled); setMinDeposit(Number(data.min_deposit_amount)); }
       });
-    supabase.from("deposit_wallets").select("id,address,asset")
+    supabase.from("deposit_wallets").select("id,address,asset").eq("visible", true)
       .then(({ data, error }) => {
         if (error) { toast.error(`❌ ${t("wallet.walletsLoadError")}`); return; }
         const rows = data ?? [];
