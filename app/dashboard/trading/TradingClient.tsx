@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import ForexChart from "@/components/ui/trading-chart";
-import { Clock, ShieldAlert, Zap, TrendingUp, TrendingDown } from "lucide-react";
+import { Clock, ShieldAlert, Zap, TrendingUp, TrendingDown, Hourglass, Timer } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { TRADING_PAIRS } from "@/lib/trading-pairs";
 
 type TradingClientProps = {
   user: any;
@@ -39,22 +40,15 @@ type TradeRound = {
 
 type IntervalType = "1min" | "5min" | "15min" | "30min" | "1h";
 
-const FOREX = [
-  "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD",
-  "AUD/USD", "EUR/GBP", "EUR/JPY", "GBP/JPY", "XAU/USD"
-];
-
-// QUICK_AMOUNTS is now dynamically populated per user
-
 export default function TradingClient({ user, profile }: TradingClientProps) {
   const { t } = useLanguage();
 
   const PERIODS: { value: IntervalType; label: string }[] = [
-    { value: "1min", label: `1 ${t('common.minute') || 'min'}` },
-    { value: "5min", label: `5 ${t('common.minutes') || 'min'}` },
-    { value: "15min", label: `15 ${t('common.minutes') || 'min'}` },
-    { value: "30min", label: `30 ${t('common.minutes') || 'min'}` },
-    { value: "1h", label: `1 ${t('common.hour') || 'h'}` },
+    { value: "1min", label: `1 ${t("common.minute") || "min"}` },
+    { value: "5min", label: `5 ${t("common.minutes") || "min"}` },
+    { value: "15min", label: `15 ${t("common.minutes") || "min"}` },
+    { value: "30min", label: `30 ${t("common.minutes") || "min"}` },
+    { value: "1h", label: `1 ${t("common.hour") || "h"}` },
   ];
 
   const [symbol, setSymbol] = useState("EUR/USD");
@@ -64,9 +58,36 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
   const [deals, setDeals] = useState<TradeRound[]>([]);
   const [joinedRounds, setJoinedRounds] = useState<string[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
-  const [balance, setBalance] = useState<number>(0);
+  const [balance, setBalance] = useState<number>(Number(profile?.balance || 0));
   const [minTradeAmount, setMinTradeAmount] = useState<number>(1);
   const [quickAmounts, setQuickAmounts] = useState<number[]>([10, 25, 50, 100, 250, 500]);
+  const [isTrading, setIsTrading] = useState(false);
+
+  const userId = user?.id;
+
+  // 1-second countdown ticker with auto-commencing when entry window concludes
+  useEffect(() => {
+    const id = setInterval(() => {
+      const currentNow = Date.now();
+      setNow(currentNow);
+
+      // Auto-transition scheduled rounds to active when entry window ends
+      deals.forEach(async (d) => {
+        if (d.status === "scheduled") {
+          const startMs = new Date(d.start_time).getTime();
+          if (currentNow >= startMs) {
+            await supabase
+              .from("trade_rounds")
+              .update({ status: "active" })
+              .eq("id", d.id)
+              .eq("status", "scheduled");
+            fetchDeals();
+          }
+        }
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [deals]);
 
   useEffect(() => {
     const fetchTradingLimits = async () => {
@@ -78,19 +99,12 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
       if (data?.value) {
         const v = data.value as any;
         if (v.min_trade_amount) setMinTradeAmount(Number(v.min_trade_amount));
-        if (Array.isArray(v.suggested_amounts) && v.suggested_amounts.length > 0) setQuickAmounts(v.suggested_amounts);
+        if (Array.isArray(v.suggested_amounts) && v.suggested_amounts.length > 0) {
+          setQuickAmounts(v.suggested_amounts);
+        }
       }
     };
     fetchTradingLimits();
-  }, []);
-  const [isTrading, setIsTrading] = useState(false);
-
-  const userId = user?.id;
-
-  // UI Timer every 1 second for countdowns
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
   }, []);
 
   const fetchBalance = useCallback(async () => {
@@ -100,7 +114,7 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
       .select("balance")
       .eq("uid", userId)
       .single();
-    if (data) setBalance(data.balance || 0);
+    if (data) setBalance(Number(data.balance) || 0);
   }, [userId]);
 
   const fetchDeals = useCallback(async () => {
@@ -139,28 +153,48 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
     fetchJoined();
     fetchTrades();
     fetchBalance();
-  }, [userId]);
+  }, [userId, fetchDeals, fetchJoined, fetchTrades, fetchBalance]);
 
-  // ─── Polling fallback (WebSocket channels may be RLS-blocked for user pages) ─
+  // Periodic polling fallback
   useEffect(() => {
     if (!userId) return;
-
-    // Poll every 15 seconds — reduces DB load by 3x while still feeling responsive
     const interval = setInterval(() => {
       fetchDeals();
       fetchTrades();
       fetchBalance();
       fetchJoined();
-    }, 15000);
+    }, 12000);
 
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, fetchDeals, fetchTrades, fetchBalance, fetchJoined]);
 
-  const activeDeal = useMemo(() => deals.find((d) => d.status === "active") || null, [deals]);
-  const nextDeal = useMemo(
-    () => deals.find((d) => d.status === "scheduled" && new Date(d.start_time).getTime() > Date.now()) || null,
-    [deals]
+  // ─── Round Resolution (Entry Window vs Active Trade) ─────────────────────────
+  // Active Deal: live trade currently in progress
+  const activeDeal = useMemo(
+    () =>
+      deals.find(
+        (d) =>
+          d.status === "active" ||
+          (d.status === "scheduled" && new Date(d.start_time).getTime() <= now)
+      ) || null,
+    [deals, now]
   );
+
+  // Entry Deal: round currently in its Entry Window phase
+  const entryDeal = useMemo(
+    () =>
+      deals.find(
+        (d) =>
+          d.status === "scheduled" && new Date(d.start_time).getTime() > now
+      ) || null,
+    [deals, now]
+  );
+
+  // Next scheduled deal (future)
+  const nextDeal = entryDeal || null;
+
+  // The deal that is currently actionable for user entry
+  const currentDeal = entryDeal || activeDeal;
 
   const secondsUntil = (time: string | number) =>
     Math.max(0, Math.floor((new Date(time).getTime() - now) / 1000));
@@ -173,44 +207,78 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
   const joinRound = async (roundId: string) => {
     if (!userId) return;
-    const { error } = await supabase.from("user_rounds").upsert({
-      user_id: userId,
-      trade_round_id: roundId,
-    }, { onConflict: "user_id, trade_round_id" });
+    const { error } = await supabase.from("user_rounds").upsert(
+      {
+        user_id: userId,
+        trade_round_id: roundId,
+      },
+      { onConflict: "user_id, trade_round_id" }
+    );
     if (error && error.code !== "23505" && error.code !== "409") {
-      toast.error(`❌ ${t('trading.joinFailed')}: ${error.message}`);
+      toast.error(`❌ ${t("trading.joinFailed")}: ${error.message}`);
     } else {
-      toast.success(`✅ ${t('trading.joinSuccess')}`);
+      toast.success(`✅ ${t("trading.joinSuccess")}`);
       setJoinedRounds((prev) => [...prev, roundId]);
     }
   };
 
+  // ✅ Place trade: User can enter during the Entry Window or while active!
   const onTrade = async (type: "CALL" | "PUT") => {
-    if (!activeDeal) { toast.warning(`⚠️ ${t('trading.noActiveRound')}`); return; }
-    if (!userId) { toast.error(`❌ ${t('trading.loginRequired')}`); return; }
-    if (!joinedRounds.includes(activeDeal.id)) { toast.warning(`⚠️ ${t('trading.joinRequired')}`); return; }
-    if (balance < amount) { toast.error(`❌ ${t('trading.insufficientBalance')}`); return; }
-    if (amount < minTradeAmount) { toast.warning(`⚠️ Minimum trade amount is $${minTradeAmount}`); return; }
+    const targetDeal = currentDeal;
+    if (!targetDeal) {
+      toast.warning(`⚠️ ${t("trading.noActiveRound") || "No active round or open entry window"}`);
+      return;
+    }
+    if (!userId) {
+      toast.error(`❌ ${t("trading.loginRequired")}`);
+      return;
+    }
+    if (balance < amount) {
+      toast.error(`❌ ${t("trading.insufficientBalance")}`);
+      return;
+    }
+    if (amount < minTradeAmount) {
+      toast.warning(`⚠️ Minimum trade amount is $${minTradeAmount}`);
+      return;
+    }
 
     setIsTrading(true);
-    const { error } = await supabase.from("trades").insert([{
-      user_id: userId,
-      trade_round_id: activeDeal.id,
-      asset: symbol,
-      amount,
-      duration_sec: activeDeal.duration_sec,
-      roi_percentage: activeDeal.payout_percent,
-      type,
-    }]);
+
+    // Auto-join round if needed
+    if (!joinedRounds.includes(targetDeal.id)) {
+      await supabase.from("user_rounds").upsert(
+        { user_id: userId, trade_round_id: targetDeal.id },
+        { onConflict: "user_id, trade_round_id" }
+      );
+      setJoinedRounds((prev) => [...prev, targetDeal.id]);
+    }
+
+    const { error } = await supabase.from("trades").insert([
+      {
+        user_id: userId,
+        trade_round_id: targetDeal.id,
+        asset: symbol,
+        amount,
+        duration_sec: targetDeal.duration_sec,
+        roi_percentage: targetDeal.payout_percent,
+        type,
+      },
+    ]);
 
     if (error) {
       if (error.message.includes("duplicate key value") || error.code === "23505") {
-        toast.warning(`⚠️ ${t('trading.alreadyEntered')}`);
+        toast.warning(`⚠️ ${t("trading.alreadyEntered") || "You have already entered this round"}`);
       } else {
-        toast.error(`❌ ${t('trading.placeTradeError')}: ${error.message}`);
+        toast.error(`❌ ${t("trading.placeTradeError")}: ${error.message}`);
       }
     } else {
-      toast.success(`✅ ${t('trading.tradePlacedSuccess')} (${type} ${symbol} $${amount})`);
+      toast.success(
+        `✅ ${t("trading.tradePlacedSuccess")} (${type === "CALL" ? "BUY ▲" : "SELL ▼"} ${symbol} $${amount})`
+      );
+      // Instant local balance feedback
+      setBalance((prev) => Math.max(0, prev - amount));
+      fetchTrades();
+      fetchBalance();
     }
     setIsTrading(false);
   };
@@ -224,23 +292,35 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Assets */}
+          {/* Assets Grid - Using exact TRADING_PAIRS */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <CardTitle className="text-white">{t('trading.selectAsset')}</CardTitle>
+              <CardTitle className="text-white">{t("trading.selectAsset")}</CardTitle>
               {activeDeal ? (
-                <Badge className="bg-transparent border-green-400/40 text-green-300 animate-pulse w-fit">{t('trading.live')}</Badge>
+                <Badge className="bg-emerald-500/20 border-emerald-400 text-emerald-300 animate-pulse w-fit">
+                  {t("trading.live") || "LIVE"}
+                </Badge>
+              ) : entryDeal ? (
+                <Badge className="bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse w-fit">
+                  ENTRY WINDOW
+                </Badge>
               ) : (
-                <Badge className="bg-transparent border-slate-400/40 text-slate-200 w-fit">{t('trading.waiting')}</Badge>
+                <Badge className="bg-transparent border-slate-400/40 text-slate-200 w-fit">
+                  {t("trading.waiting") || "WAITING"}
+                </Badge>
               )}
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {FOREX.map((s) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                {TRADING_PAIRS.map((s) => (
                   <Button
                     key={s}
                     variant={symbol === s ? "default" : "outline"}
-                    className={`w-full text-sm transition-all ${symbol === s ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20" : ""}`}
+                    className={`w-full text-xs sm:text-sm font-mono transition-all ${
+                      symbol === s
+                        ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 font-bold"
+                        : "border-slate-700 bg-slate-800/40 text-slate-300 hover:text-white"
+                    }`}
                     onClick={() => setSymbol(s)}
                   >
                     {s}
@@ -250,43 +330,62 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             </CardContent>
           </Card>
 
-          {/* Round Status */}
+          {/* ── Round Status Banner (Entry Window vs Live Trade) ── */}
           <Card className="trading-card" translate="no">
             <CardContent className="py-4">
-              {activeDeal ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200 gap-2">
+              {entryDeal ? (
+                // 🟡 Phase 1: Entry Window Countdown
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-amber-200 gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    <span className="text-white font-semibold">{activeDeal.symbol}</span>
-                    <span className="text-blue-300">{t('trading.roundLive')}</span>
-                    <span className="text-sm">•</span>
-                    <span className="text-blue-300">{t('trading.endsIn')}</span>
-                    <span className="font-mono text-white bg-slate-800 px-2 py-0.5 rounded text-sm">
-                      {formatCountdown(secondsUntil(new Date(activeDeal.start_time).getTime() + activeDeal.duration_sec * 1000))}
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                    <span className="text-white font-bold">{entryDeal.symbol}</span>
+                    <span className="text-amber-300 font-semibold">
+                      {t("trading.entryWindowOpen") || "Entry Window Open — Trade commences in:"}
+                    </span>
+                    <span className="font-mono text-white bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded text-sm font-bold">
+                      {formatCountdown(secondsUntil(entryDeal.start_time))}
                     </span>
                     <span className="text-sm">•</span>
-                    <span className="text-green-400 font-semibold">{t('trading.payoutLabel')} {activeDeal.payout_percent}%</span>
+                    <span className="text-slate-300">
+                      Duration: {entryDeal.duration_sec}s
+                    </span>
+                    <span className="text-sm">•</span>
+                    <span className="text-green-400 font-semibold">
+                      {t("trading.payoutLabel")} {entryDeal.payout_percent}%
+                    </span>
                   </div>
-                  <Clock className="w-5 h-5 text-blue-300 shrink-0" />
+                  <Hourglass className="w-5 h-5 text-amber-400 shrink-0" />
                 </div>
-              ) : nextDeal ? (
+              ) : activeDeal ? (
+                // 🟢 Phase 2: Live Trade in progress
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-blue-200 gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <ShieldAlert className="w-4 h-4 text-yellow-400 shrink-0" />
-                    <span>{t('trading.nextRound')}</span>
-                    <span className="text-white font-semibold">{nextDeal.symbol}</span>
-                    <span>{t('trading.startsIn')}</span>
-                    <span className="font-mono text-white bg-slate-800 px-2 py-0.5 rounded text-sm">
-                      {formatCountdown(secondsUntil(nextDeal.start_time))}
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-white font-bold">{activeDeal.symbol}</span>
+                    <span className="text-emerald-300 font-semibold">{t("trading.roundLive")}</span>
+                    <span className="text-sm">•</span>
+                    <span className="text-blue-300">{t("trading.endsIn")}</span>
+                    <span className="font-mono text-white bg-slate-800 px-2 py-0.5 rounded text-sm font-bold">
+                      {formatCountdown(
+                        secondsUntil(
+                          new Date(activeDeal.start_time).getTime() + activeDeal.duration_sec * 1000
+                        )
+                      )}
                     </span>
-                    <span>•</span>
-                    <span>{t('trading.durationSeconds').replace('{s}', String(nextDeal.duration_sec))}</span>
+                    <span className="text-sm">•</span>
+                    <span className="text-slate-300">Duration: {activeDeal.duration_sec}s</span>
+                    <span className="text-sm">•</span>
+                    <span className="text-green-400 font-semibold">
+                      {t("trading.payoutLabel")} {activeDeal.payout_percent}%
+                    </span>
                   </div>
+                  <Timer className="w-5 h-5 text-emerald-400 shrink-0" />
                 </div>
               ) : (
+                // ⚪ No scheduled round
                 <div className="flex items-center gap-2 text-blue-200">
                   <ShieldAlert className="w-4 h-4 opacity-60" />
-                  {t('trading.noScheduledRounds')}
+                  {t("trading.noScheduledRounds") || "No scheduled rounds currently. Please wait for the next signal."}
                 </div>
               )}
             </CardContent>
@@ -303,28 +402,29 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-400" />
-                {t('trading.tradeSetup')}
+                {t("trading.tradeSetup")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Balance display */}
               <div className="p-3 rounded-lg bg-slate-800/60 border border-slate-700 flex items-center justify-between">
-                <span className="text-blue-300 text-sm">{t('dashboard.availableBalance')}</span>
+                <span className="text-blue-300 text-sm">{t("dashboard.availableBalance")}</span>
                 <span className="text-white font-bold text-lg">${balance.toFixed(2)}</span>
               </div>
 
               {/* Quick amount selector */}
               <div className="space-y-2">
-                <Label className="text-white text-sm">{t('trading.tradeAmount')}</Label>
+                <Label className="text-white text-sm">{t("trading.tradeAmount")}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {quickAmounts.map((q) => (
                     <button
                       key={q}
                       onClick={() => setAmount(q)}
-                      className={`py-1.5 rounded text-sm font-medium transition-all border ${amount === q
-                        ? "bg-blue-600 border-blue-500 text-white"
-                        : "border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white bg-slate-800/40"
-                        }`}
+                      className={`py-1.5 rounded text-sm font-medium transition-all border ${
+                        amount === q
+                          ? "bg-blue-600 border-blue-500 text-white"
+                          : "border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white bg-slate-800/40"
+                      }`}
                     >
                       ${q}
                     </button>
@@ -342,65 +442,62 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
 
               {/* Period selector */}
               <div className="space-y-2">
-                <Label className="text-white">{t('trading.period')}</Label>
+                <Label className="text-white">{t("trading.period")}</Label>
                 <Select value={period} onValueChange={(val: IntervalType) => setPeriod(val)}>
                   <SelectTrigger className="bg-slate-800/60 border-slate-700 text-white">
-                    <SelectValue placeholder={t('trading.selectPeriod')} />
+                    <SelectValue placeholder={t("trading.selectPeriod")} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Payout preview */}
-              {activeDeal && (
+              {currentDeal && (
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm">
                   <div className="flex justify-between text-green-300">
                     <span>Potential Payout</span>
-                    <span className="font-bold">${(amount + amount * (activeDeal.payout_percent / 100)).toFixed(2)}</span>
+                    <span className="font-bold">
+                      ${(amount + amount * (currentDeal.payout_percent / 100)).toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-slate-400 text-xs mt-1">
                     <span>Profit</span>
-                    <span>+${(amount * (activeDeal.payout_percent / 100)).toFixed(2)} ({activeDeal.payout_percent}%)</span>
+                    <span>
+                      +${(amount * (currentDeal.payout_percent / 100)).toFixed(2)} ({currentDeal.payout_percent}%)
+                    </span>
                   </div>
                 </div>
               )}
 
-              {/* Join / Trade Buttons */}
-              {activeDeal && !joinedRounds.includes(activeDeal.id) ? (
+              {/* Buy & Sell Buttons */}
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
-                  onClick={() => joinRound(activeDeal.id)}
+                  className="h-14 bg-green-600 hover:bg-green-700 text-white font-bold text-base shadow-lg shadow-green-500/20 flex flex-col gap-0.5"
+                  onClick={() => onTrade("CALL")}
+                  disabled={isTrading || !currentDeal}
                 >
-                  {t('trading.joinRound')}
+                  <TrendingUp className="w-5 h-5" />
+                  {t("trading.buy")}
                 </Button>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    className="h-14 bg-green-600 hover:bg-green-700 text-white font-bold text-base shadow-lg shadow-green-500/20 flex flex-col gap-0.5"
-                    onClick={() => onTrade("CALL")}
-                    disabled={isTrading || !activeDeal}
-                  >
-                    <TrendingUp className="w-5 h-5" />
-                    {t('trading.buy')}
-                  </Button>
-                  <Button
-                    className="h-14 bg-red-600 hover:bg-red-700 text-white font-bold text-base shadow-lg shadow-red-500/20 flex flex-col gap-0.5"
-                    onClick={() => onTrade("PUT")}
-                    disabled={isTrading || !activeDeal}
-                  >
-                    <TrendingDown className="w-5 h-5" />
-                    {t('trading.sell')}
-                  </Button>
-                </div>
-              )}
+                <Button
+                  className="h-14 bg-red-600 hover:bg-red-700 text-white font-bold text-base shadow-lg shadow-red-500/20 flex flex-col gap-0.5"
+                  onClick={() => onTrade("PUT")}
+                  disabled={isTrading || !currentDeal}
+                >
+                  <TrendingDown className="w-5 h-5" />
+                  {t("trading.sell")}
+                </Button>
+              </div>
 
-              {!activeDeal && (
+              {!currentDeal && (
                 <p className="text-center text-slate-400 text-sm">
-                  {nextDeal ? "Waiting for next round..." : t('trading.noScheduledRounds')}
+                  {t("trading.noScheduledRounds") || "Waiting for next round signal…"}
                 </p>
               )}
             </CardContent>
@@ -409,49 +506,53 @@ export default function TradingClient({ user, profile }: TradingClientProps) {
           {/* Previous Trades */}
           <Card className="trading-card" translate="no">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-white truncate">{t('trading.previousTrades')}</CardTitle>
+              <CardTitle className="text-white truncate">{t("trading.previousTrades")}</CardTitle>
               <Link href="/dashboard/portfolio?tab=history" className="shrink-0">
-                <Button variant="outline" size="sm" className="text-xs border-slate-600 text-slate-300 bg-transparent hover:bg-slate-700/60">
-                  {t('dashboard.viewAll')}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-slate-600 text-slate-300 bg-transparent hover:bg-slate-700/60"
+                >
+                  {t("dashboard.viewAll")}
                 </Button>
               </Link>
             </CardHeader>
             <CardContent className="space-y-2 max-h-[360px] overflow-y-auto">
               {trades.length === 0 && (
-                <p className="text-slate-400 text-sm text-center py-4">{t('trading.noTrades')}</p>
+                <p className="text-slate-400 text-sm py-4 text-center">{t("trading.noTradesYet")}</p>
               )}
-              {trades.map((trade) => (
+              {trades.map((tr) => (
                 <div
-                  key={trade.id}
-                  className="p-3 rounded-lg bg-slate-800/60 flex items-center justify-between gap-2"
+                  key={tr.id}
+                  className="p-3 rounded-lg bg-slate-800/40 border border-slate-700 flex items-center justify-between text-sm"
                 >
-                  <div className="min-w-0">
-                    <p className="text-white text-sm font-medium truncate">
-                      {trade.asset} · <span className={trade.type === "CALL" ? "text-green-400" : "text-red-400"}>{trade.type}</span>
-                    </p>
+                  <div>
+                    <span className="font-semibold text-white">{tr.asset}</span>
+                    <span
+                      className={`ml-2 text-xs font-bold ${
+                        tr.type === "CALL" || tr.type === "BUY" ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {tr.type === "CALL" || tr.type === "BUY" ? "▲ BUY" : "▼ SELL"}
+                    </span>
                     <p className="text-slate-400 text-xs">
-                      ${trade.amount} · {new Date(trade.created_at).toLocaleTimeString()}
+                      {new Date(tr.created_at).toLocaleTimeString()}
                     </p>
                   </div>
-                  <Badge
-                    className={`shrink-0 ${
-                      trade.result === "win"
-                        ? "bg-green-500/20 text-green-300 border-green-400"
-                        : trade.result === "lose"
-                          ? "bg-red-500/20 text-red-300 border-red-400"
-                          : trade.result === "draw"
-                            ? "bg-blue-500/20 text-blue-300 border-blue-400"
-                            : "bg-slate-500/20 text-slate-300 border-slate-400"
-                    }`}
-                  >
-                    {trade.result === "win"
-                      ? `+$${(trade.profit_loss ?? 0).toFixed(2)}`
-                      : trade.result === "lose"
-                        ? `-$${Math.abs(trade.profit_loss ?? 0).toFixed(2)}`
-                        : trade.result === "draw"
-                          ? `$0.00 (${t('common.draw') || 'Draw'})`
-                          : t('common.pending')}
-                  </Badge>
+                  <div className="text-right">
+                    <p className="font-bold text-white">${tr.amount}</p>
+                    <Badge
+                      className={
+                        tr.result === "win"
+                          ? "bg-green-500/20 text-green-400 border-green-500/40 text-xs"
+                          : tr.result === "lose"
+                          ? "bg-red-500/20 text-red-400 border-red-500/40 text-xs"
+                          : "bg-slate-700 text-slate-300 text-xs"
+                      }
+                    >
+                      {tr.result ? tr.result.toUpperCase() : "PENDING"}
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </CardContent>
