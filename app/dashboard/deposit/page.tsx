@@ -14,21 +14,30 @@ export default async function DepositPage() {
     redirect("/auth/login")
   }
 
-  // ✅ جلب بيانات البروفايل
-  const { data: profile, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("uid", user.id)
-    .single()
-
-  if (error) {
-    console.error(error)
-  }
+  // Pre-fetch profile, settings, and active wallets in parallel on server for instant rendering
+  const [profileRes, settingsRes, walletsRes] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("uid", user.id)
+      .maybeSingle(),
+    supabase
+      .from("deposit_settings")
+      .select("is_enabled, min_deposit_amount")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("deposit_wallets")
+      .select("id, address, asset")
+      .eq("visible", true),
+  ]);
 
   return (
     <DepositClient 
       user={user}
-      profile={profile}
+      profile={profileRes.data}
+      initialSettings={settingsRes.data}
+      initialWallets={walletsRes.data || []}
     />
   )
 }

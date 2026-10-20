@@ -30,43 +30,48 @@ type Deposit = {
 const MAX_FILE_SIZE_MB = 5;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/jpg"];
 
-export default function DepositClient({ user, profile }: any) {
+export default function DepositClient({ user, profile, initialSettings, initialWallets }: any) {
   const { t } = useLanguage();
-  const [networks, setNetworks] = useState<Network[]>([]);
-  const [networkId, setNetworkId] = useState<string>("");
+  const [networks, setNetworks] = useState<Network[]>(initialWallets || []);
+  const [networkId, setNetworkId] = useState<string>(initialWallets?.[0]?.id || "");
   const [amount, setAmount] = useState<string>("");
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(true);
-  const [minDeposit, setMinDeposit] = useState(10);
+  const [isEnabled, setIsEnabled] = useState(initialSettings?.is_enabled ?? true);
+  const [minDeposit, setMinDeposit] = useState(Number(initialSettings?.min_deposit_amount ?? 10));
   const [addressCopied, setAddressCopied] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
-  const [liveBalance, setLiveBalance] = useState<number>(0);
+  const [loadingProof, setLoadingProof] = useState(false);
+  const [proofCache, setProofCache] = useState<Record<string, string>>({});
+  const [liveBalance, setLiveBalance] = useState<number>(Number(profile?.balance || 0));
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    supabase.from("deposit_settings").select("is_enabled, min_deposit_amount").limit(1).single()
-      .then(({ data }) => {
-        if (data) { setIsEnabled(data.is_enabled); setMinDeposit(Number(data.min_deposit_amount)); }
-      });
-    supabase.from("deposit_wallets").select("id,address,asset").eq("visible", true)
-      .then(({ data, error }) => {
-        if (error) { toast.error(`❌ ${t("wallet.walletsLoadError")}`); return; }
-        const rows = data ?? [];
-        setNetworks(rows);
-        if (rows.length > 0) setNetworkId(rows[0].id);
-      });
+    // If not passed initially, fallback fetch
+    if (!initialWallets || initialWallets.length === 0) {
+      supabase.from("deposit_settings").select("is_enabled, min_deposit_amount").limit(1).single()
+        .then(({ data }) => {
+          if (data) { setIsEnabled(data.is_enabled); setMinDeposit(Number(data.min_deposit_amount)); }
+        });
+      supabase.from("deposit_wallets").select("id,address,asset").eq("visible", true)
+        .then(({ data, error }) => {
+          if (error) { toast.error(`❌ ${t("wallet.walletsLoadError")}`); return; }
+          const rows = data ?? [];
+          setNetworks(rows);
+          if (rows.length > 0) setNetworkId(rows[0].id);
+        });
+    }
 
     // Fetch initial balance
     if (user?.id) {
       supabase.from("user_profiles").select("balance").eq("uid", user.id).single()
         .then(({ data }) => { if (data) setLiveBalance(Number(data.balance) || 0); });
     }
-  }, [user?.id]);
+  }, [user?.id, initialWallets]);
 
   const selected = useMemo(() => networks.find((n) => n.id === networkId), [networkId, networks]);
 
@@ -97,13 +102,35 @@ export default function DepositClient({ user, profile }: any) {
     setLoadingHistory(true);
     const { data, error } = await supabase
       .from("deposits")
-      .select("id, amount, status, created_at, proof_base64, deposit_wallets(asset, address)")
+      .select("id, amount, status, created_at, deposit_wallets(asset, address)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) toast.error(`❌ ${t("wallet.historyLoadError")}`);
     else setDeposits((data as any) ?? []);
     setLoadingHistory(false);
   }, [user?.id]);
+
+  const openProof = async (depositId: string) => {
+    if (proofCache[depositId]) {
+      setPreviewImg(proofCache[depositId]);
+      return;
+    }
+    setLoadingProof(true);
+    setPreviewImg("loading");
+    const { data } = await supabase
+      .from("deposits")
+      .select("proof_base64")
+      .eq("id", depositId)
+      .single();
+    if (data?.proof_base64) {
+      setProofCache((prev) => ({ ...prev, [depositId]: data.proof_base64 }));
+      setPreviewImg(data.proof_base64);
+    } else {
+      setPreviewImg(null);
+      toast.error("Proof screenshot not found");
+    }
+    setLoadingProof(false);
+  };
 
   useEffect(() => { loadDeposits(); }, [loadDeposits]);
 
@@ -392,14 +419,12 @@ export default function DepositClient({ user, profile }: any) {
                       {dep.status === "approved" || dep.status === "confirmed" ? t("wallet.statusBadgeApproved") :
                         dep.status === "pending" ? t("wallet.statusBadgePending") : t("wallet.statusBadgeRejected")}
                     </Badge>
-                    {dep.proof_base64 && (
-                      <button
-                        onClick={() => setPreviewImg(dep.proof_base64!)}
-                        className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                      >
-                        <ZoomIn className="w-3.5 h-3.5" /> {t("wallet.viewProof")}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => openProof(dep.id)}
+                      className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" /> {t("wallet.viewProof")}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -414,9 +439,16 @@ export default function DepositClient({ user, profile }: any) {
           <DialogHeader>
             <DialogTitle className="text-white">{t("wallet.depositProofTitle")}</DialogTitle>
           </DialogHeader>
-          {previewImg && (
-            <img src={previewImg} alt="Deposit proof" className="w-full rounded-lg object-contain max-h-[70vh]" />
-          )}
+          <div className="flex items-center justify-center min-h-[220px] max-h-[70vh] overflow-auto">
+            {loadingProof || previewImg === "loading" ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-slate-400">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                <span className="text-xs">Loading screenshot…</span>
+              </div>
+            ) : previewImg ? (
+              <img src={previewImg} alt="Deposit proof" className="w-full rounded-lg object-contain max-h-[70vh]" />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
