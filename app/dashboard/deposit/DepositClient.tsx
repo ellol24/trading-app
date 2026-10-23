@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 import {
   Loader2, CheckCircle2, AlertCircle, Copy, Check,
-  Upload, ZoomIn, Info,
+  Upload, ZoomIn, Info, Zap, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
@@ -220,6 +221,24 @@ export default function DepositClient({ user, profile, initialSettings, initialW
               <CheckCircle2 className="w-4 h-4 mr-2" /> {t("wallet.secureAndManual")}
             </Badge>
           </div>
+        </div>
+
+        {/* Tab Switcher: Instant Automated vs Manual */}
+        <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-800/70 border border-slate-700/60 max-w-md mx-auto">
+          <Link
+            href="/dashboard/instant-deposit"
+            className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700/50 font-medium text-xs transition-all cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+            <span>{t("wallet.tabInstant") || "Instant Automated"}</span>
+          </Link>
+          <button
+            type="button"
+            className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-blue-600 text-white font-medium text-xs shadow-md transition-all cursor-default"
+          >
+            <FileText className="w-3.5 h-3.5 text-white" />
+            <span>{t("wallet.tabManual") || "Manual Deposit"}</span>
+          </button>
         </div>
 
         {/* Deposits disabled banner */}

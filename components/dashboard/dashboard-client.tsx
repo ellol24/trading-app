@@ -16,6 +16,7 @@ import {
   Wallet,
   PieChart,
   CreditCard,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { marketDataService, type MarketData } from "@/lib/market-data";
@@ -630,7 +631,7 @@ export default function DashboardClient({
             <CardTitle className="text-white">{t('dashboard.quickActions')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
               <Link href="/dashboard/trading">
                 <Button className="w-full h-16 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                   <div className="text-center">
@@ -644,6 +645,14 @@ export default function DashboardClient({
                   <div className="text-center">
                     <TrendingDown className="w-6 h-6 mx-auto mb-1" />
                     <span className="text-sm">{t('dashboard.sellCrypto')}</span>
+                  </div>
+                </Button>
+              </Link>
+              <Link href="/dashboard/instant-deposit">
+                <Button className="w-full h-16 bg-gradient-to-r from-amber-500 via-orange-600 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold shadow-lg shadow-amber-500/20">
+                  <div className="text-center">
+                    <Zap className="w-6 h-6 mx-auto mb-1 fill-current" />
+                    <span className="text-sm">{t('wallet.tabInstant') || "Instant Deposit"}</span>
                   </div>
                 </Button>
               </Link>

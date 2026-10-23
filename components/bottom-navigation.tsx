@@ -14,7 +14,7 @@ type Item = {
 };
 
 // ✅ مسارات يتم إخفاء الشريط فيها
-const hiddenPaths = ["/dashboard/deposit", "/dashboard/withdraw"];
+const hiddenPaths = ["/dashboard/deposit", "/dashboard/instant-deposit", "/dashboard/withdraw"];
 
 function normalize(path: string) {
   return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
