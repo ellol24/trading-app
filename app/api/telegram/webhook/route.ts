@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ACTIVE_OTP_BOT_TOKEN = "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
-
-function resolveBotToken(): string {
-  const env = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  // If env is empty or points to deleted/legacy bot tokens, use current active token
-  if (!env || env.startsWith("8935322771") || env.startsWith("8255653698")) {
-    return ACTIVE_OTP_BOT_TOKEN;
-  }
-  return env;
+function getBotToken(): string {
+  return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 }
-
-const BOT_TOKEN = resolveBotToken();
 
 const SITE_URL = "https://www.xspy-trader.com";
 
@@ -206,10 +197,29 @@ function buildReplyMarkup(lang: SupportedLang, chatId: number | string) {
   };
 }
 
+// ─── Rate Limiting for Webhook (in-memory) ────────────────────────────────────
+const rateLimitMap = new Map<number, number>();
+const RATE_LIMIT_WINDOW_MS = 800; // Minimum interval between requests per user
+
+function isRateLimited(userId: number): boolean {
+  const lastTime = rateLimitMap.get(userId);
+  if (lastTime && Date.now() - lastTime < RATE_LIMIT_WINDOW_MS) {
+    return true;
+  }
+  rateLimitMap.set(userId, Date.now());
+  return false;
+}
+
 // ─── Telegram API Helper ──────────────────────────────────────────────────────
 async function callTelegramApi(method: string, body: object) {
+  const token = getBotToken();
+  if (!token) {
+    console.warn("[OTP Bot] TELEGRAM_BOT_TOKEN not configured.");
+    return { ok: false, description: "Token missing" };
+  }
+
   const res = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
+    `https://api.telegram.org/bot${token}/${method}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -223,6 +233,7 @@ async function callTelegramApi(method: string, body: object) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");
+  const token = getBotToken();
 
   // Force setup if requested: ?action=setup
   if (action === "setup") {
@@ -251,7 +262,7 @@ export async function GET(req: NextRequest) {
     const currentUrl = webhookInfo?.result?.url || "";
     const targetUrl = `${SITE_URL}/api/telegram/webhook`;
 
-    if (currentUrl !== targetUrl) {
+    if (token && currentUrl !== targetUrl) {
       autoSetResult = await callTelegramApi("setWebhook", {
         url: targetUrl,
         drop_pending_updates: true,
@@ -261,8 +272,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       status: "ok",
       bot: "Xspy Trader Security (@XspyTraderOtp_bot)",
-      version: "v6",
-      tokenMasked: `${BOT_TOKEN.slice(0, 10)}...${BOT_TOKEN.slice(-5)}`,
+      version: "v7-hardened",
+      hasToken: !!token,
+      tokenMasked: token ? `${token.slice(0, 6)}...${token.slice(-4)}` : "NOT_CONFIGURED",
       botDetails: me?.result || null,
       targetWebhookUrl: targetUrl,
       currentWebhookInfo: webhookInfo?.result || null,
@@ -323,6 +335,13 @@ export async function POST(req: NextRequest) {
     if (body.message && body.message.chat) {
       const msg = body.message;
       const chatId = msg.chat.id;
+      const fromId = msg.from?.id;
+
+      // Rate limit protection against automated flood attacks
+      if (fromId && isRateLimited(fromId)) {
+        return NextResponse.json({ ok: true, rate_limited: true });
+      }
+
       const firstName = msg.from?.first_name || "Trader";
       const userLang = msg.from?.language_code;
       const messageText: string = msg.text || "";

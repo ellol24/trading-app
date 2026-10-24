@@ -18,14 +18,8 @@ function generateOtp(): string {
 
 
 
-const ACTIVE_OTP_BOT_TOKEN = "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk";
-
 function resolveTelegramToken(): string {
-  const env = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  if (!env || env.startsWith("8935322771") || env.startsWith("8255653698")) {
-    return ACTIVE_OTP_BOT_TOKEN;
-  }
-  return env;
+  return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
 }
 
 async function sendTelegramOtp(chatId: string, otp: string) {

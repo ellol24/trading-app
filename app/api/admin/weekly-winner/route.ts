@@ -101,11 +101,7 @@ export async function POST() {
 
   // Send Telegram notification if chat ID exists
   if (winnerProfile.telegram_chat_id) {
-    const rawToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
-    const botToken =
-      !rawToken || rawToken.startsWith("8935322771") || rawToken.startsWith("8255653698")
-        ? "8975286636:AAH1osEvgu81sfey7rgQqAS_Apehb_wkOQk"
-        : rawToken;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
     if (botToken) {
       const telegramMsg = `🏆 *Congratulations ${winnerProfile.full_name ?? "Champion"}!*\n\nYou are this week's *Top Referrer* on Xspy Trader!\n\n📅 Week: ${weekLabel}\n👥 New Active Referrals: *${winnerCount}*\n\nKeep inviting friends and earning more commissions! Your referral code: \`${winnerProfile.referral_code ?? "N/A"}\`\n\nThank you for being a champion in our community! 🚀`;
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
