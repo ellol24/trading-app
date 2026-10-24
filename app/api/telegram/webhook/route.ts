@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-function getBotToken(): string {
-  return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
-}
+import { getOtpBotToken } from "@/lib/telegram-tokens";
 
 const SITE_URL = "https://www.xspy-trader.com";
 
@@ -212,7 +209,7 @@ function isRateLimited(userId: number): boolean {
 
 // ─── Telegram API Helper ──────────────────────────────────────────────────────
 async function callTelegramApi(method: string, body: object) {
-  const token = getBotToken();
+  const token = getOtpBotToken();
   if (!token) {
     console.warn("[OTP Bot] TELEGRAM_BOT_TOKEN not configured.");
     return { ok: false, description: "Token missing" };
@@ -233,7 +230,7 @@ async function callTelegramApi(method: string, body: object) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action");
-  const token = getBotToken();
+  const token = getOtpBotToken();
 
   // Force setup if requested: ?action=setup
   if (action === "setup") {

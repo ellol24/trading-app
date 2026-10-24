@@ -9,7 +9,9 @@ const adminClient = createClient(
   { auth: { persistSession: false } }
 );
 
-const BOT_TOKEN = (process.env.TELEGRAM_GROUP_BOT_TOKEN || "").trim();
+import { getGroupBotToken } from "@/lib/telegram-tokens";
+
+const BOT_TOKEN = getGroupBotToken();
 const OTP_BOT_USERNAME = "@XSpyTraderOtp_bot";
 const GEMINI_API_KEY = (
   process.env.GEMINI_API_KEY ||

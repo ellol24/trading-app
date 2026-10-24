@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   Zap,
+  Bot,
 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -42,6 +43,7 @@ export default function AdminLayout({
 
   const coreItems = [
     { href: "/admin/dashboard", icon: LayoutDashboard, label: t('admin.dashboard') },
+    { href: "/admin/bots", icon: Bot, label: t('admin.telegramBots') || "Telegram Bots Hub" },
     { href: "/admin/users", icon: Users, label: t('admin.userManagement') },
     { href: "/admin/impersonate", icon: Eye, label: t('admin.testAsUser') || "Switch to User View" },
     { href: "/admin/packages", icon: Package, label: t('admin.packageManagement') },
