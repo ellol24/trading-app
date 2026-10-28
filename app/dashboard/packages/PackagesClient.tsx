@@ -66,6 +66,13 @@ export default function PackagesClient({ userId }: { userId: string }) {
   const fetchData = async () => {
     if (!userId) return
     try {
+      // Trigger a server sync to settle any mature 24h profit credits
+      await fetch("/api/packages/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }).catch((e) => console.warn("[Packages] Sync warning:", e))
+
       const [pkgRes, invRes, balRes] = await Promise.all([
         supabase.from("investment_packages").select("*").eq("is_active", true),
         supabase

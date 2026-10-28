@@ -54,14 +54,14 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(result);
 }
 
-async function runDailyProfitCycle() {
+export async function runDailyProfitCycle(targetUserId?: string) {
   const supabase = getAdminClient();
   const now = new Date();
 
-  console.log(`[CronProfits] Starting cycle at ${now.toISOString()}`);
+  console.log(`[CronProfits] Starting cycle at ${now.toISOString()}${targetUserId ? ` for user ${targetUserId}` : ""}`);
 
   // Fetch all active investments with their package details
-  const { data: activeInvestments, error: fetchErr } = await supabase
+  let query = supabase
     .from("investments")
     .select(
       `
@@ -85,6 +85,12 @@ async function runDailyProfitCycle() {
     `
     )
     .eq("status", "active");
+
+  if (targetUserId) {
+    query = query.eq("user_id", targetUserId);
+  }
+
+  const { data: activeInvestments, error: fetchErr } = await query;
 
   if (fetchErr) {
     console.error("[CronProfits] Failed to fetch active investments:", fetchErr.message);

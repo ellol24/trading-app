@@ -4,13 +4,13 @@
       "maxDuration": 30
     },
     "app/api/cron/package-profits/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/package-profits",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
