@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, MessageCircle, Send } from "lucide-react"
 import Link from "next/link"
 import { BRAND_NAME, BRAND_SHORT_DESCRIPTION, CURRENT_YEAR } from "@/lib/brand"
 
@@ -20,32 +20,31 @@ export function SiteFooter() {
           <div>
             <h3 className="mb-4 font-semibold text-white">Platform</h3>
             <ul className="space-y-2 text-slate-300">
-              {/* Removed the Trading link as requested */}
               <li>
                 <Link href="/packages" className="transition-colors hover:text-white">
                   Mining Packages
                 </Link>
               </li>
               <li>
-                <Link href="/features#analytics" className="transition-colors hover:text-white">
-                  Analytics
+                <Link href="/features" className="transition-colors hover:text-white">
+                  Analytics & Features
                 </Link>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-white">
-                  Mobile App
-                </a>
+                <Link href="/dashboard" className="transition-colors hover:text-white">
+                  Trader Dashboard
+                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-4 font-semibold text-white">Support</h3>
+            <h3 className="mb-4 font-semibold text-white">Support & Community</h3>
             <ul className="space-y-2 text-slate-300">
               <li>
-                <a href="#" className="transition-colors hover:text-white">
+                <Link href="/contact" className="transition-colors hover:text-white">
                   Help Center
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href="/contact" className="transition-colors hover:text-white">
@@ -53,25 +52,47 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-white">
-                  Live Chat
+                <a
+                  href="https://t.me/XSpyAIBot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-blue-400 flex items-center gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5 text-blue-400" />
+                  <span>Telegram Support</span>
                 </a>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-white">
-                  FAQ
-                </a>
+                <Link href="/reviews" className="transition-colors hover:text-white">
+                  Trader Reviews
+                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-4 font-semibold text-white">Legal</h3>
+            <h3 className="mb-4 font-semibold text-white">Legal & Compliance</h3>
             <ul className="space-y-2 text-slate-300">
-              <li><a href="#" className="transition-colors hover:text-white">Terms of Service</a></li>
-              <li><a href="#" className="transition-colors hover:text-white">Privacy Policy</a></li>
-              <li><a href="#" className="transition-colors hover:text-white">Risk Disclosure</a></li>
-              <li><a href="#" className="transition-colors hover:text-white">Compliance</a></li>
+              <li>
+                <Link href="/terms" className="transition-colors hover:text-white">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="transition-colors hover:text-white">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="transition-colors hover:text-white">
+                  Risk Disclosure
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="transition-colors hover:text-white">
+                  Compliance Policy
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

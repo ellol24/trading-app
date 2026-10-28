@@ -25,12 +25,17 @@ async function getHomePageData() {
     // Calculate total trading volume from completed deposits
     const totalVolume = depositsResult.data?.reduce((sum: number, deposit: any) => sum + (deposit.amount || 0), 0) || 0
 
-    // Get recent testimonials from user reviews (if any)
-    const { data: testimonials } = await supabase
-      .from("user_profiles")
-      .select("first_name, last_name, created_at")
-      .not("first_name", "is", null)
-      .limit(3)
+    // Get managed testimonials from system_settings
+    const { data: testimonialsRes } = await supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "homepage_testimonials")
+      .maybeSingle()
+
+    const testimonials =
+      testimonialsRes?.value && Array.isArray(testimonialsRes.value)
+        ? testimonialsRes.value.filter((t: any) => t.active !== false)
+        : []
 
     return {
       stats: {
@@ -40,7 +45,7 @@ async function getHomePageData() {
         uptime: 99.9, // This would come from monitoring system
       },
       packages: packagesResult.data || [],
-      testimonials: testimonials || [],
+      testimonials,
     }
   } catch (error) {
     console.error("Error fetching home page data:", error)
@@ -108,12 +113,12 @@ export default async function HomePage() {
   ]
 
   const testimonials =
-    data.testimonials.length > 0
-      ? data.testimonials.map((t: any, idx: number) => ({
-          name: `${t.first_name} ${t.last_name}`,
-          role: "Platform User",
-          content: `Great experience with ${BRAND_NAME}. Highly recommended!`,
-          rating: 5,
+    data.testimonials && data.testimonials.length > 0
+      ? data.testimonials.map((t: any) => ({
+          name: t.name || "Verified Trader",
+          role: t.role || "Platform User",
+          content: t.content || `Great experience with ${BRAND_NAME}. Highly recommended!`,
+          rating: Number(t.rating) || 5,
         }))
       : defaultTestimonials
 
@@ -165,7 +170,7 @@ export default async function HomePage() {
       </section>
 
       {/* Features preview */}
-      <section className="px-6 py-20">
+      <section id="features" className="px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-4xl font-bold">Why Choose {BRAND_NAME}?</h2>
@@ -196,7 +201,7 @@ export default async function HomePage() {
       </section>
 
       {data.packages.length > 0 && (
-        <section className="px-6 py-20">
+        <section id="packages" className="px-6 py-20">
           <div className="mx-auto max-w-7xl">
             <div className="mb-16 text-center">
               <h2 className="mb-4 text-4xl font-bold">Investment Packages</h2>
@@ -236,7 +241,7 @@ export default async function HomePage() {
       )}
 
       {/* Testimonials */}
-      <section className="px-6 py-20">
+      <section id="reviews" className="px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-4xl font-bold">What Our Traders Say</h2>

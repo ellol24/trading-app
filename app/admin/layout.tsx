@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Zap,
   Bot,
+  MessageSquareQuote,
 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -51,6 +52,7 @@ export default function AdminLayout({
     { href: "/admin/withdrawals", icon: DollarSign, label: t('admin.withdrawals') },
     { href: "/admin/wallets", icon: Wallet, label: t('admin.walletManagement') },
     { href: "/admin/deposit", icon: Wallet, label: t('admin.deposit') },
+    { href: "/admin/testimonials", icon: MessageSquareQuote, label: t('admin.testimonials') || "Reviews & Testimonials" },
     { href: "/admin/settings", icon: Settings, label: t('admin.platformControls') },
   ]
 
