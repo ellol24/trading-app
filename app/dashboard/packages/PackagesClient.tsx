@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,12 +8,22 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import { DollarSign, Clock, Package, PiggyBank, Wallet, Info, TrendingUp, Calculator } from "lucide-react"
+import {
+  DollarSign,
+  Clock,
+  Package,
+  PiggyBank,
+  Wallet,
+  Info,
+  TrendingUp,
+  Calculator,
+  CalendarCheck,
+  Coins,
+  CheckCircle2,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 import { processReferralCommissions } from "@/lib/actions/commissions"
-
 import { useLanguage } from "@/contexts/language-context"
 
 function formatUSD(n: number) {
@@ -22,6 +32,18 @@ function formatUSD(n: number) {
     currency: "USD",
     maximumFractionDigits: 2,
   })
+}
+
+/** Format milliseconds into "Xd Xh Xm Xs" */
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "00:00:00"
+  const totalSec = Math.floor(ms / 1000)
+  const d = Math.floor(totalSec / 86400)
+  const h = Math.floor((totalSec % 86400) / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (d > 0) return `${d}d ${h}h ${m}m ${s}s`
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
 }
 
 export default function PackagesClient({ userId }: { userId: string }) {
@@ -33,63 +55,54 @@ export default function PackagesClient({ userId }: { userId: string }) {
   const [amounts, setAmounts] = useState<Record<string, number>>({})
 
   // Helper to dynamically proxy user-created titles through the translation system
-  const translateDynamic = (text: string | null | undefined, ns: string = 'packages') => {
-    if (!text) return text;
-    const key = `${ns}.${text}`;
-    const translated = t(key);
-    return translated === key ? text : translated;
-  };
+  const translateDynamic = (text: string | null | undefined, ns: string = "packages") => {
+    if (!text) return text
+    const key = `${ns}.${text}`
+    const translated = t(key)
+    return translated === key ? text : translated
+  }
 
-  // منع تنفيذ إنهاء الباقة أكثر من مرة محليًا
-  const finishedIdsRef = useRef<Set<any>>(new Set())
-
-  // جلب البيانات (الباقات + الاستثمارات + الرصيد)
-  useEffect(() => {
+  // Fetch packages + investments + balance
+  const fetchData = async () => {
     if (!userId) return
-
-    const fetchData = async () => {
-      try {
-        // باقات مرئية
-        const { data: pkgs, error: pkgErr } = await supabase
-          .from("investment_packages")
-          .select("*")
-          .eq("is_active", true)
-        if (pkgErr) console.error("[Packages] packages fetch error:", pkgErr)
-        if (pkgs) setPackages(pkgs)
-
-        // استثمارات المستخدم مع relation
-        const { data: invs, error: invErr } = await supabase
+    try {
+      const [pkgRes, invRes, balRes] = await Promise.all([
+        supabase.from("investment_packages").select("*").eq("is_active", true),
+        supabase
           .from("investments")
           .select("*, investment_packages(*)")
           .eq("user_id", userId)
-        if (invErr) console.error("[Packages] investments fetch error:", invErr)
-        if (invs) setInvestments(invs)
+          .order("created_at", { ascending: false }),
+        supabase.from("user_profiles").select("balance").eq("uid", userId).single(),
+      ])
 
-        // رصيد المستخدم
-        const { data: bal, error: balErr } = await supabase
-          .from("user_profiles")
-          .select("balance")
-          .eq("uid", userId)
-          .single()
-        if (balErr) console.error("[Packages] balance fetch error:", balErr)
-        if (bal && typeof bal.balance !== "undefined") setWallet(Number(bal.balance))
-      } catch (err) {
-        console.error("[Packages] fetchData error:", err)
-      }
+      if (pkgRes.data) setPackages(pkgRes.data)
+      if (invRes.data) setInvestments(invRes.data)
+      if (balRes.data && typeof balRes.data.balance !== "undefined") setWallet(Number(balRes.data.balance))
+    } catch (err) {
+      console.error("[Packages] fetchData error:", err)
     }
+  }
 
+  useEffect(() => {
     fetchData()
+    // Refresh data every 60 seconds to pick up server-side credits
+    const interval = setInterval(fetchData, 60_000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  // شراء باقة
+  // Purchase / activate a package
   const handleBuy = async (pkg: any) => {
     if (!userId) return
     const amt = amounts[pkg.id] ?? pkg.min_investment ?? 0
 
     if (amt < (pkg.min_investment ?? 0) || amt > (pkg.max_investment ?? Infinity)) {
       toast({
-        title: t('packages.invalidAmountTitle'),
-        description: t('packages.invalidAmountDesc').replace('{min}', pkg.min_investment).replace('{max}', pkg.max_investment),
+        title: t("packages.invalidAmountTitle"),
+        description: t("packages.invalidAmountDesc")
+          .replace("{min}", pkg.min_investment)
+          .replace("{max}", pkg.max_investment),
         variant: "destructive",
       })
       return
@@ -97,37 +110,39 @@ export default function PackagesClient({ userId }: { userId: string }) {
 
     if (wallet < amt) {
       toast({
-        title: t('packages.insufficientBalanceTitle'),
-        description: t('packages.insufficientBalanceDesc'),
+        title: t("packages.insufficientBalanceTitle"),
+        description: t("packages.insufficientBalanceDesc"),
         variant: "destructive",
       })
       return
     }
 
     // Check if same package is already active
-    const isAlreadyActive = investments.some(inv => inv.package_id === pkg.id && inv.status === 'active');
+    const isAlreadyActive = investments.some((inv) => inv.package_id === pkg.id && inv.status === "active")
     if (isAlreadyActive) {
       toast({
-        title: t('packages.alreadyActiveTitle') || "Package Already Active",
-        description: t('packages.alreadyActiveDesc') || "You already have an active investment with this package. Please wait for it to expire.",
+        title: t("packages.alreadyActiveTitle") || "Package Already Active",
+        description:
+          t("packages.alreadyActiveDesc") ||
+          "You already have an active investment with this package. Please wait for it to expire.",
         variant: "destructive",
       })
       return
     }
 
     try {
-      // حجز المبلغ أولاً (ببساطة تخفيض الرصيد)
+      // Deduct balance first
       const { error: balErr } = await supabase
         .from("user_profiles")
         .update({ balance: wallet - amt })
         .eq("uid", userId)
 
       if (balErr) {
-        toast({ title: t('common.error'), description: balErr.message ?? t('packages.updateBalanceError'), variant: "destructive" })
+        toast({ title: t("common.error"), description: balErr.message, variant: "destructive" })
         return
       }
 
-      // إدخال الاستثمار
+      // Create investment record
       const { error: invErr } = await supabase.from("investments").insert([
         {
           user_id: userId,
@@ -135,163 +150,175 @@ export default function PackagesClient({ userId }: { userId: string }) {
           amount: amt,
           status: "active",
           start_date: new Date().toISOString(),
+          days_credited: 0,
+          total_profit_credited: 0,
+          profit: 0,
+          // last_profit_at is NULL on creation — cron will use start_date as baseline
         },
       ])
 
       if (invErr) {
-        // محاولة إعادة الرصيد عند الفشل
+        // Rollback balance on failure
         await supabase.from("user_profiles").update({ balance: wallet }).eq("uid", userId)
-        toast({ title: t('common.error'), description: invErr.message ?? t('packages.createInvestmentError'), variant: "destructive" })
+        toast({ title: t("common.error"), description: invErr.message, variant: "destructive" })
         return
       }
 
-      toast({ title: t('packages.activationSuccessTitle'), description: t('packages.activationSuccessDesc').replace('{title}', translateDynamic(pkg.title) || "") })
-      // تحديث محلي للواجهة
+      toast({
+        title: t("packages.activationSuccessTitle"),
+        description: t("packages.activationSuccessDesc").replace("{title}", translateDynamic(pkg.title) || ""),
+      })
       setWallet((prev) => prev - amt)
-
-      // NOTE: Package referral commissions are NOT granted at purchase time.
-      // They are granted when the investment completes, calculated on the PROFIT (not the principal).
-
-      // إعادة جلب الاستثمارات لتحديث القائمة
-      const { data: invs } = await supabase
-        .from("investments")
-        .select("*, investment_packages(*)")
-        .eq("user_id", userId)
-      if (invs) setInvestments(invs)
+      await fetchData()
     } catch (err) {
       console.error("handleBuy error", err)
-      toast({ title: t('common.error'), description: t('common.error'), variant: "destructive" })
+      toast({ title: t("common.error"), description: t("common.error"), variant: "destructive" })
     }
   }
 
-  // عند انتهاء الباقة (يتم استدعاؤها مرة واحدة لكل استثمار)
-  const handleInvestmentComplete = async (inv: any) => {
-    if (!inv || finishedIdsRef.current.has(inv.id)) return
-    finishedIdsRef.current.add(inv.id)
-
-    try {
-      const amount = Number(inv.amount || 0)
-      const roiDaily = Number(inv.investment_packages?.roi_daily_percentage ?? inv.roi_daily_percentage ?? 0)
-      const durationDays = Number(inv.investment_packages?.duration_days ?? inv.duration_days ?? 0)
-
-      const profit = Number(((amount * (roiDaily / 100)) * durationDays).toFixed(2))
-      const totalReturn = Number((amount + profit).toFixed(2))
-
-      // تحديث حالة الاستثمار
-      const { error: invUpdErr } = await supabase
-        .from("investments")
-        .update({ status: "completed", profit })
-        .eq("id", inv.id)
-
-      if (invUpdErr) {
-        console.error("Failed to update investment status:", invUpdErr)
-        return
-      }
-
-      // تحديث رصيد المستخدم (يمكن تحسين ذلك باستخدام RPC/transaction على Postgres)
-      const { data: bal, error: balErr } = await supabase
-        .from("user_profiles")
-        .select("balance")
-        .eq("uid", inv.user_id || userId)
-        .single()
-
-      if (balErr) console.error("Failed to read user balance:", balErr)
-      const currentBalance = Number(bal?.balance ?? wallet ?? 0)
-      const newBalance = Number((currentBalance + totalReturn).toFixed(2))
-
-      const { error: balUpdErr } = await supabase
-        .from("user_profiles")
-        .update({ balance: newBalance })
-        .eq("uid", inv.user_id || userId)
-
-      if (balUpdErr) console.error("Failed to update user balance:", balUpdErr)
-      else setWallet(newBalance)
-
-      // ✅ Grant package referral commissions on the PROFIT only (not the principal investment)
-      // e.g. profit = $10.50 → Level 1 referrer earns 10% of $10.50 = $1.05
-      if (profit > 0) {
-        await processReferralCommissions(inv.user_id || userId, profit, "package")
-      }
-
-      // إعادة تحميل الاستثمارات
-      const { data: invs } = await supabase
-        .from("investments")
-        .select("*, investment_packages(*)")
-        .eq("user_id", userId)
-      if (invs) setInvestments(invs)
-    } catch (err) {
-      console.error("handleInvestmentComplete error", err)
-    }
-  }
-
-  // مُكوّن صغير للعداد الزمني + شريط التقدم لكل استثمار
-  function InvestmentTimer({ inv }: { inv: any }) {
-    const [timeLeftText, setTimeLeftText] = useState<string>("")
-    const [progress, setProgress] = useState<number>(0)
-    const [localDone, setLocalDone] = useState<boolean>(inv.status !== "active")
+  // ─── Investment Card with daily profit display ───────────────────────────────
+  function InvestmentCard({ inv }: { inv: any }) {
+    const [now, setNow] = useState(Date.now())
     const { t } = useLanguage()
 
+    // Tick every second
     useEffect(() => {
-      if (!inv) return
-      if (localDone) return
+      const id = setInterval(() => setNow(Date.now()), 1000)
+      return () => clearInterval(id)
+    }, [])
 
-      const startTime = new Date(inv.start_date ?? inv.created_at ?? Date.now()).getTime()
-      const durationDays = Number(inv.investment_packages?.duration_days ?? inv.duration_days ?? 0)
-      const durationMs = durationDays * 24 * 60 * 60 * 1000
-      const endTime = startTime + durationMs
+    if (!inv) return null
 
-      let mounted = true
+    const pkg = inv.investment_packages
+    const amount = Number(inv.amount ?? 0)
+    const roiDaily = Number(pkg?.roi_daily_percentage ?? 0)
+    const durationDays = Number(pkg?.duration_days ?? 0)
+    const dailyProfit = Number(((amount * roiDaily) / 100).toFixed(4))
+    const daysCredited = Number(inv.days_credited ?? 0)
+    const totalProfitCredited = Number(inv.total_profit_credited ?? inv.profit ?? 0)
 
-      const tick = () => {
-        if (!mounted) return
-        const now = Date.now()
-        const diff = endTime - now
+    // Progress through full duration
+    const daysProgress = durationDays > 0 ? Math.min(100, (daysCredited / durationDays) * 100) : 0
 
-        if (diff <= 0) {
-          setTimeLeftText(t('common.status') === 'Status' ? "Package ended" : "انتهت الباقة")
-          setProgress(100)
-          setLocalDone(true)
-          setTimeout(() => {
-            void handleInvestmentComplete(inv)
-          }, 300)
-          return
-        }
-
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
-        const minutes = Math.floor((diff / (1000 * 60)) % 60)
-        const seconds = Math.floor((diff / 1000) % 60)
-        setTimeLeftText(`${days}d ${hours}h ${minutes}m ${seconds}s`)
-
-        const elapsed = now - startTime
-        const pct = durationMs > 0 ? Math.min(100, Math.max(0, (elapsed / durationMs) * 100)) : 0
-        setProgress(pct)
-      }
-
-      tick()
-      const id = setInterval(tick, 1000)
-      return () => {
-        mounted = false
-        clearInterval(id)
-      }
-    }, [inv, localDone])
+    // Next profit countdown (24h from last_profit_at or start_date)
+    const lastProfitAt = inv.last_profit_at
+      ? new Date(inv.last_profit_at).getTime()
+      : new Date(inv.start_date ?? inv.created_at ?? now).getTime()
+    const nextProfitAt = lastProfitAt + 24 * 60 * 60 * 1000
+    const msUntilNext = nextProfitAt - now
+    const isCompleted = inv.status === "completed"
+    const isWaiting = !isCompleted && msUntilNext > 0
 
     return (
-      <div translate="no" data-react-protected>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm text-muted-foreground">{t('packages.remaining')}</div>
-          <div className="text-sm font-medium text-blue-200">{timeLeftText}</div>
-        </div>
-        <Progress value={Math.round(progress)} className="h-2" />
-      </div>
+      <Card className="trading-card" translate="no" data-react-protected>
+        <CardContent className="p-5 space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="text-white font-semibold">{translateDynamic(pkg?.title)}</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {t("common.amount")} {formatUSD(amount)} &bull; {t("packages.dailyRoi")} {roiDaily}% &bull;{" "}
+                {t("packages.duration")} {durationDays} {t("packages.days")}
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                isCompleted
+                  ? "text-green-400 border-green-400 bg-green-400/10 shrink-0"
+                  : "text-blue-400 border-blue-400 bg-blue-400/10 shrink-0"
+              }
+            >
+              {isCompleted ? (
+                <>
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  {t("packages.statusCompleted")}
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  {t("packages.statusActive")}
+                </>
+              )}
+            </Badge>
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center p-2 rounded-lg bg-background/10">
+              <p className="text-xs text-muted-foreground">{t("packages.profitCredited")}</p>
+              <p className="text-sm font-bold text-green-400">{formatUSD(totalProfitCredited)}</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-background/10">
+              <p className="text-xs text-muted-foreground">{t("packages.dailyProfit")}</p>
+              <p className="text-sm font-bold text-blue-400">+{formatUSD(dailyProfit)}</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-background/10">
+              <p className="text-xs text-muted-foreground">{t("packages.daysCredited")}</p>
+              <p className="text-sm font-bold text-purple-400">
+                {daysCredited}/{durationDays}
+              </p>
+            </div>
+          </div>
+
+          {/* Duration progress */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <CalendarCheck className="h-3 w-3" />
+                {t("packages.packageProgress")}
+              </span>
+              <span className="text-xs text-white font-medium">{Math.round(daysProgress)}%</span>
+            </div>
+            <Progress value={Math.round(daysProgress)} className="h-2" />
+          </div>
+
+          {/* Next profit / principal return info */}
+          {!isCompleted && (
+            <div
+              className={`flex items-center justify-between p-3 rounded-lg ${
+                isWaiting ? "bg-amber-500/10 border border-amber-500/20" : "bg-green-500/10 border border-green-500/20"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {isWaiting ? (
+                  <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+                ) : (
+                  <Coins className="h-4 w-4 text-green-400 shrink-0" />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {daysCredited + 1 >= durationDays
+                    ? t("packages.nextCreditFinalDay")
+                    : t("packages.nextDailyCredit")}
+                </span>
+              </div>
+              <span
+                className={`text-sm font-bold tabular-nums ${isWaiting ? "text-amber-300" : "text-green-400"}`}
+              >
+                {isWaiting ? formatCountdown(msUntilNext) : t("packages.processingCredit")}
+              </span>
+            </div>
+          )}
+
+          {/* Completed state — principal returned */}
+          {isCompleted && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+              <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+              <span className="text-xs text-green-300">
+                {t("packages.principalReturned").replace("{amount}", formatUSD(amount))}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     )
   }
 
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900"
-      translate="no" // منع الترجمة على مستوى الصفحة
-      data-react-protected // وسم لحماية عناصر داخل الصفحة
+      translate="no"
+      data-react-protected
     >
       <div className="p-6 pb-24">
         <div className="max-w-6xl mx-auto space-y-6">
@@ -300,21 +327,21 @@ export default function PackagesClient({ userId }: { userId: string }) {
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2 text-white">
                 <Wallet className="h-5 w-5" />
-                <span>{t('packages.miningWallet')}</span>
+                <span>{t("packages.miningWallet")}</span>
               </CardTitle>
               <Badge variant="outline" className="w-fit text-emerald-400 border-emerald-400 bg-emerald-400/10">
                 <PiggyBank className="h-4 w-4 mr-1 shrink-0" />
-                <span>{t('packages.profitsAutoCredit')}</span>
+                <span>{t("packages.profitsAutoCredit")}</span>
               </Badge>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">{t('dashboard.availableBalance')}</p>
+                <p className="text-sm text-muted-foreground">{t("dashboard.availableBalance")}</p>
                 <p className="text-3xl font-bold text-white">{formatUSD(wallet)}</p>
               </div>
               <div className="text-xs text-muted-foreground flex items-start sm:items-center gap-2 max-w-sm">
                 <Info className="h-4 w-4 shrink-0 mt-0.5 sm:mt-0" />
-                <span>{t('packages.profitsInfo')}</span>
+                <span>{t("packages.profitsInfo")}</span>
               </div>
             </CardContent>
           </Card>
@@ -324,7 +351,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 text-white">
                 <Package className="h-5 w-5" />
-                <span>{t('packages.activeOverview')}</span>
+                <span>{t("packages.activeOverview")}</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -333,34 +360,45 @@ export default function PackagesClient({ userId }: { userId: string }) {
                   <p className="text-2xl font-bold text-blue-400">
                     {investments.filter((i) => i.status === "active").length}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t('packages.activePackagesStats')}</p>
+                  <p className="text-sm text-muted-foreground">{t("packages.activePackagesStats")}</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-background/10">
                   <p className="text-2xl font-bold text-green-400">
-                    {formatUSD(investments.reduce((s, i) => s + Number(i.profit || 0), 0))}
+                    {formatUSD(
+                      investments.reduce((s, i) => s + Number(i.total_profit_credited ?? i.profit ?? 0), 0)
+                    )}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t('packages.totalEarnings')}</p>
+                  <p className="text-sm text-muted-foreground">{t("packages.totalEarnings")}</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-background/10">
                   <p className="text-2xl font-bold text-purple-400">
                     {investments.length > 0
                       ? (
-                        investments.reduce((s, i) => s + Number(i.investment_packages?.roi_daily_percentage || 0), 0) /
-                        investments.length
-                      ).toFixed(2)
+                          investments.reduce(
+                            (s, i) => s + Number(i.investment_packages?.roi_daily_percentage || 0),
+                            0
+                          ) / investments.length
+                        ).toFixed(2)
                       : 0}
                     %
                   </p>
-                  <p className="text-sm text-muted-foreground">{t('packages.avgDailyRoi')}</p>
+                  <p className="text-sm text-muted-foreground">{t("packages.avgDailyRoi")}</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-background/10">
                   <p className="text-2xl font-bold text-orange-400">
                     {investments
                       .filter((i) => i.status === "active")
-                      .map((i) => i.investment_packages?.duration_days || 0)
-                      .reduce((a, b) => a + b, 0)}
+                      .reduce(
+                        (s, i) =>
+                          s +
+                          Math.max(
+                            0,
+                            Number(i.investment_packages?.duration_days || 0) - Number(i.days_credited ?? 0)
+                          ),
+                        0
+                      )}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t('packages.totalRemainingDays')}</p>
+                  <p className="text-sm text-muted-foreground">{t("packages.totalRemainingDays")}</p>
                 </div>
               </div>
             </CardContent>
@@ -369,7 +407,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Available Packages */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-white">{t('packages.availableMiningPackages')}</h2>
+              <h2 className="text-xl font-semibold text-white">{t("packages.availableMiningPackages")}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {packages.map((pkg) => {
                   const amt = amounts[pkg.id] ?? pkg.min_investment
@@ -378,8 +416,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                   const roiDaily = Number(pkg.roi_daily_percentage ?? 0)
                   const durationDays = Number(pkg.duration_days ?? 0)
                   const projectedProfit = Number(((amt * (roiDaily / 100)) * durationDays).toFixed(2))
-                  const totalReturn = Number((amt + projectedProfit).toFixed(2))
-                  const hasActive = investments.some(inv => inv.package_id === pkg.id && inv.status === 'active')
+                  const hasActive = investments.some((inv) => inv.package_id === pkg.id && inv.status === "active")
                   return (
                     <Card key={pkg.id} className="trading-card" translate="no" data-react-protected>
                       <CardContent className="p-0">
@@ -389,7 +426,9 @@ export default function PackagesClient({ userId }: { userId: string }) {
                               src={pkg.image_url}
                               alt={translateDynamic(pkg.title) ?? "package"}
                               className="w-full h-44 object-cover rounded-t-lg"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              onError={(e) => {
+                                ;(e.target as HTMLImageElement).style.display = "none"
+                              }}
                             />
                           ) : (
                             <div className="w-full h-44 rounded-t-lg bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
@@ -398,21 +437,26 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           )}
                           <div className="absolute top-4 right-4">
                             <Badge variant="outline" className="text-green-400 border-green-400 bg-green-400/10">
-                              {pkg.roi_daily_percentage}{t('packages.percentDaily')}
+                              {pkg.roi_daily_percentage}
+                              {t("packages.percentDaily")}
                             </Badge>
                           </div>
                         </div>
 
                         <div className="p-5 space-y-4">
                           <h3 className="text-lg font-semibold text-white">{translateDynamic(pkg.title)}</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{translateDynamic(pkg.description)}</p>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {translateDynamic(pkg.description)}
+                          </p>
 
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div className="flex items-center space-x-2 p-3 rounded-lg bg-background/10">
                               <Clock className="h-4 w-4 text-blue-400" />
                               <div>
-                                <p className="text-white font-medium">{pkg.duration_days} {t('packages.days')}</p>
-                                <p className="text-muted-foreground text-xs">{t('packages.duration')}</p>
+                                <p className="text-white font-medium">
+                                  {pkg.duration_days} {t("packages.days")}
+                                </p>
+                                <p className="text-muted-foreground text-xs">{t("packages.duration")}</p>
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 p-3 rounded-lg bg-background/10">
@@ -421,7 +465,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                                 <p className="text-white font-medium">
                                   {formatUSD(pkg.min_investment)} - {formatUSD(pkg.max_investment)}
                                 </p>
-                                <p className="text-muted-foreground text-xs">{t('packages.investmentRange')}</p>
+                                <p className="text-muted-foreground text-xs">{t("packages.investmentRange")}</p>
                               </div>
                             </div>
                           </div>
@@ -429,7 +473,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           {/* Amount Input + Slider */}
                           <div className="space-y-3">
                             <Label htmlFor={`amount-${pkg.id}`} className="text-muted-foreground">
-                              {t('common.amount')}
+                              {t("common.amount")}
                             </Label>
                             <Input
                               id={`amount-${pkg.id}`}
@@ -454,8 +498,12 @@ export default function PackagesClient({ userId }: { userId: string }) {
                               />
                             )}
                             <div className="flex justify-between text-xs text-slate-500">
-                              <span>{t('packages.minLabel')} {formatUSD(min)}</span>
-                              <span>{t('packages.maxLabel')} {formatUSD(max)}</span>
+                              <span>
+                                {t("packages.minLabel")} {formatUSD(min)}
+                              </span>
+                              <span>
+                                {t("packages.maxLabel")} {formatUSD(max)}
+                              </span>
                             </div>
                           </div>
 
@@ -463,21 +511,27 @@ export default function PackagesClient({ userId }: { userId: string }) {
                           <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
                             <div className="flex items-center gap-1.5 text-xs text-green-400 font-semibold">
                               <Calculator className="w-3.5 h-3.5" />
-                              {t('packages.profitCalculator')}
+                              {t("packages.profitCalculator")}
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-slate-400 text-xs">{t('packages.dailyProfit')}</span>
-                                <span className="text-white text-xs font-medium">{formatUSD((amt * roiDaily) / 100)}</span>
+                                <span className="text-slate-400 text-xs">{t("packages.dailyProfit")}</span>
+                                <span className="text-white text-xs font-medium">
+                                  +{formatUSD((amt * roiDaily) / 100)}
+                                </span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-slate-400 text-xs">{t('packages.totalProfit')}</span>
-                                <span className="text-green-400 text-xs font-medium">+{formatUSD(projectedProfit)}</span>
+                                <span className="text-slate-400 text-xs">{t("packages.totalProfit")}</span>
+                                <span className="text-green-400 text-xs font-medium">
+                                  +{formatUSD(projectedProfit)}
+                                </span>
                               </div>
                             </div>
                             <div className="flex justify-between items-center pt-1 border-t border-green-500/20">
-                              <span className="text-slate-300 text-xs">{t('packages.youReceiveAfter').replace('{n}', durationDays.toString())}</span>
-                              <span className="text-green-400 font-bold text-sm">{formatUSD(totalReturn)}</span>
+                              <span className="text-slate-300 text-xs">
+                                {t("packages.principalReturnedAt").replace("{n}", durationDays.toString())}
+                              </span>
+                              <span className="text-blue-400 font-bold text-sm">{formatUSD(amt)}</span>
                             </div>
                           </div>
 
@@ -486,7 +540,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                             onClick={() => handleBuy(pkg)}
                             disabled={hasActive}
                           >
-                            {hasActive ? t('packages.alreadyActive') : t('packages.activatePackage')}
+                            {hasActive ? t("packages.alreadyActive") : t("packages.activatePackage")}
                           </Button>
                         </div>
                       </CardContent>
@@ -495,7 +549,7 @@ export default function PackagesClient({ userId }: { userId: string }) {
                 })}
                 {packages.length === 0 && (
                   <div className="col-span-1 text-center text-muted-foreground py-8">
-                    <p>{t('dashboard.noPackages')}</p>
+                    <p>{t("dashboard.noPackages")}</p>
                   </div>
                 )}
               </div>
@@ -503,42 +557,21 @@ export default function PackagesClient({ userId }: { userId: string }) {
 
             {/* My Packages */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-white">{t('packages.myPackages')}</h2>
+              <h2 className="text-xl font-semibold text-white">{t("packages.myPackages")}</h2>
               {investments.length === 0 ? (
                 <Card className="trading-card" translate="no" data-react-protected>
-                  <CardContent className="p-6 text-muted-foreground">
-                    {t('packages.noPackagesDesc')}
-                  </CardContent>
+                  <CardContent className="p-6 text-muted-foreground">{t("packages.noPackagesDesc")}</CardContent>
                 </Card>
               ) : (
                 <div className="space-y-4">
                   {investments.map((inv) => (
-                    <Card key={inv.id} className="trading-card" translate="no" data-react-protected>
-                      <CardContent className="p-5 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-white font-semibold">{translateDynamic(inv.investment_packages?.title)}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {t('common.amount')} {formatUSD(inv.amount)} • {t('packages.dailyRoi')} {inv.investment_packages?.roi_daily_percentage}% • {t('packages.duration')} {inv.investment_packages?.duration_days} {t('packages.days')}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">{t('packages.profit')}</div>
-                            <div className="text-lg font-semibold text-green-400">{formatUSD(inv.profit || 0)}</div>
-                          </div>
-                        </div>
-
-                        {/* عداد + شريط تقدم مرتبط بالاستثمار */}
-                        <InvestmentTimer inv={inv} />
-                      </CardContent>
-                    </Card>
+                    <InvestmentCard key={inv.id} inv={inv} />
                   ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Helpful Links — يمكنك إضافة روابط مساعدة هنا */}
           <div />
         </div>
       </div>
