@@ -19,8 +19,13 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. DYNAMIC RATE LIMITING FIREWALL
+  // Exempt Telegram webhooks, internal cron jobs, and admin API requests from public rate limiting
+  const isTelegramWebhook = path.startsWith("/api/telegram/");
+  const isCronRoute = path.startsWith("/api/cron/");
+  const isAdminApi = path.startsWith("/api/admin/");
+
   const isSensitiveRoute = path.startsWith("/auth/login") || path.startsWith("/auth/register");
-  const isApiRoute = path.startsWith("/api/");
+  const isApiRoute = path.startsWith("/api/") && !isTelegramWebhook && !isCronRoute && !isAdminApi;
 
   if (isSensitiveRoute || isApiRoute) {
     const now = Date.now();

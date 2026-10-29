@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     const { data: users, error } = await adminClient
       .from("user_profiles")
-      .select("uid, full_name, email, telegram_chat_id, balance, status, country, role, created_at, updated_at")
+      .select("uid, full_name, email, telegram_chat_id, balance, status, country, role, created_at")
       .not("telegram_chat_id", "is", null)
       .order("created_at", { ascending: false });
 

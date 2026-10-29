@@ -51,6 +51,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, message: `Token for ${botType} bot is not configured.` }, { status: 400 });
       }
 
+      // First delete webhook with drop_pending_updates to clear any stale error status from Telegram
+      await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drop_pending_updates: true }),
+      }).catch(() => null);
+
       const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

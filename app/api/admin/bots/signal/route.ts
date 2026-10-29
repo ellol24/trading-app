@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     // Fetch all users with a linked Telegram chat ID
     const { data: profiles, error: profilesError } = await adminClient
       .from("user_profiles")
-      .select("uid, telegram_chat_id, language")
+      .select("uid, telegram_chat_id")
       .not("telegram_chat_id", "is", null)
       .neq("telegram_chat_id", "");
 
@@ -177,11 +177,10 @@ export async function POST(req: NextRequest) {
 
     const groupChatId = groupSetting?.value as string | undefined;
 
-    // Broadcast to all linked users (personalized by language)
+    // Broadcast to all linked users
     const sendTasks = users.map(async (profile) => {
       if (!profile.telegram_chat_id) return;
-      const lang = (profile.language as string) || "en";
-      const message = buildSignalMessage(symbol, duration_sec, payout_percent, direction, lang);
+      const message = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "ar");
       const ok = await sendTelegramMessage(profile.telegram_chat_id, message);
       if (ok) successCount++;
       else failureCount++;

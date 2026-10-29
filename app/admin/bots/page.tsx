@@ -123,6 +123,9 @@ export default function AdminBotsPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [sendingDailySummary, setSendingDailySummary] = useState(false);
   const [sendingTestSignal, setSendingTestSignal] = useState(false);
+  const [groupChatIdInput, setGroupChatIdInput] = useState("");
+  const [savingGroupId, setSavingGroupId] = useState(false);
+  const [detectingGroupId, setDetectingGroupId] = useState(false);
 
   // Action pending states
   const [actionPending, setActionPending] = useState<string | null>(null);
@@ -173,6 +176,7 @@ export default function AdminBotsPage() {
   useEffect(() => {
     fetchBotStatus();
     fetchLinkedUsers();
+    fetchBotSettings();
     const interval = setInterval(() => {
       fetchBotStatus();
     }, 45000);
@@ -267,20 +271,77 @@ export default function AdminBotsPage() {
     }
   };
 
+  const fetchBotSettings = async () => {
+    try {
+      const res = await fetch("/api/admin/bots/settings");
+      const data = await res.json();
+      if (res.ok && data.telegramGroupChatId) {
+        setGroupChatIdInput(data.telegramGroupChatId);
+      }
+    } catch {}
+  };
+
+  const handleSaveGroupId = async () => {
+    if (!groupChatIdInput.trim()) {
+      toast.error("يرجى إدخال معرف المجموعة (Group Chat ID)");
+      return;
+    }
+    setSavingGroupId(true);
+    try {
+      const res = await fetch("/api/admin/bots/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_group_id", groupChatId: groupChatIdInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(data.message || "تم حفظ معرف المجموعة بنجاح");
+      } else {
+        toast.error(data.message || "فشل حفظ معرف المجموعة");
+      }
+    } catch {
+      toast.error("خطأ أثناء الاتصال");
+    } finally {
+      setSavingGroupId(false);
+    }
+  };
+
+  const handleAutoDetectGroupId = async () => {
+    setDetectingGroupId(true);
+    try {
+      const res = await fetch("/api/admin/bots/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "auto_detect" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok && data.detectedChatId) {
+        setGroupChatIdInput(data.detectedChatId);
+        toast.success(data.message || "تم اكتشاف معرف المجموعة وحفظه بنجاح!");
+      } else {
+        toast.info(data.message || "لم يتم رصد رسالة مجموعة بعد. أضف @XSpyAIBot للمجموعة وأرسل رسالة داخلها.");
+      }
+    } catch {
+      toast.error("خطأ أثناء محاولة الكشف التلقائي");
+    } finally {
+      setDetectingGroupId(false);
+    }
+  };
+
   const handleSendDailySummary = async () => {
     setSendingDailySummary(true);
     try {
       const res = await fetch("/api/cron/daily-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ targetChatId: groupChatIdInput.trim() || undefined }),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
         toast.success("تم بث التقرير اليومي بنجاح إلى مجموعة تيليجرام!");
         fetchBotStatus();
       } else {
-        toast.error(data.message || data.error || "فشل إرسال التقرير اليومي");
+        toast.error(data.message || data.error || "فشل إرسال التقرير اليومي. تأكد من ضبط معرف المجموعة.");
       }
     } catch {
       toast.error("خطأ في الاتصال أثناء إرسال التقرير");
@@ -1070,6 +1131,56 @@ export default function AdminBotsPage() {
                   <Send className={`w-4 h-4 mr-2 ${sendingMsg ? "animate-spin" : ""}`} />
                   {sendingMsg ? "Sending Message..." : isBroadcasting ? "Send Broadcast to All Users" : "Send Direct Message"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Official Telegram Group Chat ID Configuration ── */}
+          <Card className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 max-w-3xl mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-gray-900 dark:text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-400" />
+                Telegram Group Configuration
+              </CardTitle>
+              <CardDescription className="text-xs">
+                تحديد معرف مجموعة تيليجرام الرسمية لتلقي إشارات التداول والتقارير اليومية تلقائياً
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <div>
+                <label className="block text-gray-500 dark:text-slate-400 mb-1 font-semibold">
+                  معرف المجموعة (Group Chat ID):
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    placeholder="e.g. -1001234567890"
+                    value={groupChatIdInput}
+                    onChange={(e) => setGroupChatIdInput(e.target.value)}
+                    className="font-mono h-9 text-xs bg-gray-50 dark:bg-slate-950 border-gray-200 dark:border-slate-800 text-gray-900 dark:text-white flex-1"
+                  />
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveGroupId}
+                      disabled={savingGroupId}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 h-9"
+                    >
+                      {savingGroupId ? "جاري الحفظ..." : "💾 حفظ المعرف"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAutoDetectGroupId}
+                      disabled={detectingGroupId}
+                      className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 shrink-0 h-9"
+                    >
+                      {detectingGroupId ? "جاري البحث..." : "🔍 كشف تلقائي"}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  💡 ملاحظة: معرف مجموعات تيليجرام يبدأ عادةً بـ <code className="text-blue-400">-100</code>. عند إضافة البوت @XSpyAIBot للمجموعة وإرسال أي رسالة، سيتم الكشف عنه وحفظه تلقائياً.
+                </p>
               </div>
             </CardContent>
           </Card>
