@@ -27,28 +27,28 @@ const MESSAGES: Record<
   }
 > = {
   ar: {
-    title: "🛡️ *بوت التحقق الأمني — XSPY Trader*",
+    title: "🛡️ *بوت التنبيهات والإشعارات — XSPY Trader*",
     hello: (name) =>
-      `مرحباً *${name}*! لقد اكتشف البوت رقم التعريف الخاص بحسابك على تيليجرام بنجاح.\nستستخدم هذا الرقم لربط حسابك بمنصة XSPY Trader وتفعيل التحقق بخطوتين.`,
+      `مرحباً *${name}*! لقد تم اكتشاف رقم التعريف الخاص بحسابك على تيليجرام بنجاح.\nستستخدم هذا الرقم لربط حسابك بمنصة XSPY Trader واستلام إشعارات الصفقات اليومية والتنبيهات الأمنية.`,
     chatIdLabel: "🔑 *رقم التعريف الخاص بك (Chat ID):*",
     chatIdNote: "اضغط على الرقم أعلاه لنسخه تلقائياً",
-    stepsTitle: "📋 *كيفية ربط حسابك:*",
+    stepsTitle: "📋 *كيفية ربط حسابك بالمنصة:*",
     step1: "١. اضغط على رقم الـ Chat ID أعلاه لنسخه.",
     step2: "٢. توجه إلى *الملف الشخصي* في منصة XSPY Trader.",
     step3: "٣. الصق الرقم في خانة *Telegram Chat ID* ثم اضغط *حفظ*.",
     securityNote:
-      "🔒 *ملاحظة أمنية:* لا تشارك هذا الرقم مع أي شخص آخر.",
+      "🔒 *ملاحظة أمنية:* لا تشارك هذا الرقم أو أي بيانات خاصة بحسابك مع أي شخص.",
     footer:
-      "✅ بعد الربط الناجح، ستتلقى رمز تأكيد السحب (OTP) مباشرةً هنا في كل مرة تطلب فيها سحب أموال — لضمان أقصى حماية لحسابك.",
+      "✅ بعد ربط المعرف، ستتلقى تنبيهات الصفقات اليومية وإعلانات المنصة الهامة مباشرةً هنا.\n💡 *ملاحظة:* تأكيد عمليات السحب يتم حصرياً وبأعلى معايير الأمان عبر كود تأكيد يُرسل لبريدك الإلكتروني (Gmail).",
     openProfile: "👤 فتح الملف الشخصي",
     visitSite: "🌐 زيارة المنصة",
     joinGroup: "💬 انضم للمجموعة الرسمية",
     alreadyAnswered: "لقد أرسلنا إليك رقم Chat ID الخاص بك. يمكنك نسخه من الرسالة السابقة.",
   },
   en: {
-    title: "🛡️ *XSPY Trader — Account Verification Bot*",
+    title: "🛡️ *XSPY Trader — Notifications & Alerts Bot*",
     hello: (name) =>
-      `Hello *${name}*! Your Telegram Chat ID has been detected successfully.\nYou'll use this ID to link your Telegram account to XSPY Trader and enable two-factor authentication (2FA).`,
+      `Hello *${name}*! Your Telegram Chat ID has been detected successfully.\nYou can use this ID to link your Telegram account to XSPY Trader to receive daily trade session alerts and platform updates.`,
     chatIdLabel: "🔑 *Your Personal Chat ID:*",
     chatIdNote: "Tap the number above to copy it automatically",
     stepsTitle: "📋 *How to link your account:*",
@@ -58,7 +58,7 @@ const MESSAGES: Record<
     securityNote:
       "🔒 *Security note:* Never share this ID with anyone else.",
     footer:
-      "✅ Once linked, you'll receive an instant 6-digit OTP code here every time you request a withdrawal — ensuring maximum security for your funds.",
+      "✅ Once linked, you'll receive instant alerts for daily trade rounds and platform announcements right here.\n💡 *Note:* Withdrawal security OTP codes are sent exclusively to your registered Gmail address.",
     openProfile: "👤 Open Profile Settings",
     visitSite: "🌐 Visit Platform",
     joinGroup: "💬 Join Official Group",
@@ -66,19 +66,19 @@ const MESSAGES: Record<
       "Your Chat ID was already sent. You can find it in the previous message above.",
   },
   fr: {
-    title: "🛡️ *XSPY Trader — Bot de Vérification*",
+    title: "🛡️ *XSPY Trader — Bot d'Alertes et Notifications*",
     hello: (name) =>
-      `Bonjour *${name}* ! Votre Chat ID Telegram a été détecté avec succès.\nVous utiliserez cet identifiant pour relier votre compte Telegram à XSPY Trader et activer l'authentification à deux facteurs (2FA).`,
-    chatIdLabel: "🔑 *Votre identifiant de chat personnel (Chat ID) :*",
+      `Bonjour *${name}* ! Votre Chat ID Telegram a été détecté avec succès.\nUtilisez cet identifiant pour relier votre compte à XSPY Trader et recevoir les alertes de trading et notifications importantes.`,
+    chatIdLabel: "🔑 *Votre identifiant personnel (Chat ID) :*",
     chatIdNote: "Appuyez sur le numéro ci-dessus pour le copier automatiquement",
     stepsTitle: "📋 *Comment associer votre compte :*",
     step1: "1. Appuyez sur votre Chat ID ci-dessus pour le copier.",
     step2: "2. Ouvrez les paramètres de votre *Profil XSPY Trader*.",
     step3: "3. Collez votre identifiant dans le champ *Telegram Chat ID* et cliquez *Enregistrer*.",
     securityNote:
-      "🔒 *Note de sécurité :* Ne partagez jamais cet identifiant avec qui que ce soit.",
+      "🔒 *Note de sécurité :* Ne partagez jamais cet identifiant avec des tiers.",
     footer:
-      "✅ Une fois lié, vous recevrez un code OTP à 6 chiffres ici instantanément à chaque demande de retrait — pour une sécurité maximale.",
+      "✅ Une fois lié, vous recevrez ici les alertes de sessions de trading et annonces officielles.\n💡 *Note :* Les retraits sont autorisés exclusivement via code OTP envoyé sur votre adresse Gmail.",
     openProfile: "👤 Paramètres du profil",
     visitSite: "🌐 Visiter la plateforme",
     joinGroup: "💬 Rejoindre le groupe officiel",
@@ -86,9 +86,9 @@ const MESSAGES: Record<
       "Votre Chat ID a déjà été envoyé. Retrouvez-le dans le message précédent.",
   },
   de: {
-    title: "🛡️ *XSPY Trader — Verifizierungs-Bot*",
+    title: "🛡️ *XSPY Trader — Benachrichtigungs- & Hinweis-Bot*",
     hello: (name) =>
-      `Hallo *${name}*! Ihre Telegram Chat-ID wurde erfolgreich erkannt.\nSie verwenden diese ID, um Ihr Telegram-Konto mit XSPY Trader zu verknüpfen und die Zwei-Faktor-Authentifizierung (2FA) zu aktivieren.`,
+      `Hallo *${name}*! Ihre Telegram Chat-ID wurde erfolgreich erkannt.\nNutzen Sie diese ID, um Ihr Konto mit XSPY Trader zu verbinden und Benachrichtigungen über Trading-Runden zu erhalten.`,
     chatIdLabel: "🔑 *Ihre persönliche Chat-ID:*",
     chatIdNote: "Tippen Sie auf die Nummer oben, um sie zu kopieren",
     stepsTitle: "📋 *So verknüpfen Sie Ihr Konto:*",
@@ -98,7 +98,7 @@ const MESSAGES: Record<
     securityNote:
       "🔒 *Sicherheitshinweis:* Teilen Sie diese ID niemals mit anderen Personen.",
     footer:
-      "✅ Nach der Verknüpfung erhalten Sie bei jeder Auszahlungsanforderung sofort einen 6-stelligen OTP-Code — für maximale Kontosicherheit.",
+      "✅ Nach der Verknüpfung erhalten Sie hier Live-Benachrichtigungen über tägliche Trading-Runden.\n💡 *Hinweis:* Auszahlungen werden exklusiv per Gmail-OTP-Code autorisiert.",
     openProfile: "👤 Profil-Einstellungen",
     visitSite: "🌐 Plattform besuchen",
     joinGroup: "💬 Offizielle Gruppe beitreten",
@@ -106,9 +106,9 @@ const MESSAGES: Record<
       "Ihre Chat-ID wurde bereits gesendet. Sie finden sie in der vorherigen Nachricht.",
   },
   ru: {
-    title: "🛡️ *XSPY Trader — Бот Верификации*",
+    title: "🛡️ *XSPY Trader — Бот Уведомлений и Оповещений*",
     hello: (name) =>
-      `Здравствуйте, *${name}*! Ваш Telegram Chat ID успешно определён.\nВы используете этот ID для привязки аккаунта Telegram к XSPY Trader и активации двухфакторной аутентификации (2FA).`,
+      `Здравствуйте, *${name}*! Ваш Telegram Chat ID успешно определён.\nИспользуйте этот ID для привязки к XSPY Trader и получения анонсов торговых сессий и важных оповещений.`,
     chatIdLabel: "🔑 *Ваш персональный Chat ID:*",
     chatIdNote: "Нажмите на номер выше, чтобы скопировать его",
     stepsTitle: "📋 *Как привязать аккаунт:*",
@@ -118,7 +118,7 @@ const MESSAGES: Record<
     securityNote:
       "🔒 *Безопасность:* Никогда не делитесь этим ID с другими людьми.",
     footer:
-      "✅ После привязки вы будете мгновенно получать 6-значный OTP-код при каждом запросе на вывод средств — для максимальной защиты.",
+      "✅ После привязки вы будете получать анонсы торговых раундов и новости платформы прямо здесь.\n💡 *Примечание:* подтверждение вывода средств осуществляется исключительно через код на ваш Gmail.",
     openProfile: "👤 Открыть настройки профиля",
     visitSite: "🌐 Перейти на платформу",
     joinGroup: "💬 Присоединиться к группе",

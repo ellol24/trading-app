@@ -50,8 +50,8 @@ const defaultSettings: PlatformSettings = {
   welcomeBonusAmount: 50, // USD equivalent (adjust as needed)
 
   // Defaults for referral commissions
-  referralLevel1Commission: 10, // 10%
-  referralLevel2Commission: 5,  // 5%
+  referralLevel1Commission: 7, // 7%
+  referralLevel2Commission: 4,  // 4%
   referralLevel3Commission: 2,  // 2%
 }
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { PLATFORM_KNOWLEDGE, SITE_URL } from "@/lib/telegram-bot-knowledge";
+import {
+  PLATFORM_KNOWLEDGE,
+  SITE_URL,
+  OFFICIAL_REF_LINK,
+  getLivePlatformKnowledge,
+} from "@/lib/telegram-bot-knowledge";
 
 // ─── Admin Supabase Client ────────────────────────────────────────────────────
 const adminClient = createClient(
@@ -245,64 +250,56 @@ function detectLanguage(text: string, userLang?: string): SupportedLang {
 function buildWithdrawalInlineKeyboard(lang: SupportedLang) {
   const labels: Record<
     SupportedLang,
-    { verify: string; withdraw: string; profile: string }
+    { withdraw: string; profile: string }
   > = {
     ar: {
-      verify: "🔐 فتح بوت التحقق (@XSpyTraderOtp_bot)",
       withdraw: "💸 التوجه لصفحة السحب",
-      profile: "👤 ربط المعرف في الملف الشخصي",
+      profile: "👤 تأكيد بيانات الملف الشخصي",
     },
     en: {
-      verify: "🔐 Open Verification Bot (@XSpyTraderOtp_bot)",
       withdraw: "💸 Go to Withdraw Page",
-      profile: "👤 Link ID in Profile",
+      profile: "👤 Verify Profile Details",
     },
     fr: {
-      verify: "🔐 Ouvrir le Bot (@XSpyTraderOtp_bot)",
       withdraw: "💸 Page de retrait",
-      profile: "👤 Associer dans le profil",
+      profile: "👤 Mon Profil",
     },
     de: {
-      verify: "🔐 Verifizierungs-Bot (@XSpyTraderOtp_bot)",
       withdraw: "💸 Auszahlungsseite öffnen",
-      profile: "👤 ID im Profil hinterlegen",
+      profile: "👤 Mein Profil",
     },
     ru: {
-      verify: "🔐 Бот верификации (@XSpyTraderOtp_bot)",
       withdraw: "💸 Перейти к выводу",
-      profile: "👤 Привязать ID в профиле",
+      profile: "👤 Настройки профиля",
     },
   };
   const l = labels[lang] || labels.en;
   return {
     inline_keyboard: [
-      [{ text: l.verify, url: "https://t.me/XSpyTraderOtp_bot" }],
-      [
-        { text: l.withdraw, url: `${SITE_URL}/dashboard/withdraw` },
-        { text: l.profile, url: `${SITE_URL}/dashboard/profile` },
-      ],
+      [{ text: l.withdraw, url: `${SITE_URL}/dashboard/withdraw` }],
+      [{ text: l.profile, url: `${SITE_URL}/dashboard/profile` }],
     ],
   };
 }
 
 function buildVerificationInlineKeyboard(lang: SupportedLang) {
-  const labels: Record<SupportedLang, { verify: string; profile: string }> = {
-    ar: { verify: "🔐 تشغيل بوت التحقق الآن", profile: "👤 فتح الملف الشخصي" },
-    en: { verify: "🔐 Start Verification Bot Now", profile: "👤 Open Profile" },
+  const labels: Record<SupportedLang, { bot: string; profile: string }> = {
+    ar: { bot: "💬 تفعيل إشعارات تيليجرام", profile: "👤 فتح الملف الشخصي" },
+    en: { bot: "💬 Enable Telegram Alerts", profile: "👤 Open Profile" },
     fr: {
-      verify: "🔐 Démarrer le Bot de Vérification",
+      bot: "💬 Alertes Telegram",
       profile: "👤 Ouvrir le Profil",
     },
-    de: { verify: "🔐 Verifizierungs-Bot starten", profile: "👤 Profil öffnen" },
+    de: { bot: "💬 Telegram Benachrichtigungen", profile: "👤 Profil öffnen" },
     ru: {
-      verify: "🔐 Запустить бота верификации",
+      bot: "💬 Уведомления Telegram",
       profile: "👤 Открыть профиль",
     },
   };
   const l = labels[lang] || labels.en;
   return {
     inline_keyboard: [
-      [{ text: l.verify, url: "https://t.me/XSpyTraderOtp_bot" }],
+      [{ text: l.bot, url: "https://t.me/XSpyTraderOtp_bot" }],
       [{ text: l.profile, url: `${SITE_URL}/dashboard/profile` }],
     ],
   };
@@ -378,7 +375,7 @@ function buildRegisterInlineKeyboard(lang: SupportedLang) {
   };
   return {
     inline_keyboard: [
-      [{ text: labels[lang] || labels.en, url: `${SITE_URL}/auth/register` }],
+      [{ text: labels[lang] || labels.en, url: OFFICIAL_REF_LINK }],
     ],
   };
 }
@@ -416,499 +413,459 @@ const FALLBACK_CONTENT: Record<
 > = {
   ar: {
     withdraw:
-      `💸 *طريقة السحب من منصة XSPY Trader*\n\n` +
-      `*الحد الأدنى:* $21 | *الرسوم:* 10% | *وقت المعالجة:* خلال 24 ساعة\n` +
-      `⚠️ *الحد الأقصى:* يُسمح بسحب واحد فقط كل 24 ساعة.\n\n` +
-      `📋 *خطوات السحب وتفعيل الأمان:*\n` +
-      `1️⃣ *إكمال بيانات الملف الشخصي:* تأكد من ملء وتأكيد بيانات ملفك الشخصي أولاً.\n\n` +
-      `2️⃣ *تفعيل بوت التحقق الأمني (خطوة إلزامية):*\n` +
-      `لاستلام رمز التحقق السري (OTP) المكون من 6 أرقام والمطلوب لإتمام كل عملية سحب، يجب ربط حسابك ببوت التحقق الرسمي:\n` +
-      `👉 رابط البوت: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `👉 اضغط على *START* وسيقوم البوت بتوليد رقم التعريف الخاص بك (Chat ID).\n` +
-      `👉 انسخ الرقم وتوجه إلى *الملف الشخصي*: ${SITE_URL}/dashboard/profile\n` +
-      `👉 الصق الرقم في خانة *Telegram Chat ID* واضغط *حفظ*.\n\n` +
-      `3️⃣ *إضافة محفظة السحب:* من قسم *المحفظة › إدارة المحافظ* (المحافظ الجديدة تخضع لفترة حماية 24 ساعة قبل أول استخدام).\n\n` +
-      `4️⃣ *تقديم طلب السحب:* توجه إلى *المحفظة › سحب*، اختر محفظتك وأدخل المبلغ، ثم أدخل رمز OTP المستلم على تيليجرام وبريدك الإلكتروني.\n\n` +
-      `🔗 *رابط بوت التحقق:* https://t.me/XSpyTraderOtp_bot\n` +
+      `💸 *طريقة وشروط السحب من منصة XSPY Trader*\n\n` +
+      `*الحد الأدنى للسحب:* $21 | *الرسوم:* 8% فقط | *وقت المعالجة:* من 1 إلى 24 ساعة كحد أقصى\n` +
+      `⚠️ *الحد الأقصى للتكرار:* يُسمح بطلب سحب واحد فقط كل 24 ساعة.\n\n` +
+      `📋 *خطوات السحب والأمان:*\n` +
+      `1️⃣ *تأكيد بيانات الملف الشخصي:* تأكد من ملء وتأكيد بيانات ملفك الشخصي بالكامل أولاً.\n` +
+      `2️⃣ *إضافة عنوان محفظة السحب:* من قسم *المحفظة › إدارة المحافظ* (المحافظ الجديدة تخضع لحماية 24 ساعة).\n` +
+      `3️⃣ *طلب السحب وتأكيد الأمان:* توجه إلى *المحفظة › سحب*، اختر محفظتك وأدخل المبلغ ($21 فأكثر).\n` +
+      `4️⃣ *رمز التحقق (Gmail OTP):* ستتلقى رمز أمان سري مكون من 6 أرقام مباشرة على بريدك الإلكتروني المسجل (Gmail). أدخل الرمز لتأكيد السحب فوراً.\n\n` +
+      `🔒 *ملاحظة هامة:* السحب مؤمن حصرياً عبر رمز التحقق المرسل لبريدك الإلكتروني (Gmail). لا تشارك رمزك مع أحد!\n\n` +
       `🌐 *صفحة السحب:* ${SITE_URL}/dashboard/withdraw`,
 
     deposit:
       `💰 *طريقة الإيداع في منصة XSPY Trader*\n\n` +
-      `*الحد الأدنى للإيداع:* $51\n\n` +
+      `*الحد الأدنى للإيداع:* $51 فقط للبدء.\n\n` +
       `📋 *خطوات شحن الرصيد:*\n` +
       `1️⃣ توجه إلى *لوحة التحكم › المحفظة › إيداع*\n` +
-      `2️⃣ اختر شبكة العملة الرقمية المفضلة (USDT TRC20, BTC, ETH وغيرها)\n` +
-      `3️⃣ انسخ عنوان المحفظة المعروض بدقة\n` +
-      `4️⃣ قم بالتحويل من محفظتك الشخصية بنفس المبلغ\n` +
-      `5️⃣ التقط لقطة شاشة لإشعار التحويل المكتمل وقم برفعها مع رمز المعاملة (TXID)\n\n` +
-      `⏱ *وقت التأكيد:* من 5 إلى 15 دقيقة بعد المراجعة اليدوية من الإدارة.\n\n` +
+      `2️⃣ اختر شبكة العملة الرقمية (USDT TRC20, BEP20, BTC وغيرها)\n` +
+      `3️⃣ انسخ عنوان المحفظة المعروض بدقة وقم بالتحويل من محفظتك الشخصية\n` +
+      `4️⃣ قم برفع لقطة شاشة للتحويل المكتمل مع رمز المعاملة (TXID)\n\n` +
+      `⏱ *وقت التأكيد:* يتم التأكيد خلال 5 إلى 15 دقيقة بعد المراجعة.\n\n` +
       `🌐 *صفحة الإيداع:* ${SITE_URL}/dashboard/deposit`,
 
     trade:
-      `📊 *نظام التداول في منصة XSPY Trader*\n\n` +
-      `⚠️ *تنبيه هام:* لا يمكنك فتح صفقات بمفردك — الإدارة هي من تفتح الصفقات اليومية وتعلن عنها.\n\n` +
-      `📋 *آلية العمل:*\n` +
-      `1️⃣ تفتح الإدارة *صفقة واحدة يومياً* (من الاثنين إلى الجمعة) ويتم الإعلان عنها في المجموعة.\n` +
-      `2️⃣ يتوجه الأعضاء إلى *لوحة التحكم › التداول* وينضمون للصفقة النشطة بالمبلغ المرغوب.\n` +
-      `3️⃣ فور انتهاء مدة الجولة، تُضاف الأرباح تلقائياً إلى رصيدك.\n\n` +
+      `📊 *نظام التداول اليومي في منصة XSPY Trader*\n\n` +
+      `صفقات تداول يومية مضمونة ومدروسة تفتحها الإدارة من الإثنين إلى الجمعة:\n\n` +
       `📈 *نسب الأرباح حسب مدة الصفقة:*\n` +
       `⏱ صفقة 30 ثانية: *ربح 2%*\n` +
       `⏱ صفقة 45 ثانية: *ربح 2.5%*\n` +
       `⏱ صفقة 60 ثانية: *ربح 3%*\n\n` +
-      `💡 *مثال:* دخول صفقة 60 ثانية بمبلغ $100 = ربح $3 صافي (المجموع $103).\n\n` +
+      `📋 *طريقة المشاركة:*\n` +
+      `1️⃣ تفتح الإدارة الصفقة اليومية وتعلن عنها للأعضاء.\n` +
+      `2️⃣ ادخل إلى *لوحة التحكم › التداول* وانضم للصفقة النشطة بالمبلغ الذي تريده.\n` +
+      `3️⃣ بعد انتهاء الثواني المحددة تُضاف الأرباح مباشرة إلى رصيدك.\n\n` +
+      `💡 *مثال:* دخول صفقة 60 ثانية بمبلغ $100 = ربح $3 صافي خلال دقيقة واحدة (الإجمالي $103)!\n\n` +
       `🌐 *صفحة التداول:* ${SITE_URL}/dashboard/trading`,
 
     package:
       `⛏️ *باقات التعدين والاستثمار في XSPY Trader*\n\n` +
-      `احصل على *عائد يومي تلقائي* من خلال تفعيل إحدى الباقات:\n\n` +
-      `1️⃣ *باقة المبتدئين (Beginner):*\n` +
-      `💵 الاستثمار: $51 – $100 | 📈 العائد: *1.8% يومياً* | ⏱ المدة: 15 يوماً\n\n` +
-      `2️⃣ *الباقة الاحترافية (Professional):*\n` +
-      `💵 الاستثمار: $101 – $150 | 📈 العائد: *2.0% يومياً* | ⏱ المدة: 30 يوماً\n\n` +
-      `3️⃣ *باقة كبار الشخصيات (VIP):*\n` +
-      `💵 الاستثمار: $151 – $200 | 📈 العائد: *2.5% يومياً* | ⏱ المدة: 45 يوماً\n\n` +
-      `💡 *مثال:* باقة المبتدئين بمبلغ $80 تعود عليك بـ $1.44 يومياً × 15 يوماً = *$21.60 صافي ربح*.\n` +
-      `- الأرباح تُضاف يومياً بشكل تلقائي إلى رصيدك.\n` +
-      `- يُسمح بباقة استثمارية نشطة واحدة من كل نوع في نفس الوقت.\n\n` +
-      `🌐 *صفحة الباقات:* ${SITE_URL}/dashboard/packages`,
+      `اختر الباقة المناسبة لأهدافك واحصل على أرباح يومية مضافة كل 24 ساعة:\n\n` +
+      `1️⃣ *باقة المبتدئين (Beginner Package):*\n` +
+      `💵 الاستثمار: $51 إلى $100 | 🔹 العمولة اليومية: *1.5%* | ⏳ المدة: *7 أيام*\n\n` +
+      `2️⃣ *الباقة الاحترافية (Professional Plan):*\n` +
+      `💵 الاستثمار: $101 إلى $150 | 🔹 العمولة اليومية: *1.8%* | ⏳ المدة: *18 يوماً*\n\n` +
+      `3️⃣ *باقة كبار المستثمرين (VIP Plan):*\n` +
+      `💵 الاستثمار: $151 إلى $200 | 🔹 العمولة اليومية: *2.0%* | ⏳ المدة: *30 يوماً*\n\n` +
+      `🔹 *نظام توزيع الأرباح:* تُضاف الأرباح إلى رصيدك كل 24 ساعة من لحظة التفعيل، وعند نهاية مدة الباقة يعود رأس المال الأساسي بالكامل إلى رصيدك.\n\n` +
+      `🌐 *صفحة باقات التعدين:* ${SITE_URL}/dashboard/packages`,
 
     referral:
-      `🤝 *برنامج الإحالات في منصة XSPY Trader*\n\n` +
-      `اكسب عمولات مجزية من نشاط وتداولات فريقك عبر *3 مستويات:*\n\n` +
-      `🥇 *المستوى الأول (دعواتك المباشرة):* *10%*\n` +
-      `🥈 *المستوى الثاني (دعوات المستوى الأول):* *7%*\n` +
-      `🥉 *المستوى الثالث (الجيل الثالث):* *2%*\n\n` +
-      `💰 *تشمل العمولات كافة أنشطة فريقك:*\n` +
-      `🎁 إيداعات الفريق\n` +
-      `📈 أرباح التداول\n` +
-      `📦 أرباح باقات التعدين\n\n` +
+      `🤝 *نظام الإحالات وفريق العمل في XSPY Trader*\n\n` +
+      `نظام مكافآت متعدد المستويات يمنحك أرباحاً عبر 3 طرق مختلفة:\n\n` +
+      `🎁 *1. أرباح الإحالات الأساسية (من الإيداعات):*\n` +
+      `🥇 المستوى الأول: *7%*\n` +
+      `🥈 المستوى الثاني: *4%*\n` +
+      `🥉 المستوى الثالث: *2%*\n\n` +
+      `📈 *2. أرباح إحالات التداول (من أرباح صفقات فريقك):*\n` +
+      `🥇 المستوى الأول: *7%*\n` +
+      `🥈 المستوى الثاني: *4%*\n` +
+      `🥉 المستوى الثالث: *2%*\n\n` +
+      `📦 *3. أرباح إحالات باقات التعدين (من خطط تعدين فريقك):*\n` +
+      `🥇 المستوى الأول: *7%*\n` +
+      `🥈 المستوى الثاني: *4%*\n` +
+      `🥉 المستوى الثالث: *2%*\n\n` +
       `🔗 *رابط إحالتك ومتابعة الفريق:* ${SITE_URL}/dashboard/referrals`,
 
     register:
-      `📝 *فتح حساب جديد في XSPY Trader*\n\n` +
-      `1️⃣ ادخل إلى رابط التسجيل: ${SITE_URL}/auth/register\n` +
-      `2️⃣ أدخل بياناتك وبريدك الإلكتروني وقم بتأكيده.\n` +
-      `3️⃣ توجه إلى صفحة الملف الشخصي وأكمل بياناتك الشخصية (الاسم، البلد، الهاتف، ورقم التيليجرام) لتفعيل حسابك بالكامل وفتح إمكانية السحب.\n\n` +
-      `💰 *الحد الأدنى للبدء:* إيداع $51\n` +
-      `🌐 *رابط التسجيل:* ${SITE_URL}/auth/register`,
+      `🚀 *التسجيل وبدء الاستثمار في XSPY Trader*\n\n` +
+      `ابدأ رحلتك نحو الأرباح اليومية والحرية المالية مع منصة XSPY Trader!\n\n` +
+      `🌐 *رابط التسجيل الرسمي المباشر:* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
+      `💵 *الحد الأدنى للإيداع:* $51 فقط\n` +
+      `💸 *الحد الأدنى للسحب:* $21 فقط (برسوم 8% فقط)\n` +
+      `📊 *صفقات تداول يومية:* أرباح 2% إلى 3% في ثوانٍ معدودة\n` +
+      `⛏️ *باقات تعدين:* عوائد يومية 1.5% حتى 2% مضافة كل 24 ساعة مع استرداد رأس المال بالكامل\n\n` +
+      `🔗 *سجل الآن:* ${OFFICIAL_REF_LINK}`,
 
     verify:
-      `🔐 *الأمان والتحقق الثنائي في منصة XSPY Trader*\n\n` +
-      `لحماية أموالك، تتطلب جميع عمليات السحب *تحققاً أمنياً مزدوجاً (2FA):*\n` +
-      `1️⃣ رمز تأكيد مكون من 6 أرقام يُرسل إلى *بريدك الإلكتروني*.\n` +
-      `2️⃣ رمز تأكيد فوري يُرسل إلى *تيليجرام* عبر بوت التحقق الأمني الرسمي.\n\n` +
-      `📋 *طريقة ربط حساب تيليجرام وتفعيله:*\n` +
-      `1️⃣ افتح بوت التحقق: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `2️⃣ اضغط على *START* ليظهر لك رقم التعريف الشخصي (*Chat ID*).\n` +
-      `3️⃣ انسخ الرقم وتوجه إلى ملفك الشخصي: ${SITE_URL}/dashboard/profile\n` +
-      `4️⃣ الصق الرقم في خانة *Telegram Chat ID* واضغط *حفظ*.\n\n` +
-      `⚠️ *تنبيه أمني:* لا تشارك رموز OTP الخاصة بك مع أي شخص، ففريق المنصة لن يطلبها منك أبداً!\n\n` +
-      `🔗 *رابط بوت التحقق:* https://t.me/XSpyTraderOtp_bot`,
+      `🔐 *الأمان والتحقق في منصة XSPY Trader*\n\n` +
+      `🛡️ *تأكيد السحب الأمني:* يتم تأكيد عمليات السحب حصرياً وبأعلى معايير الأمان عبر كود تأكيد سري (OTP) يُرسل مباشرةً إلى *بريدك الإلكتروني (Gmail)* المسجل.\n\n` +
+      `💬 *ربط تيليجرام (اختياري للإشعارات والتنبيهات):*\n` +
+      `يمكنك ربط حسابك ببوت الإشعارات [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) لاستلام إشعارات الصفقات اليومية وتنبيهات الحساب الفورية.\n` +
+      `1️⃣ افتح البوت واضغط *START*\n` +
+      `2️⃣ انسخ رقم الـ *Chat ID*\n` +
+      `3️⃣ الصقه في ملفك الشخصي: ${SITE_URL}/dashboard/profile واضغط حفظ.\n\n` +
+      `⚠️ *تنبيه أمني:* لا تشارك أي رموز تحقق مع أي شخص إطلاقاً!`,
 
     defaultSupport:
       `🤖 *المساعد الذكي الرسمي لمنصة XSPY Trader*\n\n` +
-      `أهلاً بك! يمكنني الإجابة الفورية على استفساراتك حول:\n\n` +
-      `💰 *الإيداع* | 💸 *السحب* | 📊 *التداول*\n` +
-      `⛏️ *باقات التعدين* | 🤝 *برنامج الإحالات* | 🔐 *أمان الحساب والتوثيق*\n\n` +
-      `💡 اكتب سؤالك في أي وقت وسأقوم بالرد فوراً!\n` +
-      `🌐 *الموقع الرسمي:* ${SITE_URL}`,
+      `أهلاً بك! أنا في خدمتك على مدار الساعة للإجابة على استفساراتك حول:\n\n` +
+      `📊 *التداول اليومي (2% - 3%)*\n` +
+      `⛏️ *باقات التعدين اليومية (1.5% - 2%)*\n` +
+      `🤝 *نظام الإحالات (7% - 4% - 2%)*\n` +
+      `💰 *الإيداع ($51 كحد أدنى)* | 💸 *السحب ($21 برسم 8%)*\n\n` +
+      `🌐 *رابط التسجيل الرسمي:* ${OFFICIAL_REF_LINK}`,
   },
 
   en: {
     withdraw:
-      `💸 *How to Withdraw on XSPY Trader*\n\n` +
-      `*Minimum:* $21 | *Fee:* 10% | *Processing time:* Within 24 hours\n` +
-      `⚠️ *Limit:* Only 1 withdrawal per day is allowed.\n\n` +
-      `📋 *Step-by-step Withdrawal & Verification Guide:*\n` +
-      `1️⃣ *Complete your profile:* Ensure your profile details are saved and verified.\n\n` +
-      `2️⃣ *Activate the Security Verification Bot (CRITICAL):*\n` +
-      `To receive your 6-digit withdrawal OTP security codes, you *must* link your Telegram via our official verification bot:\n` +
-      `👉 Open the bot: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `👉 Tap *START* and copy your personal *Chat ID*.\n` +
-      `👉 Go to your profile: ${SITE_URL}/dashboard/profile\n` +
-      `👉 Paste your Chat ID into the Telegram field and click *Save*.\n\n` +
-      `3️⃣ *Add a Withdrawal Wallet:* Under *Wallet › Manage Wallets* (New wallets undergo a 24-hour security hold before first use).\n\n` +
-      `4️⃣ *Submit Withdrawal:* Go to *Wallet › Withdraw*, select your wallet, enter amount ($21+), and confirm using the 6-digit OTP codes sent to your Email and Telegram.\n\n` +
-      `🔗 *Verification Bot:* https://t.me/XSpyTraderOtp_bot\n` +
+      `💸 *Withdrawal Policy & Guide — XSPY Trader*\n\n` +
+      `*Minimum Withdrawal:* $21 | *Fee:* 8% only | *Processing Time:* 1 to 24 hours max\n` +
+      `⚠️ *Frequency:* Only 1 withdrawal per 24 hours is permitted.\n\n` +
+      `📋 *Withdrawal Steps:*\n` +
+      `1️⃣ *Verify Profile:* Make sure your profile details are fully filled and saved.\n` +
+      `2️⃣ *Add Wallet:* Under *Wallet › Manage Wallets* (newly added wallets have a 24h security hold).\n` +
+      `3️⃣ *Submit Request:* Go to *Wallet › Withdraw*, select your wallet, and enter amount ($21+).\n` +
+      `4️⃣ *Email OTP Authorization:* A secure 6-digit confirmation code will be dispatched to your registered **Gmail** address. Enter the code to authorize your payout.\n\n` +
+      `🔒 *Note:* Withdrawals are protected exclusively via Gmail OTP. Never share your security code with anyone!\n\n` +
       `🌐 *Withdrawal Page:* ${SITE_URL}/dashboard/withdraw`,
 
     deposit:
       `💰 *How to Deposit on XSPY Trader*\n\n` +
-      `*Minimum deposit:* $51\n\n` +
+      `*Minimum Deposit:* $51 to get started.\n\n` +
       `📋 *Deposit Steps:*\n` +
       `1️⃣ Go to *Dashboard › Wallet › Deposit*\n` +
-      `2️⃣ Select your preferred crypto network (USDT TRC20, BTC, ETH, etc.)\n` +
-      `3️⃣ Copy the displayed wallet address carefully\n` +
-      `4️⃣ Transfer the exact amount from your personal crypto wallet\n` +
-      `5️⃣ Upload a transaction screenshot and submit\n\n` +
-      `⏱ *Processing time:* 5–15 minutes (manually verified by admin)\n\n` +
+      `2️⃣ Select your preferred crypto network (USDT TRC20, BEP20, BTC, ETH, etc.)\n` +
+      `3️⃣ Copy the displayed wallet address and transfer from your personal wallet\n` +
+      `4️⃣ Upload the transaction receipt screenshot and TXID\n\n` +
+      `⏱ *Confirmation Time:* 5–15 minutes after review.\n\n` +
       `🌐 *Deposit Page:* ${SITE_URL}/dashboard/deposit`,
 
     trade:
-      `📊 *How Trading Works on XSPY Trader*\n\n` +
-      `⚠️ *Important Notice:* Trades cannot be opened independently — the admin opens all daily trades.\n\n` +
-      `📋 *How It Works:*\n` +
-      `1️⃣ The admin opens *one trade per day* (Monday–Friday) and announces it in the group.\n` +
-      `2️⃣ Go to *Dashboard › Trading* and JOIN the active round with your desired amount.\n` +
-      `3️⃣ Once the round ends, winning profits are automatically credited to your balance.\n\n` +
-      `📈 *Profit Rates:*\n` +
-      `⏱ 30-second trade: *2% profit*\n` +
-      `⏱ 45-second trade: *2.5% profit*\n` +
-      `⏱ 60-second trade: *3% profit*\n\n` +
-      `💡 *Example:* Joining a 60-second trade with $100 yields *$3 pure profit* (Total balance: $103).\n\n` +
+      `📊 *Daily Trading Deals on XSPY Trader*\n\n` +
+      `Guaranteed daily trading deals opened by administration (Monday through Friday) with high profit margins:\n\n` +
+      `⏱️ *30-second trade:* *2% profit*\n` +
+      `⏱️ *45-second trade:* *2.5% profit*\n` +
+      `⏱️ *60-second trade:* *3% profit*\n\n` +
+      `📋 *How to Participate:*\n` +
+      `1️⃣ When the daily session is announced, go to *Dashboard › Trading*\n` +
+      `2️⃣ Enter your desired stake and join the live round\n` +
+      `3️⃣ Profits are credited instantly to your account balance upon expiration!\n\n` +
+      `💡 *Example:* Joining a 60-second trade with $100 earns +$3 net profit in 60 seconds (Total: $103).\n\n` +
       `🌐 *Trading Page:* ${SITE_URL}/dashboard/trading`,
 
     package:
-      `⛏️ *Mining & Investment Packages on XSPY Trader*\n\n` +
-      `Activate a package to earn *automatic daily passive income*:\n\n` +
+      `⛏️ *Mining Packages on XSPY Trader*\n\n` +
+      `Choose a package to earn automated daily earnings credited every 24 hours:\n\n` +
       `1️⃣ *Beginner Package:*\n` +
-      `💵 Investment: $51 – $100 | 📈 ROI: *1.8%/day* | ⏱ Duration: 15 days\n\n` +
-      `2️⃣ *Professional Package:*\n` +
-      `💵 Investment: $101 – $150 | 📈 ROI: *2.0%/day* | ⏱ Duration: 30 days\n\n` +
-      `3️⃣ *VIP Package:*\n` +
-      `💵 Investment: $151 – $200 | 📈 ROI: *2.5%/day* | ⏱ Duration: 45 days\n\n` +
-      `💡 *Example:* An $80 investment in Beginner generates $1.44/day × 15 days = *$21.60 net profit*.\n` +
-      `- Earnings are automatically credited to your balance daily.\n` +
-      `- One active investment per package type at a time.\n\n` +
+      `💵 Investment: $51 to $100 | 🔹 Daily Commission: *1.5%* | ⏳ Duration: *7 days*\n\n` +
+      `2️⃣ *Professional Plan:*\n` +
+      `💵 Investment: $101 to $150 | 🔹 Daily Commission: *1.8%* | ⏳ Duration: *18 days*\n\n` +
+      `3️⃣ *VIP Plan:*\n` +
+      `💵 Investment: $151 to $200 | 🔹 Daily Commission: *2.0%* | ⏳ Duration: *30 days*\n\n` +
+      `🔹 *Daily Profit System:* Earnings are credited directly to your balance every 24 hours. At package completion, your initial principal investment is fully returned!\n\n` +
       `🌐 *Packages Page:* ${SITE_URL}/dashboard/packages`,
 
     referral:
       `🤝 *Referral Program on XSPY Trader*\n\n` +
-      `Earn substantial commissions across *3 team levels:*\n\n` +
-      `🥇 *Level 1 (Direct Invites):* *10%*\n` +
-      `🥈 *Level 2 (Invited by Level 1):* *7%*\n` +
-      `🥉 *Level 3 (Third Degree):* *2%*\n\n` +
-      `💰 *You earn commissions on your team's:*\n` +
-      `🎁 Deposits\n` +
-      `📈 Trading Profits\n` +
-      `📦 Mining Package Earnings\n\n` +
-      `🔗 *Get your referral link:* ${SITE_URL}/dashboard/referrals`,
+      `Earn generous rewards across 3 streams and 3 team levels:\n\n` +
+      `🎁 *1. Basic Deposit Referrals:*\n` +
+      `🥇 Level 1: *7%* | 🥈 Level 2: *4%* | 🥉 Level 3: *2%*\n\n` +
+      `📈 *2. Trading Referral Earnings (from team's profits):*\n` +
+      `🥇 Level 1: *7%* | 🥈 Level 2: *4%* | 🥉 Level 3: *2%*\n\n` +
+      `📦 *3. Mining Plan Referral Earnings:*\n` +
+      `🥇 Level 1: *7%* | 🥈 Level 2: *4%* | 🥉 Level 3: *2%*\n\n` +
+      `🔗 *Your Referral Link:* ${SITE_URL}/dashboard/referrals`,
 
     register:
-      `📝 *Create an Account on XSPY Trader*\n\n` +
-      `1️⃣ Visit registration: ${SITE_URL}/auth/register\n` +
-      `2️⃣ Enter your details and verify your email.\n` +
-      `3️⃣ Go to your profile and complete your personal information to achieve Verified status and enable withdrawals.\n\n` +
-      `💰 *Minimum to get started:* $51 deposit\n` +
-      `🌐 *Sign Up:* ${SITE_URL}/auth/register`,
+      `🚀 *Join XSPY Trader Today*\n\n` +
+      `Your ideal gateway into the world of digital investment and daily profits!\n\n` +
+      `🌐 *Official Registration Link:* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
+      `💵 *Minimum Deposit:* $51\n` +
+      `💸 *Minimum Withdrawal:* $21 (8% fee)\n` +
+      `📊 *Daily Trades:* 2% to 3% profit in seconds\n` +
+      `⛏️ *Mining Packages:* 1.5% to 2% daily + principal back\n\n` +
+      `🔗 *Register here:* ${OFFICIAL_REF_LINK}`,
 
     verify:
-      `🔐 *Security & Telegram Verification on XSPY Trader*\n\n` +
-      `To ensure maximum fund protection, all withdrawals require *dual 2FA verification:*\n` +
-      `1️⃣ A 6-digit confirmation code sent to your *Email*.\n` +
-      `2️⃣ A 6-digit instant OTP code sent to your *Telegram* via our verification bot.\n\n` +
-      `📋 *How to Link Your Telegram:*\n` +
-      `1️⃣ Open the verification bot: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `2️⃣ Tap *START* and copy the generated personal *Chat ID*.\n` +
-      `3️⃣ Go to your platform profile: ${SITE_URL}/dashboard/profile\n` +
-      `4️⃣ Paste the Chat ID into the Telegram field and click *Save*.\n\n` +
-      `⚠️ *Security Alert:* Never share your OTP codes. XSPY Trader staff will NEVER ask for them!\n\n` +
-      `🔗 *Verification Bot:* https://t.me/XSpyTraderOtp_bot`,
+      `🔐 *Security & Verification on XSPY Trader*\n\n` +
+      `🛡️ *Withdrawal Authorization:* All withdrawals are verified **exclusively via Gmail OTP** sent to your registered email address.\n\n` +
+      `💬 *Telegram Bot Linking (Optional for Alerts):*\n` +
+      `Link [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) to receive live trade announcements, round reminders, and platform notifications directly on Telegram.\n` +
+      `1️⃣ Open [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) and click *START*\n` +
+      `2️⃣ Copy your *Chat ID*\n` +
+      `3️⃣ Paste in your profile: ${SITE_URL}/dashboard/profile and save.\n\n` +
+      `⚠️ *Alert:* Never share verification codes with anyone!`,
 
     defaultSupport:
-      `🤖 *XSPY Trader Official AI Support*\n\n` +
-      `Welcome! I can instantly assist you with:\n\n` +
-      `💰 *Deposits* | 💸 *Withdrawals* | 📊 *Trading*\n` +
-      `⛏️ *Mining Packages* | 🤝 *Referral Program* | 🔐 *Security & 2FA*\n\n` +
-      `💡 Simply type your question and I will answer right away!\n` +
-      `🌐 *Official Website:* ${SITE_URL}`,
+      `🤖 *XSPY Trader Official Support AI*\n\n` +
+      `Welcome! I am here 24/7 to help you with:\n\n` +
+      `📊 *Daily Trading (2% - 3%)*\n` +
+      `⛏️ *Mining Packages (1.5% - 2% daily, 7-30 days)*\n` +
+      `🤝 *3-Tier Referral Rewards (7% - 4% - 2%)*\n` +
+      `💰 *Deposits ($51 min)* | 💸 *Withdrawals ($21 min, 8% fee)*\n\n` +
+      `🌐 *Register:* ${OFFICIAL_REF_LINK}`,
   },
 
   fr: {
     withdraw:
       `💸 *Comment effectuer un retrait sur XSPY Trader*\n\n` +
-      `*Minimum :* 21 $ | *Frais :* 10 % | *Délai de traitement :* sous 24 heures\n` +
-      `⚠️ *Limite :* Un seul retrait par jour est autorisé.\n\n` +
-      `📋 *Étapes de retrait et configuration de sécurité :*\n` +
-      `1️⃣ *Complétez votre profil :* Vos informations doivent être renseignées pour débloquer les retraits.\n\n` +
-      `2️⃣ *Activez le Bot de Vérification (OBLIGATOIRE) :*\n` +
-      `Pour recevoir votre code secret OTP à 6 chiffres indispensable pour chaque retrait, liez votre compte Telegram via notre bot officiel :\n` +
-      `👉 Ouvrez le bot : [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `👉 Cliquez sur *START* et copiez votre identifiant personnel (*Chat ID*).\n` +
-      `👉 Rendez-vous sur votre profil : ${SITE_URL}/dashboard/profile\n` +
-      `👉 Collez l'identifiant dans le champ Telegram et cliquez sur *Enregistrer*.\n\n` +
-      `3️⃣ *Ajoutez votre portefeuille de retrait :* Dans *Portefeuille › Gérer les portefeuilles* (délai de sécurité de 24h pour les nouveaux portefeuilles).\n\n` +
-      `4️⃣ *Validez votre retrait :* Rendez-vous sur *Portefeuille › Retirer*, saisissez le montant (min 21 $) et confirmez avec le code OTP reçu par Telegram et E-mail.\n\n` +
-      `🔗 *Lien du bot de vérification :* https://t.me/XSpyTraderOtp_bot\n` +
+      `*Minimum :* 21 $ | *Frais :* 8 % seulement | *Délai de traitement :* 1h à 24h maximum\n` +
+      `⚠️ *Limite :* Un seul retrait toutes les 24 heures est autorisé.\n\n` +
+      `📋 *Étapes de retrait et sécurité :*\n` +
+      `1️⃣ *Complétez votre profil :* Vos informations doivent être enregistrées.\n` +
+      `2️⃣ *Portefeuille de retrait :* Dans *Portefeuille › Gérer les portefeuilles* (délai de sécurité de 24h pour les nouveaux ajouts).\n` +
+      `3️⃣ *Demande de retrait :* Dans *Portefeuille › Retirer*, sélectionnez votre adresse et saisissez le montant (min 21 $).\n` +
+      `4️⃣ *Validation par Gmail OTP :* Un code de sécurité secret à 6 chiffres est envoyé directement sur votre adresse **Gmail** enregistrée pour valider la transaction.\n\n` +
+      `🔒 *Sécurité :* Le retrait est protégé exclusivement par votre code Gmail. Ne le partagez jamais !\n\n` +
       `🌐 *Page de retrait :* ${SITE_URL}/dashboard/withdraw`,
 
     deposit:
       `💰 *Comment effectuer un dépôt sur XSPY Trader*\n\n` +
-      `*Dépôt minimum :* 51 $\n\n` +
+      `*Dépôt minimum :* 51 $ pour démarrer.\n\n` +
       `📋 *Étapes de dépôt :*\n` +
       `1️⃣ Rendez-vous dans *Tableau de bord › Portefeuille › Déposer*\n` +
-      `2️⃣ Choisissez votre réseau crypto (USDT TRC20, BTC, ETH, etc.)\n` +
-      `3️⃣ Copiez l'adresse du portefeuille affichée avec précision\n` +
-      `4️⃣ Effectuez le virement depuis votre portefeuille personnel\n` +
-      `5️⃣ Téléversez une capture d'écran du paiement et validez\n\n` +
-      `⏱ *Délai de traitement :* 5 à 15 minutes (validation manuelle par l'administrateur)\n\n` +
+      `2️⃣ Choisissez votre réseau crypto (USDT TRC20, BEP20, BTC, etc.)\n` +
+      `3️⃣ Copiez l'adresse affichée et effectuez le virement depuis votre portefeuille personnel\n` +
+      `4️⃣ Téléversez la capture d'écran du paiement et le TXID\n\n` +
+      `⏱ *Délai de traitement :* 5 à 15 minutes.\n\n` +
       `🌐 *Page de dépôt :* ${SITE_URL}/dashboard/deposit`,
 
     trade:
-      `📊 *Comment fonctionne le Trading sur XSPY Trader*\n\n` +
-      `⚠️ *Règle importante :* Les trades sont ouverts uniquement par l'administrateur, pas individuellement.\n\n` +
-      `📋 *Fonctionnement :*\n` +
-      `1️⃣ L'administrateur lance *un trade par jour* (du lundi au vendredi) et l'annonce dans le groupe.\n` +
-      `2️⃣ Rendez-vous dans *Tableau de bord › Trading* et rejoignez le trade avec votre mise.\n` +
-      `3️⃣ À la fin du temps imparti, les bénéfices sont crédités immédiatement sur votre solde.\n\n` +
-      `📈 *Taux de rendement :*\n` +
-      `⏱ Trade de 30 secondes : *2 % de profit*\n` +
-      `⏱ Trade de 45 secondes : *2,5 % de profit*\n` +
-      `⏱ Trade de 60 secondes : *3 % de profit*\n\n` +
-      `💡 *Exemple :* Une mise de 100 $ sur un trade de 60s génère *3 $ de profit net*.\n\n` +
+      `📊 *Trading Quotidien sur XSPY Trader*\n\n` +
+      `Des sessions de trading quotidiennes garanties ouvertes par l'administration (du lundi au vendredi) :\n\n` +
+      `⏱️ *Trade de 30 secondes :* *2 % de profit*\n` +
+      `⏱️ *Trade de 45 secondes :* *2,5 % de profit*\n` +
+      `⏱️ *Trade de 60 secondes :* *3 % de profit*\n\n` +
+      `📋 *Comment participer :*\n` +
+      `1️⃣ Lorsque la session est annoncée, allez dans *Tableau de bord › Trading*\n` +
+      `2️⃣ Choisissez votre mise et rejoignez le tour en direct\n` +
+      `3️⃣ Vos bénéfices sont crédités immédiatement sur votre solde à la fin du chrono !\n\n` +
+      `💡 *Exemple :* 100 $ misés sur 60s rapportent *3 $ de profit net* (Total : 103 $).\n\n` +
       `🌐 *Page de trading :* ${SITE_URL}/dashboard/trading`,
 
     package:
       `⛏️ *Packs d'Investissement & Minage sur XSPY Trader*\n\n` +
-      `Activez un pack et générez des *revenus passifs quotidiens* :\n\n` +
+      `Choisissez un pack et recevez des profits automatiques chaque 24 heures :\n\n` +
       `1️⃣ *Pack Débutant (Beginner) :*\n` +
-      `💵 Investissement : 51 $ – 100 $ | 📈 Rendement : *1,8 %/jour* | ⏱ Durée : 15 jours\n\n` +
+      `💵 Investissement : 51 $ à 100 $ | 🔹 Commission journalière : *1,5 %* | ⏳ Durée : *7 jours*\n\n` +
       `2️⃣ *Pack Professionnel (Professional) :*\n` +
-      `💵 Investissement : 101 $ – 150 $ | 📈 Rendement : *2,0 %/jour* | ⏱ Durée : 30 jours\n\n` +
+      `💵 Investissement : 101 $ à 150 $ | 🔹 Commission journalière : *1,8 %* | ⏳ Durée : *18 jours*\n\n` +
       `3️⃣ *Pack VIP :*\n` +
-      `💵 Investissement : 151 $ – 200 $ | 📈 Rendement : *2,5 %/jour* | ⏱ Durée : 45 jours\n\n` +
-      `💡 *Exemple :* 80 $ placés dans le pack Débutant = 1,44 $/jour pendant 15 jours = *21,60 $ de profit net*.\n` +
-      `- Les profits sont crédités quotidiennement sur votre solde.\n\n` +
+      `💵 Investissement : 151 $ à 200 $ | 🔹 Commission journalière : *2,0 %* | ⏳ Durée : *30 jours*\n\n` +
+      `🔹 *Système de profit :* Vos gains sont versés chaque 24 heures. À la fin de la période, votre capital initial est intégralement restitué !\n\n` +
       `🌐 *Page des packs :* ${SITE_URL}/dashboard/packages`,
 
     referral:
       `🤝 *Programme de Parrainage sur XSPY Trader*\n\n` +
-      `Gagnez des commissions sur *3 niveaux* d'équipe :\n\n` +
-      `🥇 *Niveau 1 (Vos filleuls directs) :* *10 %*\n` +
-      `🥈 *Niveau 2 (Filleuls de niveau 2) :* *7 %*\n` +
-      `🥉 *Niveau 3 (Filleuls de niveau 3) :* *2 %*\n\n` +
-      `💰 *Vous touchez des commissions sur :*\n` +
-      `🎁 Les dépôts de votre équipe\n` +
-      `📈 Les gains de trading\n` +
-      `📦 Les revenus des packs de minage\n\n` +
-      `🔗 *Obtenez votre lien de parrainage :* ${SITE_URL}/dashboard/referrals`,
+      `Touchez des commissions généreuses sur 3 niveaux d'équipe et 3 filières :\n\n` +
+      `🎁 *1. Parrainage sur les dépôts :*\n` +
+      `🥇 Niveau 1 : *7 %* | 🥈 Niveau 2 : *4 %* | 🥉 Niveau 3 : *2 %*\n\n` +
+      `📈 *2. Parrainage sur les gains de trading :*\n` +
+      `🥇 Niveau 1 : *7 %* | 🥈 Niveau 2 : *4 %* | 🥉 Niveau 3 : *2 %*\n\n` +
+      `📦 *3. Parrainage sur les packs de minage :*\n` +
+      `🥇 Niveau 1 : *7 %* | 🥈 Niveau 2 : *4 %* | 🥉 Niveau 3 : *2 %*\n\n` +
+      `🔗 *Votre lien de parrainage :* ${SITE_URL}/dashboard/referrals`,
 
     register:
-      `📝 *Créer un compte sur XSPY Trader*\n\n` +
-      `1️⃣ Rendez-vous sur : ${SITE_URL}/auth/register\n` +
-      `2️⃣ Remplissez vos coordonnées et validez votre e-mail.\n` +
-      `3️⃣ Complétez votre profil avec vos informations pour obtenir le statut Vérifié et débloquer les retraits.\n\n` +
-      `💰 *Dépôt minimum de départ :* 51 $\n` +
-      `🌐 *Inscription :* ${SITE_URL}/auth/register`,
+      `🚀 *Rejoignez XSPY Trader Aujourd'hui*\n\n` +
+      `Votre opportunité idéale pour générer des profits quotidiens en trading et minage !\n\n` +
+      `🌐 *Lien d'inscription officiel :* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
+      `💵 *Dépôt minimum :* 51 $\n` +
+      `💸 *Retrait minimum :* 21 $ (frais 8 %)\n` +
+      `📊 *Trading quotidien :* 2 % à 3 % en quelques secondes\n` +
+      `⛏️ *Packs minage :* 1,5 % à 2 %/jour avec retour du capital\n\n` +
+      `🔗 *Inscription :* ${OFFICIAL_REF_LINK}`,
 
     verify:
-      `🔐 *Sécurité et Vérification Telegram sur XSPY Trader*\n\n` +
-      `Pour protéger vos avoirs, tout retrait exige une *double vérification (2FA) :*\n` +
-      `1️⃣ Un code à 6 chiffres envoyé à votre *E-mail*.\n` +
-      `2️⃣ Un code OTP instantané envoyé à votre *Telegram* via notre bot de vérification.\n\n` +
-      `📋 *Comment lier votre compte Telegram :*\n` +
-      `1️⃣ Ouvrez le bot : [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `2️⃣ Cliquez sur *START* et copiez votre identifiant (*Chat ID*).\n` +
-      `3️⃣ Rendez-vous sur votre profil : ${SITE_URL}/dashboard/profile\n` +
-      `4️⃣ Collez le Chat ID dans le champ Telegram et enregistrez.\n\n` +
-      `⚠️ *Sécurité :* Ne divulguez jamais vos codes OTP, le support ne vous les demandera jamais !\n\n` +
-      `🔗 *Bot de vérification :* https://t.me/XSpyTraderOtp_bot`,
+      `🔐 *Sécurité & Vérification sur XSPY Trader*\n\n` +
+      `🛡️ *Validation des retraits :* Tous les retraits sont sécurisés **exclusivement par code OTP Gmail** envoyé sur votre messagerie enregistrée.\n\n` +
+      `💬 *Liaison Telegram (Optionnelle pour les alertes) :*\n` +
+      `Connectez [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) pour recevoir les alertes des sessions de trading et annonces en temps réel.\n` +
+      `1️⃣ Ouvrez le bot et cliquez sur *START*\n` +
+      `2️⃣ Copiez votre *Chat ID*\n` +
+      `3️⃣ Collez-le dans votre profil : ${SITE_URL}/dashboard/profile et enregistrez.\n\n` +
+      `⚠️ *Avertissement :* Ne partagez jamais vos codes de sécurité !`,
 
     defaultSupport:
       `🤖 *Support Officiel XSPY Trader*\n\n` +
-      `Bienvenue ! Je peux répondre instantanément à vos questions sur :\n\n` +
-      `💰 *Dépôts* | 💸 *Retraits* | 📊 *Trading*\n` +
-      `⛏️ *Packs d'investissement* | 🤝 *Parrainage* | 🔐 *Sécurité & 2FA*\n\n` +
-      `💡 Posez votre question et j'y répondrai aussitôt !\n` +
-      `🌐 *Site officiel :* ${SITE_URL}`,
+      `Bienvenue ! Je suis à votre service 24h/24 pour vous renseigner sur :\n\n` +
+      `📊 *Trading Quotidien (2% - 3%)*\n` +
+      `⛏️ *Packs Minage (1,5% - 2%/jour, 7-30 jours)*\n` +
+      `🤝 *Parrainage (7% - 4% - 2%)*\n` +
+      `💰 *Dépôt (51 $ min)* | 💸 *Retrait (21 $ min, frais 8%)*\n\n` +
+      `🌐 *Inscription :* ${OFFICIAL_REF_LINK}`,
   },
 
   de: {
     withdraw:
-      `💸 *So funktioniert die Auszahlung auf XSPY Trader*\n\n` +
-      `*Mindestbetrag:* 21 $ | *Gebühr:* 10 % | *Bearbeitungszeit:* innerhalb von 24 Stunden\n` +
-      `⚠️ *Limit:* Nur 1 Auszahlung pro Tag erlaubt.\n\n` +
-      `📋 *Schritte zur Auszahlung & Sicherheitseinrichtung:*\n` +
-      `1️⃣ *Profil vervollständigen:* Füllen Sie Ihre Profildaten aus, um Auszahlungen freizuschalten.\n\n` +
-      `2️⃣ *Verifizierungs-Bot aktivieren (ERFORDERLICH):*\n` +
-      `Um Ihren 6-stelligen OTP-Sicherheitscode für jede Auszahlung zu erhalten, müssen Sie Ihr Telegram-Konto über unseren offiziellen Bot verknüpfen:\n` +
-      `👉 Öffnen Sie den Bot: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `👉 Drücken Sie *START* und kopieren Sie Ihre persönliche *Chat-ID*.\n` +
-      `👉 Gehen Sie zu Ihrem Profil: ${SITE_URL}/dashboard/profile\n` +
-      `👉 Fügen Sie die Chat-ID im Telegram-Feld ein und klicken Sie auf *Speichern*.\n\n` +
-      `3️⃣ *Auszahlungs-Wallet hinzufügen:* Unter *Wallet › Wallets verwalten* (24-Stunden-Sicherheitssperre für neue Wallets).\n\n` +
-      `4️⃣ *Auszahlung absenden:* Gehen Sie zu *Wallet › Auszahlen*, Wallet auswählen, Betrag eingeben und mit den OTP-Codes per E-Mail und Telegram bestätigen.\n\n` +
-      `🔗 *Verifizierungs-Bot:* https://t.me/XSpyTraderOtp_bot\n` +
+      `💸 *Auszahlungsrichtlinien & Anleitung — XSPY Trader*\n\n` +
+      `*Mindestauszahlung:* 21 $ | *Gebühr:* nur 8 % | *Bearbeitungszeit:* 1 bis maximal 24 Stunden\n` +
+      `⚠️ *Häufigkeit:* Es ist nur 1 Auszahlung alle 24 Stunden erlaubt.\n\n` +
+      `📋 *Schritte zur Auszahlung:*\n` +
+      `1️⃣ *Profil überprüfen:* Vergewissern Sie sich, dass Ihre Profildaten vollständig gespeichert sind.\n` +
+      `2️⃣ *Wallet hinterlegen:* Unter *Wallet › Wallets verwalten* (24h Sicherheitssperre für neue Wallets).\n` +
+      `3️⃣ *Auszahlung beantragen:* Unter *Wallet › Auszahlen* Wallet wählen und Betrag eingeben (ab 21 $).\n` +
+      `4️⃣ *Gmail OTP Autorisierung:* Ein geheimer 6-stelliger Sicherheitscode wird an Ihre registrierte **Gmail-Adresse** gesendet. Geben Sie den Code ein, um die Auszahlung freizugeben.\n\n` +
+      `🔒 *Hinweis:* Auszahlungen sind exklusiv per Gmail OTP geschützt. Teilen Sie niemals Ihre Codes!\n\n` +
       `🌐 *Auszahlungsseite:* ${SITE_URL}/dashboard/withdraw`,
 
     deposit:
       `💰 *So funktioniert die Einzahlung auf XSPY Trader*\n\n` +
-      `*Mindesteinzahlung:* 51 $\n\n` +
-      `📋 *Schritte zur Einzahlung:*\n` +
+      `*Mindesteinzahlung:* nur 51 $ zum Starten.\n\n` +
+      `📋 *Einzahlungsschritte:*\n` +
       `1️⃣ Gehen Sie zu *Dashboard › Wallet › Einzahlen*\n` +
-      `2️⃣ Wählen Sie das gewünschte Krypto-Netzwerk (USDT TRC20, BTC, ETH usw.)\n` +
-      `3️⃣ Kopieren Sie die angezeigte Wallet-Adresse sorgfältig\n` +
-      `4️⃣ Überweisen Sie den genauen Betrag von Ihrer privaten Wallet\n` +
-      `5️⃣ Screenshot der Transaktion hochladen und absenden\n\n` +
-      `⏱ *Bearbeitungszeit:* 5–15 Minuten (manuelle Überprüfung durch den Admin)\n\n` +
+      `2️⃣ Wählen Sie Ihr Krypto-Netzwerk (USDT TRC20, BEP20, BTC usw.)\n` +
+      `3️⃣ Kopieren Sie die Wallet-Adresse und überweisen Sie von Ihrer privaten Wallet\n` +
+      `4️⃣ Screenshot der Transaktion und TXID hochladen\n\n` +
+      `⏱ *Bestätigungszeit:* 5–15 Minuten.\n\n` +
       `🌐 *Einzahlungsseite:* ${SITE_URL}/dashboard/deposit`,
 
     trade:
-      `📊 *Funktionsweise des Tradings auf XSPY Trader*\n\n` +
-      `⚠️ *Wichtiger Hinweis:* Trades werden ausschließlich vom Admin eröffnet.\n\n` +
-      `📋 *Ablauf:*\n` +
-      `1️⃣ Der Admin startet *einen Trade pro Tag* (Montag–Freitag) und kündigt ihn in der Gruppe an.\n` +
-      `2️⃣ Sie gehen zu *Dashboard › Trading* und treten dem aktiven Trade mit Ihrem Einsatz bei.\n` +
-      `3️⃣ Nach Ablauf der Runde werden Gewinne sofort Ihrem Guthaben gutgeschrieben.\n\n` +
-      `📈 *Gewinnquoten:*\n` +
-      `⏱ 30-Sekunden-Trade: *2 % Gewinn*\n` +
-      `⏱ 45-Sekunden-Trade: *2,5 % Gewinn*\n` +
-      `⏱ 60-Sekunden-Trade: *3 % Gewinn*\n\n` +
-      `💡 *Beispiel:* 100 $ Einsatz im 60s-Trade bringen *3 $ Reingewinn*.\n\n` +
+      `📊 *Tägliche Trading-Runden auf XSPY Trader*\n\n` +
+      `Garantierte tägliche Admin-Trades (Montag bis Freitag) mit attraktiven Renditen:\n\n` +
+      `⏱️ *30-Sekunden-Trade:* *2 % Gewinn*\n` +
+      `⏱️ *45-Sekunden-Trade:* *2,5 % Gewinn*\n` +
+      `⏱️ *60-Sekunden-Trade:* *3 % Gewinn*\n\n` +
+      `📋 *So nehmen Sie teil:*\n` +
+      `1️⃣ Wenn die Runde angekündigt wird, öffnen Sie *Dashboard › Trading*\n` +
+      `2️⃣ Einsatz wählen und der Live-Runde beitreten\n` +
+      `3️⃣ Gewinne werden sofort nach Ablauf der Runde gutgeschrieben!\n\n` +
+      `💡 *Beispiel:* 100 $ Einsatz im 60s-Trade = *3 $ Reingewinn* (Gesamt: 103 $).\n\n` +
       `🌐 *Trading-Seite:* ${SITE_URL}/dashboard/trading`,
 
     package:
-      `⛏️ *Mining- & Anlage-Pakete auf XSPY Trader*\n\n` +
-      `Aktivieren Sie ein Paket für *automatisches tägliches passives Einkommen*:\n\n` +
+      `⛏️ *Mining- & Anlagepakete auf XSPY Trader*\n\n` +
+      `Wählen Sie Ihr Paket für automatische tägliche Erträge (Gutschrift alle 24 Std.):\n\n` +
       `1️⃣ *Beginner-Paket:*\n` +
-      `💵 Anlage: 51 $ – 100 $ | 📈 Rendite: *1,8 %/Tag* | ⏱ Laufzeit: 15 Tage\n\n` +
+      `💵 Anlage: 51 $ bis 100 $ | 🔹 Tägliche Rendite: *1,5 %* | ⏳ Laufzeit: *7 Tage*\n\n` +
       `2️⃣ *Professional-Paket:*\n` +
-      `💵 Anlage: 101 $ – 150 $ | 📈 Rendite: *2,0 %/Tag* | ⏱ Laufzeit: 30 Tage\n\n` +
+      `💵 Anlage: 101 $ bis 150 $ | 🔹 Tägliche Rendite: *1,8 %* | ⏳ Laufzeit: *18 Tage*\n\n` +
       `3️⃣ *VIP-Paket:*\n` +
-      `💵 Anlage: 151 $ – 200 $ | 📈 Rendite: *2,5 %/Tag* | ⏱ Laufzeit: 45 Tage\n\n` +
-      `💡 *Beispiel:* 80 $ im Beginner-Paket ergeben 1,44 $/Tag × 15 Tage = *21,60 $ Reingewinn*.\n` +
-      `- Gewinne werden täglich automatisch gutgeschrieben.\n\n` +
+      `💵 Anlage: 151 $ bis 200 $ | 🔹 Tägliche Rendite: *2,0 %* | ⏳ Laufzeit: *30 Tage*\n\n` +
+      `🔹 *Auszahlungssystem:* Erträge werden alle 24 Stunden gutgeschrieben. Nach Ablauf der Laufzeit erhalten Sie Ihr investiertes Grundkapital vollständig zurück!\n\n` +
       `🌐 *Pakete-Seite:* ${SITE_URL}/dashboard/packages`,
 
     referral:
       `🤝 *Partnerprogramm auf XSPY Trader*\n\n` +
-      `Verdienen Sie Provisionen über *3 Teamebenen:*\n\n` +
-      `🥇 *Ebene 1 (Direkte Partner):* *10 %*\n` +
-      `🥈 *Ebene 2 (Partner der Ebene 1):* *7 %*\n` +
-      `🥉 *Ebene 3 (Dritte Ebene):* *2 %*\n\n` +
-      `💰 *Vergütung auf alle Aktivitäten Ihres Teams:*\n` +
-      `🎁 Einzahlungen\n` +
-      `📈 Trading-Gewinne\n` +
-      `📦 Mining-Paket-Erträge\n\n` +
-      `🔗 *Partnerlink abrufen & Team einsehen:* ${SITE_URL}/dashboard/referrals`,
+      `Verdienen Sie Provisionen über 3 Ebenen und 3 Einnahmequellen:\n\n` +
+      `🎁 *1. Basis-Partnerprovisionen (aus Einzahlungen):*\n` +
+      `🥇 Ebene 1: *7 %* | 🥈 Ebene 2: *4 %* | 🥉 Ebene 3: *2 %*\n\n` +
+      `📈 *2. Trading-Partnerprovisionen (aus Gewinnen):*\n` +
+      `🥇 Ebene 1: *7 %* | 🥈 Ebene 2: *4 %* | 🥉 Ebene 3: *2 %*\n\n` +
+      `📦 *3. Mining-Paket-Provisionen:*\n` +
+      `🥇 Ebene 1: *7 %* | 🥈 Ebene 2: *4 %* | 🥉 Ebene 3: *2 %*\n\n` +
+      `🔗 *Ihr Partnerlink:* ${SITE_URL}/dashboard/referrals`,
 
     register:
-      `📝 *Konto eröffnen auf XSPY Trader*\n\n` +
-      `1️⃣ Registrierungsseite aufrufen: ${SITE_URL}/auth/register\n` +
-      `2️⃣ Daten eingeben und E-Mail bestätigen.\n` +
-      `3️⃣ Vervollständigen Sie Ihr Profil, um den Verifizierungsstatus zu erhalten und Auszahlungen freizuschalten.\n\n` +
-      `💰 *Mindesteinzahlung zum Start:* 51 $\n` +
-      `🌐 *Registrierung:* ${SITE_URL}/auth/register`,
+      `🚀 *Jetzt bei XSPY Trader starten*\n\n` +
+      `Ihr Zugang zu täglichen Gewinnen durch Trading und Mining!\n\n` +
+      `🌐 *Offizieller Registrierungslink:* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
+      `💵 *Mindesteinzahlung:* 51 $\n` +
+      `💸 *Mindestauszahlung:* 21 $ (nur 8 % Gebühr)\n` +
+      `📊 *Tägliches Trading:* 2 % bis 3 % Gewinn in Sekunden\n` +
+      `⛏️ *Mining-Pakete:* 1,5 % bis 2 % täglich + Kapitalrückzahlung\n\n` +
+      `🔗 *Hier registrieren:* ${OFFICIAL_REF_LINK}`,
 
     verify:
-      `🔐 *Sicherheit & Telegram-Verifizierung auf XSPY Trader*\n\n` +
-      `Zum Schutz Ihres Guthabens erfordert jede Auszahlung eine *doppelte 2FA-Bestätigung:*\n` +
-      `1️⃣ Ein 6-stelliger Code per *E-Mail*.\n` +
-      `2️⃣ Ein sofortiger 6-stelliger OTP-Code per *Telegram* über unseren Verifizierungs-Bot.\n\n` +
-      `📋 *So verknüpfen Sie Ihr Telegram-Konto:*\n` +
-      `1️⃣ Öffnen Sie den Bot: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `2️⃣ Drücken Sie *START* und kopieren Sie die angezeigte *Chat-ID*.\n` +
-      `3️⃣ Gehen Sie zu Ihrem Profil: ${SITE_URL}/dashboard/profile\n` +
-      `4️⃣ Fügen Sie die Chat-ID im Telegram-Feld ein und speichern Sie.\n\n` +
-      `⚠️ *Sicherheitshinweis:* Geben Sie niemals Ihre OTP-Codes weiter!\n\n` +
-      `🔗 *Verifizierungs-Bot:* https://t.me/XSpyTraderOtp_bot`,
+      `🔐 *Sicherheit & Verifizierung auf XSPY Trader*\n\n` +
+      `🛡️ *Auszahlungssicherheit:* Jede Auszahlung wird **ausschließlich per Gmail OTP** über Ihre registrierte E-Mail-Adresse autorisiert.\n\n` +
+      `💬 *Telegram-Bot (Optional für Benachrichtigungen):*\n` +
+      `Verknüpfen Sie [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot), um Trading-Runden und Plattform-Updates auf Telegram zu empfangen.\n` +
+      `1️⃣ Bot öffnen und *START* drücken\n` +
+      `2️⃣ Ihre *Chat-ID* kopieren\n` +
+      `3️⃣ Im Profil eintragen: ${SITE_URL}/dashboard/profile und speichern.\n\n` +
+      `⚠️ *Sicherheit:* Geben Sie niemals Ihre Sicherheitscodes an Dritte weiter!`,
 
     defaultSupport:
       `🤖 *Offizieller XSPY Trader AI-Support*\n\n` +
       `Willkommen! Ich helfe Ihnen bei allen Fragen zu:\n\n` +
-      `💰 *Einzahlungen* | 💸 *Auszahlungen* | 📊 *Trading*\n` +
-      `⛏️ *Mining-Pakete* | 🤝 *Partnerprogramm* | 🔐 *Sicherheit & 2FA*\n\n` +
-      `💡 Stellen Sie Ihre Frage einfach hier in der Gruppe!\n` +
-      `🌐 *Offizielle Website:* ${SITE_URL}`,
+      `📊 *Trading (2% - 3%)*\n` +
+      `⛏️ *Mining-Pakete (1,5% - 2% täglich, 7-30 Tage)*\n` +
+      `🤝 *Partnerprogramm (7% - 4% - 2%)*\n` +
+      `💰 *Einzahlung (ab 51 $)* | 💸 *Auszahlung (ab 21 $, 8% Gebühr)*\n\n` +
+      `🌐 *Registrierung:* ${OFFICIAL_REF_LINK}`,
   },
 
   ru: {
     withdraw:
-      `💸 *Как вывести средства на XSPY Trader*\n\n` +
-      `*Минимум:* $21 | *Комиссия:* 10% | *Срок обработки:* в течение 24 часов\n` +
-      `⚠️ *Лимит:* разрешён только 1 вывод в сутки.\n\n` +
-      `📋 *Инструкция по выводу и настройке безопасности:*\n` +
-      `1️⃣ *Заполните профиль:* Убедитесь, что ваш профиль полностью заполнен для получения верифицированного статуса.\n\n` +
-      `2️⃣ *Активируйте бота верификации (ОБЯЗАТЕЛЬНО):*\n` +
-      `Для получения 6-значных кодов подтверждения (OTP), необходимых для каждого вывода, подключите нашего официального бота:\n` +
-      `👉 Откройте бота: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `👉 Нажмите *START* и скопируйте свой персональный *Chat ID*.\n` +
-      `👉 Перейдите в профиль: ${SITE_URL}/dashboard/profile\n` +
-      `👉 Вставьте Chat ID в поле Telegram и нажмите *Сохранить*.\n\n` +
-      `3️⃣ *Добавьте кошелёк для вывода:* В разделе *Кошелёк › Управление кошельками* (новый кошелёк проходит 24-часовой период безопасности).\n\n` +
-      `4️⃣ *Оформите вывод:* Перейдите в *Кошелёк › Вывод*, выберите кошелёк, введите сумму и подтвердите операцию кодами из Telegram и Email.\n\n` +
-      `🔗 *Бот верификации:* https://t.me/XSpyTraderOtp_bot\n` +
+      `💸 *Инструкция и правила вывода средств — XSPY Trader*\n\n` +
+      `*Минимальный вывод:* $21 | *Комиссия:* всего 8% | *Срок обработки:* от 1 до 24 часов\n` +
+      `⚠️ *Лимит:* разрешён только 1 вывод каждые 24 часа.\n\n` +
+      `📋 *Шаги для вывода средств:*\n` +
+      `1️⃣ *Заполните профиль:* Убедитесь, что данные вашего профиля сохранены.\n` +
+      `2️⃣ *Добавьте кошелёк:* В разделе *Кошелёк › Управление кошельками* (24ч защитный период для новых кошельков).\n` +
+      `3️⃣ *Подайте заявку:* В разделе *Кошелёк › Вывод*, выберите кошелёк и укажите сумму (от $21).\n` +
+      `4️⃣ *Авторизация через Gmail OTP:* Секретный 6-значный код безопасности отправляется прямо на ваш зарегистрированный **Gmail**. Введите его для подтверждения.\n\n` +
+      `🔒 *Безопасность:* Вывод защищён исключительно кодом через Gmail. Никогда не сообщайте коды третьим лицам!\n\n` +
       `🌐 *Страница вывода:* ${SITE_URL}/dashboard/withdraw`,
 
     deposit:
       `💰 *Как пополнить счёт на XSPY Trader*\n\n` +
-      `*Минимальный депозит:* $51\n\n` +
+      `*Минимальный депозит:* всего $51 для старта.\n\n` +
       `📋 *Шаги пополнения:*\n` +
       `1️⃣ Перейдите в *Панель управления › Кошелёк › Депозит*\n` +
-      `2️⃣ Выберите криптовалютную сеть (USDT TRC20, BTC, ETH и др.)\n` +
-      `3️⃣ Скопируйте указанный адрес кошелька\n` +
-      `4️⃣ Переведите точную сумму со своего личного криптокошелька\n` +
-      `5️⃣ Загрузите скриншот успешного перевода и подтвердите заявку\n\n` +
-      `⏱ *Время обработки:* 5–15 минут (ручная проверка администратором)\n\n` +
+      `2️⃣ Выберите сеть (USDT TRC20, BEP20, BTC и др.)\n` +
+      `3️⃣ Скопируйте адрес кошелька и переведите средства со своего кошелька\n` +
+      `4️⃣ Загрузите скриншот чека и TXID\n\n` +
+      `⏱ *Время зачисления:* 5–15 минут.\n\n` +
       `🌐 *Страница депозита:* ${SITE_URL}/dashboard/deposit`,
 
     trade:
-      `📊 *Как устроен трейдинг на XSPY Trader*\n\n` +
-      `⚠️ *Важно:* Пользователи не открывают сделки самостоятельно — сделки запускает администратор.\n\n` +
-      `📋 *Механика:*\n` +
-      `1️⃣ Администратор открывает *одну сделку в день* (с понедельника по пятницу) и анонсирует её в группе.\n` +
-      `2️⃣ Вы переходите в раздел *Панель › Трейдинг* и присоединяетесь к активной сделке.\n` +
-      `3️⃣ После завершения раунда прибыль автоматически зачисляется на ваш баланс.\n\n` +
-      `📈 *Доходность по раундам:*\n` +
-      `⏱ Сделка 30 сек: *2% прибыли*\n` +
-      `⏱ Сделка 45 сек: *2.5% прибыли*\n` +
-      `⏱ Сделка 60 сек: *3% прибыли*\n\n` +
-      `💡 *Пример:* Вход на $100 в раунд 60 секунд = *$3 чистой прибыли*.\n\n` +
+      `📊 *Ежедневный трейдинг на платформе XSPY Trader*\n\n` +
+      `Гарантированные ежедневные торговые сделки от администрации (с понедельника по пятницу):\n\n` +
+      `⏱️ *Сделка 30 сек:* *2% прибыли*\n` +
+      `⏱️ *Сделка 45 сек:* *2.5% прибыли*\n` +
+      `⏱️ *Сделка 60 сек:* *3% прибыли*\n\n` +
+      `📋 *Как участвовать:*\n` +
+      `1️⃣ После анонса сделки перейдите в *Панель › Трейдинг*\n` +
+      `2️⃣ Укажите сумму и присоединитесь к раунду\n` +
+      `3️⃣ Прибыль мгновенно поступает на ваш баланс сразу после завершения таймера!\n\n` +
+      `💡 *Пример:* Вход на $100 в раунд 60 секунд приносит *$3 чистой прибыли* (Итого: $103).\n\n` +
       `🌐 *Страница трейдинга:* ${SITE_URL}/dashboard/trading`,
 
     package:
-      `⛏️ *Инвестиционные пакеты майнинга на XSPY Trader*\n\n` +
-      `Получайте *ежедневный пассивный доход*, активировав пакет:\n\n` +
+      `⛏️ *Пакеты майнинга на платформе XSPY Trader*\n\n` +
+      `Выберите пакет и получайте пассивный доход каждые 24 часа:\n\n` +
       `1️⃣ *Пакет Beginner:*\n` +
-      `💵 Вложения: $51 – $100 | 📈 Доход: *1.8%/день* | ⏱ Срок: 15 дней\n\n` +
+      `💵 Инвестиция: $51 – $100 | 🔹 Доход в день: *1.5%* | ⏳ Срок: *7 дней*\n\n` +
       `2️⃣ *Пакет Professional:*\n` +
-      `💵 Вложения: $101 – $150 | 📈 Доход: *2.0%/день* | ⏱ Срок: 30 дней\n\n` +
+      `💵 Инвестиция: $101 – $150 | 🔹 Доход в день: *1.8%* | ⏳ Срок: *18 дней*\n\n` +
       `3️⃣ *Пакет VIP:*\n` +
-      `💵 Вложения: $151 – $200 | 📈 Доход: *2.5%/день* | ⏱ Срок: 45 дней\n\n` +
-      `💡 *Пример:* Инвестиция $80 в Beginner даёт $1.44 в день × 15 дней = *$21.60 чистой прибыли*.\n` +
-      `- Начисления поступают ежедневно на ваш баланс.\n\n` +
+      `💵 Инвестиция: $151 – $200 | 🔹 Доход в день: *2.0%* | ⏳ Срок: *30 дней*\n\n` +
+      `🔹 *Система начислений:* Прибыль поступает каждые 24 часа. По завершении срока весь вложенный депозит возвращается на ваш счёт!\n\n` +
       `🌐 *Страница пакетов:* ${SITE_URL}/dashboard/packages`,
 
     referral:
       `🤝 *Партнёрская программа XSPY Trader*\n\n` +
-      `Получайте высокие комиссионные с *3 уровней* вашей команды:\n\n` +
-      `🥇 *Уровень 1 (прямые приглашения):* *10%*\n` +
-      `🥈 *Уровень 2 (приглашённые 1-го уровня):* *7%*\n` +
-      `🥉 *Уровень 3 (3-я линия):* *2%*\n\n` +
-      `💰 *Вы получаете процент со всех операций команды:*\n` +
-      `🎁 Пополнения баланса\n` +
-      `📈 Доход с трейдинга\n` +
-      `📦 Начисления с пакетов майнинга\n\n` +
-      `🔗 *Ваша реферальная ссылка:* ${SITE_URL}/dashboard/referrals`,
+      `Получайте доход по 3 направлениям и 3 уровням команды:\n\n` +
+      `🎁 *1. Партнёрка с депозитов:*\n` +
+      `🥇 Уровень 1: *7%* | 🥈 Уровень 2: *4%* | 🥉 Уровень 3: *2%*\n\n` +
+      `📈 *2. Партнёрка с дохода от трейдинга команды:*\n` +
+      `🥇 Уровень 1: *7%* | 🥈 Уровень 2: *4%* | 🥉 Уровень 3: *2%*\n\n` +
+      `📦 *3. Партнёрка с пакетов майнинга:*\n` +
+      `🥇 Уровень 1: *7%* | 🥈 Уровень 2: *4%* | 🥉 Уровень 3: *2%*\n\n` +
+      `🔗 *Ваша партнёрская ссылка:* ${SITE_URL}/dashboard/referrals`,
 
     register:
-      `📝 *Регистрация аккаунта на XSPY Trader*\n\n` +
-      `1️⃣ Перейдите на страницу регистрации: ${SITE_URL}/auth/register\n` +
-      `2️⃣ Заполните данные и подтвердите email.\n` +
-      `3️⃣ Заполните данные профиля, чтобы активировать аккаунт и открыть возможность вывода средств.\n\n` +
-      `💰 *Минимум для старта:* депозит от $51\n` +
-      `🌐 *Регистрация:* ${SITE_URL}/auth/register`,
+      `🚀 *Регистрация на XSPY Trader*\n\n` +
+      `Ваш путь к ежедневному доходу на трейдинге и майнинге!\n\n` +
+      `🌐 *Официальная ссылка:* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
+      `💵 *Минимальный депозит:* $51\n` +
+      `💸 *Минимальный вывод:* $21 (комиссия всего 8%)\n` +
+      `📊 *Трейдинг:* от 2% до 3% за секунды\n` +
+      `⛏️ *Майнинг:* 1.5% - 2% в день + возврат депозита\n\n` +
+      `🔗 *Регистрация:* ${OFFICIAL_REF_LINK}`,
 
     verify:
-      `🔐 *Безопасность и привязка Telegram на XSPY Trader*\n\n` +
-      `Для защиты ваших средств любой вывод требует *двойной верификации (2FA):*\n` +
-      `1️⃣ 6-значный код подтверждения на ваш *Email*.\n` +
-      `2️⃣ Мгновенный 6-значный OTP-код в *Telegram* через нашего бота верификации.\n\n` +
-      `📋 *Как привязать Telegram:*\n` +
-      `1️⃣ Откройте бота: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-      `2️⃣ Нажмите *START* и скопируйте полученный *Chat ID*.\n` +
-      `3️⃣ Перейдите в профиль: ${SITE_URL}/dashboard/profile\n` +
-      `4️⃣ Вставьте Chat ID в поле Telegram и нажмите *Сохранить*.\n\n` +
-      `⚠️ *Безопасность:* Никогда и никому не сообщайте свои OTP-коды!\n\n` +
-      `🔗 *Бот верификации:* https://t.me/XSpyTraderOtp_bot`,
+      `🔐 *Безопасность и верификация на XSPY Trader*\n\n` +
+      `🛡️ *Подтверждение вывода:* Все операции вывода подтверждаются **исключительно кодом через Gmail OTP**.\n\n` +
+      `💬 *Привязка Telegram (Опционально для уведомлений):*\n` +
+      `Подключите бота [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) для получения анонсов сделок и важных оповещений в Telegram.\n` +
+      `1️⃣ Нажмите *START* в боте\n` +
+      `2️⃣ Скопируйте свой *Chat ID*\n` +
+      `3️⃣ Вставьте в профиле: ${SITE_URL}/dashboard/profile и сохраните.\n\n` +
+      `⚠️ *Внимание:* Никогда не передавайте коды третьим лицам!`,
 
     defaultSupport:
       `🤖 *Официальная поддержка XSPY Trader*\n\n` +
       `Приветствую! Я отвечу на любые вопросы по следующим темам:\n\n` +
-      `💰 *Депозиты* | 💸 *Вывод средств* | 📊 *Трейдинг*\n` +
-      `⛏️ *Пакеты майнинга* | 🤝 *Партнёрка* | 🔐 *Безопасность и 2FA*\n\n` +
-      `💡 Задайте ваш вопрос прямо сейчас!\n` +
-      `🌐 *Официальный сайт:* ${SITE_URL}`,
+      `📊 *Трейдинг (2% - 3%)*\n` +
+      `⛏️ *Пакеты майнинга (1.5% - 2% в день, 7-30 дней)*\n` +
+      `🤝 *Партнёрская программа (7% - 4% - 2%)*\n` +
+      `💰 *Депозит (от $51)* | 💸 *Вывод (от $21, комиссия 8%)*\n\n` +
+      `🌐 *Регистрация:* ${OFFICIAL_REF_LINK}`,
   },
 };
 
@@ -1112,8 +1069,11 @@ async function getAIAnswer(
     ru: "Russian (Русский)",
   };
 
+  // Real-time synchronization with platform database
+  const liveKnowledge = await getLivePlatformKnowledge();
+
   const prompt =
-    `${PLATFORM_KNOWLEDGE}\n\n---\n\n` +
+    `${liveKnowledge}\n\n---\n\n` +
     `## CONVERSATION CONTEXT\n` +
     `You are talking to a user named "${userName}" in the official XSPY Trader Telegram group.\n` +
     `User Database Info:\n${userInfoStr}\n\n` +
@@ -1121,8 +1081,12 @@ async function getAIAnswer(
     `## MANDATORY INSTRUCTIONS\n` +
     `- Reply as the XSPY Trader official support assistant\n` +
     `- TARGET LANGUAGE: ${langNames[lang] || "English"}. You MUST write your entire response strictly in ${langNames[lang] || "English"}!\n` +
-    `- If the user asks about WITHDRAWALS (سحب / retrait / auszahlung / etc.), you MUST explicitly provide the link to our verification bot: [${OTP_BOT_USERNAME}](https://t.me/XSpyTraderOtp_bot) and explain that they must activate it to receive their 6-digit withdrawal OTP codes.\n` +
-    `- Be concise (max 220 words)\n` +
+    `- WITHDRAWALS: Min $21, fee 8% only, processed within 1–24 hours (1 withdrawal per 24 hours). Explain clearly that withdrawals are verified EXCLUSIVELY via a 6-digit OTP code sent to their registered Gmail address. Linking Telegram bot is optional for trade notifications & announcements.\n` +
+    `- MINING PACKAGES: Beginner ($51–$100, 1.5%/day, 7 days), Professional ($101–$150, 1.8%/day, 18 days), VIP ($151–$200, 2%/day, 30 days). Profits credited every 24 hours. Full original principal returned at package completion.\n` +
+    `- TRADING: Guaranteed daily sessions (Mon–Fri) opened by admin: 30s = 2%, 45s = 2.5%, 60s = 3% profit.\n` +
+    `- REFERRALS: 3 streams, 3 levels each: Level 1 = 7%, Level 2 = 4%, Level 3 = 2%.\n` +
+    `- REGISTRATION: Always direct new users to the official registration link: ${OFFICIAL_REF_LINK}\n` +
+    `- Be concise (max 200 words)\n` +
     `- Use appropriate emojis for a professional look\n` +
     `- Format with Telegram Markdown (bold with *text*, bullets with -)\n` +
     `- If you do not know the answer, politely say so and suggest contacting the admin\n` +
@@ -1330,142 +1294,132 @@ function buildWelcomeMessage(memberName: string, lang: SupportedLang = "en"): st
   if (lang === "ar") {
     return (
       `🎉 *مرحباً بك في المجموعة الرسمية لمنصة XSPY Trader، ${memberName}!* 🚀\n\n` +
-      `يسعدنا انضمامك إلى مجتمعنا الاستثماري. تقدم منصة XSPY Trader:\n\n` +
-      `📊 *تداول الخيارات الثنائية* — صفقات يومية تفتحها الإدارة (الاثنين–الجمعة) بربح 2%–3% لكل جولة\n` +
-      `⛏️ *باقات التعدين* — عائد يومي تلقائي يصل إلى 2.5% يومياً\n` +
-      `🤝 *برنامج الإحالات (3 مستويات)* — عمولات 10%، 7%، و2% من نشاط وأرباح فريقك\n\n` +
+      `يسعدنا انضمامك إلى مجتمعنا الاستثماري الذكي. تقدم المنصة:\n\n` +
+      `📊 *تداول الخيارات الثنائية:* صفقات يومية مضمونة (الاثنين–الجمعة) بربح *2% إلى 3%* خلال ثوانٍ معدودة\n` +
+      `⛏️ *باقات التعدين اليومية:* عوائد يومية *1.5% حتى 2.0%* تُضاف كل 24 ساعة مع استرداد رأس المال بالكامل\n` +
+      `🤝 *برنامج الإحالات (3 مستويات):* عمولات *7%، 4%، و2%* عبر 3 مسارات (الإيداعات، التداول، والتعدين)\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔐 *خطوة هامة جداً — تفعيل السحب وأمان الحساب:*\n\n` +
-      `لتتمكن من سحب أرباحك واستلام أكواد التحقق (OTP)، يجب تفعيل بوت التحقق الرسمي وربطه بملفك الشخصي:\n\n` +
-      `1️⃣ افتح [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) واضغط *START*\n` +
-      `2️⃣ انسخ رقم التعريف الشخصي الخاص بك (*Chat ID*)\n` +
-      `3️⃣ توجه إلى ملفك الشخصي بالمنصة والصق الرقم في خانة تيليجرام ثم احفظ\n\n` +
-      `✅ بمجرد الربط، ستتلقى رمز OTP فوري لكل عملية سحب للحفاظ على أمان أموالك بالكامل.\n\n` +
+      `💵 *السياسة المالية والأمان:*\n` +
+      `- الحد الأدنى للإيداع: *$51* | الحد الأدنى للسحب: *$21* (برسوم 8% فقط)\n` +
+      `- جميع طلبات السحب مؤمنة ومعتمدة حصرياً عبر كود سري (OTP) يُرسل إلى بريدك الإلكتروني (Gmail).\n` +
+      `- لربط إشعارات التداول وتنبيهات الحساب على تيليجرام: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 *اسألني أي شيء!* اكتب سؤالك هنا في المجموعة وسأجيبك على مدار 24 ساعة.\n\n` +
-      `🌐 *المنصة:* ${SITE_URL}`
+      `🌐 *رابط التسجيل الرسمي المباشر:* ${OFFICIAL_REF_LINK}\n` +
+      `💡 *اسألني أي شيء هنا في المجموعة — المساعد الذكي يعمل على مدار الساعة!*`
     );
   }
 
   if (lang === "fr") {
     return (
       `🎉 *Bienvenue dans le groupe officiel XSPY Trader, ${memberName} !* 🚀\n\n` +
-      `Nous sommes ravis de vous accueillir. XSPY Trader vous propose :\n\n` +
-      `📊 *Trading d'Options Binaires* — Sessions gérées par l'admin avec 2% à 3% de profit par tour\n` +
-      `⛏️ *Packs de Minage* — Revenus passifs quotidiens jusqu'à 2,5 % par jour\n` +
-      `🤝 *Programme de Parrainage (3 niveaux)* — 10 %, 7 % et 2 % de commissions sur votre équipe\n\n` +
+      `Ravi de vous accueillir dans notre communauté d'investisseurs. XSPY Trader propose :\n\n` +
+      `📊 *Trading Quotidien :* Sessions garanties (lundi-vendredi) avec *2 % à 3 % de profit* en quelques secondes\n` +
+      `⛏️ *Packs de Minage :* Revenus quotidiens de *1,5 % à 2,0 %* versés chaque 24h avec retour intégral du capital\n` +
+      `🤝 *Parrainage (3 niveaux) :* *7 %, 4 % et 2 %* de commissions sur les dépôts, trading et packs\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔐 *IMPORTANT — Activez vos retraits et la sécurité :*\n\n` +
-      `Pour débloquer vos retraits et recevoir votre code secret OTP à 6 chiffres, liez votre Telegram :\n\n` +
-      `1️⃣ Ouvrez [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) et cliquez sur *START*\n` +
-      `2️⃣ Copiez votre identifiant personnel (*Chat ID*)\n` +
-      `3️⃣ Rendez-vous sur votre *Profil* et collez l'identifiant dans le champ Telegram\n\n` +
-      `✅ Une fois lié, vous recevrez un code OTP instantané pour chaque retrait afin de sécuriser vos fonds.\n\n` +
+      `💵 *Politique Financière & Sécurité :*\n` +
+      `- Dépôt minimum : *51 $* | Retrait minimum : *21 $* (frais 8 %)\n` +
+      `- Tous les retraits sont sécurisés exclusivement par code OTP envoyé sur votre adresse Gmail.\n` +
+      `- Alertes trading Telegram : [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 *Posez votre question à tout moment dans le groupe !*\n\n` +
-      `🌐 *Plateforme :* ${SITE_URL}`
+      `🌐 *Inscription Officielle :* ${OFFICIAL_REF_LINK}\n` +
+      `💡 *Posez votre question à tout moment dans le groupe !*`
     );
   }
 
   if (lang === "de") {
     return (
       `🎉 *Willkommen in der offiziellen XSPY Trader Gruppe, ${memberName}!* 🚀\n\n` +
-      `Wir freuen uns, Sie bei uns zu haben. XSPY Trader bietet Ihnen:\n\n` +
-      `📊 *Binäre Optionen Trading* — Tägliche Admin-Trades mit 2–3 % Gewinn pro Runde\n` +
-      `⛏️ *Mining-Pakete* — Bis zu 2,5 % tägliches passives Einkommen\n` +
-      `🤝 *3-Stufen-Partnerprogramm* — 10 %, 7 % und 2 % Provisionen auf Teamaktivitäten\n\n` +
+      `Schön, dass Sie Teil unserer Community sind. XSPY Trader bietet Ihnen:\n\n` +
+      `📊 *Tägliches Trading:* Garantierte Admin-Runden (Mo–Fr) mit *2 % bis 3 % Gewinn* in Sekunden\n` +
+      `⛏️ *Mining-Pakete:* *1,5 % bis 2,0 %* tägliche Gutschriften alle 24h + 100 % Kapitalrückzahlung\n` +
+      `🤝 *Partnerprogramm (3 Stufen):* *7 %, 4 % und 2 %* Provisionen auf Einzahlungen, Trades & Pakete\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔐 *WICHTIG — Auszahlungen & Sicherheit freischalten:*\n\n` +
-      `Um Auszahlungen zu ermöglichen und Ihre OTP-Sicherheitscodes zu erhalten, verknüpfen Sie Ihr Telegram:\n\n` +
-      `1️⃣ Öffnen Sie [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) und drücken Sie *START*\n` +
-      `2️⃣ Kopieren Sie Ihre persönliche *Chat-ID*\n` +
-      `3️⃣ Fügen Sie die ID in Ihrem *Profil* im Telegram-Feld ein und speichern Sie\n\n` +
-      `✅ Nach der Verknüpfung erhalten Sie für jede Auszahlung sofort einen sicheren OTP-Code.\n\n` +
+      `💵 *Finanzrichtlinien & Sicherheit:*\n` +
+      `- Mindesteinzahlung: *51 $* | Mindestauszahlung: *21 $* (nur 8 % Gebühr)\n` +
+      `- Auszahlungen werden exklusiv per Gmail-OTP-Code autorisiert.\n` +
+      `- Telegram-Benachrichtigungen: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 *Fragen Sie mich alles!* Schreiben Sie Ihre Frage hier in die Gruppe — 24/7 erreichbar.\n\n` +
-      `🌐 *Plattform:* ${SITE_URL}`
+      `🌐 *Offizielle Registrierung:* ${OFFICIAL_REF_LINK}\n` +
+      `💡 *Fragen Sie mich alles hier in der Gruppe — 24/7 aktiv!*`
     );
   }
 
   if (lang === "ru") {
     return (
       `🎉 *Добро пожаловать в официальную группу XSPY Trader, ${memberName}!* 🚀\n\n` +
-      `Мы рады приветствовать вас в нашем инвестиционном сообществе. XSPY Trader предлагает:\n\n` +
-      `📊 *Трейдинг бинарными опционами* — ежедневные раунды от админа с доходностью 2–3% за сделку\n` +
-      `⛏️ *Пакеты майнинга* — пассивный доход до 2.5% в день\n` +
-      `🤝 *3-уровневая партнёрская программа* — 10%, 7% и 2% комиссионных со всей команды\n\n` +
+      `Рады приветствовать вас в нашем сообществе инвесторов. XSPY Trader предлагает:\n\n` +
+      `📊 *Ежедневный трейдинг:* гарантированные раунды от админа (пн-пт) с прибылью *2%–3%* за секунды\n` +
+      `⛏️ *Пакеты майнинга:* начисления *1.5%–2.0%* каждые 24ч + 100% возврат депозита по завершении\n` +
+      `🤝 *Партнёрская программа (3 уровня):* *7%, 4% и 2%* комиссионных со всей команды\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔐 *ВАЖНО — Активация вывода средств и безопасность:*\n\n` +
-      `Чтобы включить вывод средств и получать OTP-коды подтверждения, привяжите ваш Telegram:\n\n` +
-      `1️⃣ Откройте [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) и нажмите *START*\n` +
-      `2️⃣ Скопируйте ваш персональный *Chat ID*\n` +
-      `3️⃣ Вставьте Chat ID в настройках вашего *Профиля* на платформе и сохраните\n\n` +
-      `✅ После привязки вы будете мгновенно получать код безопасности при каждом выводе.\n\n` +
+      `💵 *Финансовые условия и безопасность:*\n` +
+      `- Мин. депозит: *$51* | Мин. вывод: *$21* (комиссия всего 8%)\n` +
+      `- Все выплаты подтверждаются исключительно защитным кодом Gmail OTP.\n` +
+      `- Оповещения в Telegram: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 *Задавайте любые вопросы в группе — бот отвечает круглосуточно!*\n\n` +
-      `🌐 *Платформа:* ${SITE_URL}`
+      `🌐 *Официальная регистрация:* ${OFFICIAL_REF_LINK}\n` +
+      `💡 *Задавайте любые вопросы в группе — бот отвечает круглосуточно!*`
     );
   }
 
   // Default English
   return (
     `🎉 *Welcome to the Official XSPY Trader Group, ${memberName}!* 🚀\n\n` +
-    `We're glad to have you here. XSPY Trader is a professional digital investment platform offering:\n\n` +
-    `📊 *Binary Options Trading* — Join admin-opened trades (Mon–Fri) and earn 2–3% per round\n` +
-    `⛏️ *Mining Packages* — Earn daily passive income of up to 2.5%/day\n` +
-    `🤝 *3-Level Referral Program* — Earn 10%, 7%, and 2% from your team's activities\n\n` +
+    `We're thrilled to welcome you to our investment community. XSPY Trader offers:\n\n` +
+    `📊 *Daily Binary Options Trading:* Guaranteed admin rounds (Mon–Fri) earning *2% to 3% profit* in seconds\n` +
+    `⛏️ *Daily Mining Packages:* *1.5% to 2.0%* passive returns credited every 24h + 100% principal back\n` +
+    `🤝 *3-Tier Referral Rewards:* *7%, 4%, and 2%* across deposits, trading profits, and mining plans\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔐 *IMPORTANT — Verify Your Account for Withdrawals:*\n\n` +
-    `To enable withdrawals and receive your security OTP codes, you *must* link your Telegram to your profile:\n\n` +
-    `1️⃣ Open [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) and press *START*\n` +
-    `2️⃣ Copy the *Chat ID* it provides\n` +
-    `3️⃣ Go to your *Profile* on the platform and paste the Chat ID in the Telegram field\n\n` +
-    `✅ Once linked, you'll receive instant OTP codes for every withdrawal — keeping your funds fully secure.\n\n` +
+    `💵 *Financial Policy & Account Security:*\n` +
+    `- Minimum Deposit: *$51* | Minimum Withdrawal: *$21* (8% fee)\n` +
+    `- All withdrawals are verified exclusively via a secure 6-digit OTP sent to your registered Gmail.\n` +
+    `- For live Telegram announcements & alerts: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💡 *Ask me anything!* Just type your question here in the group — I'm available 24/7.\n\n` +
-    `🌐 *Platform:* ${SITE_URL}`
+    `🌐 *Official Registration Link:* ${OFFICIAL_REF_LINK}\n` +
+    `💡 *Ask me anything right here in the group — I'm available 24/7!*`
   );
 }
 
 function buildWelcomeInlineKeyboard(lang: SupportedLang = "en") {
   const labels: Record<
     SupportedLang,
-    { open: string; verify: string; profile: string }
+    { register: string; open: string; profile: string }
   > = {
     ar: {
-      open: "🚀 فتح المنصة",
-      verify: "🔐 تفعيل بوت التحقق",
+      register: "🚀 التسجيل الرسمي المباشر",
+      open: "🌐 فتح المنصة",
       profile: "👤 الملف الشخصي",
     },
     en: {
-      open: "🚀 Open Platform",
-      verify: "🔐 Verify Bot",
+      register: "🚀 Register Official Account",
+      open: "🌐 Open Platform",
       profile: "👤 My Profile",
     },
     fr: {
-      open: "🚀 Visiter la Plateforme",
-      verify: "🔐 Activer le Bot",
+      register: "🚀 Inscription Officielle",
+      open: "🌐 Visiter la Plateforme",
       profile: "👤 Mon Profil",
     },
     de: {
-      open: "🚀 Plattform öffnen",
-      verify: "🔐 Bot verifizieren",
+      register: "🚀 Jetzt Registrieren",
+      open: "🌐 Plattform öffnen",
       profile: "👤 Mein Profil",
     },
     ru: {
-      open: "🚀 Открыть платформу",
-      verify: "🔐 Бот верификации",
+      register: "🚀 Регистрация на платформе",
+      open: "🌐 Открыть платформу",
       profile: "👤 Мой профиль",
     },
   };
   const l = labels[lang] || labels.en;
   return {
     inline_keyboard: [
+      [{ text: l.register, url: OFFICIAL_REF_LINK }],
       [
         { text: l.open, url: SITE_URL },
-        { text: l.verify, url: "https://t.me/XSpyTraderOtp_bot" },
+        { text: l.profile, url: `${SITE_URL}/dashboard/profile` },
       ],
-      [{ text: l.profile, url: `${SITE_URL}/dashboard/profile` }],
     ],
   };
 }
