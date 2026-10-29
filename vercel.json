@@ -5,12 +5,19 @@
     },
     "app/api/cron/package-profits/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/daily-summary/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/package-profits",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 6 * * *"
     }
   ]
 }

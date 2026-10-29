@@ -121,6 +121,8 @@ export default function AdminBotsPage() {
   const [msgContent, setMsgContent] = useState("");
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [sendingDailySummary, setSendingDailySummary] = useState(false);
+  const [sendingTestSignal, setSendingTestSignal] = useState(false);
 
   // Action pending states
   const [actionPending, setActionPending] = useState<string | null>(null);
@@ -262,6 +264,55 @@ export default function AdminBotsPage() {
       toast.error("Error sending message");
     } finally {
       setSendingMsg(false);
+    }
+  };
+
+  const handleSendDailySummary = async () => {
+    setSendingDailySummary(true);
+    try {
+      const res = await fetch("/api/cron/daily-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success("تم بث التقرير اليومي بنجاح إلى مجموعة تيليجرام!");
+        fetchBotStatus();
+      } else {
+        toast.error(data.message || data.error || "فشل إرسال التقرير اليومي");
+      }
+    } catch {
+      toast.error("خطأ في الاتصال أثناء إرسال التقرير");
+    } finally {
+      setSendingDailySummary(false);
+    }
+  };
+
+  const handleSendTestSignal = async () => {
+    setSendingTestSignal(true);
+    try {
+      const res = await fetch("/api/admin/bots/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: "EUR/USD",
+          duration_sec: 60,
+          payout_percent: 3,
+          direction: "buy",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(`تم بث إشارة التداول بنجاح إلى ${data.successCount} متداول ${data.groupBroadcast ? "والمجموعة ✅" : ""}`);
+        fetchBotStatus();
+      } else {
+        toast.error(data.error || "فشل بث إشارة التداول");
+      }
+    } catch {
+      toast.error("خطأ في الاتصال أثناء بث الإشارة");
+    } finally {
+      setSendingTestSignal(false);
     }
   };
 
@@ -1019,6 +1070,63 @@ export default function AdminBotsPage() {
                   <Send className={`w-4 h-4 mr-2 ${sendingMsg ? "animate-spin" : ""}`} />
                   {sendingMsg ? "Sending Message..." : isBroadcasting ? "Send Broadcast to All Users" : "Send Direct Message"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Specialized Broadcast Cards: Trade Signals & Daily Summaries ── */}
+          <Card className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 max-w-3xl mt-6">
+            <CardHeader>
+              <CardTitle className="text-base text-gray-900 dark:text-white flex items-center gap-2">
+                <Radio className="w-4 h-4 text-purple-400" />
+                Live Trade Signals & Daily Group Summary
+              </CardTitle>
+              <CardDescription className="text-xs">
+                بث التقارير اليومية وإشارات التداول المباشرة إلى مجموعة تيليجرام والمستخدمين فوراً
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs">
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-slate-950/60 border border-gray-200 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                      📊 التقرير اليومي وجدول صفقات XSPY Trader
+                    </h4>
+                    <p className="text-gray-500 dark:text-slate-400 text-[11px] mt-0.5">
+                      تقرير احترافي يلخص باقات التعدين، صفقات اليوم، ونظام الإحالة مع رابط التسجيل الرسمي
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleSendDailySummary}
+                    disabled={sendingDailySummary}
+                    className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                  >
+                    {sendingDailySummary ? "جاري الإرسال..." : "📊 بث التقرير للمجموعة الآن"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-gray-50 dark:bg-slate-950/60 border border-gray-200 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                      ⚡ إشارة تداول تجريبية (Test Signal)
+                    </h4>
+                    <p className="text-gray-500 dark:text-slate-400 text-[11px] mt-0.5">
+                      بث إشعار صفقة تجريبية (EUR/USD, 60s, 3% ROI, BUY) لجميع المستخدمين والمجموعة
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSendTestSignal}
+                    disabled={sendingTestSignal}
+                    className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 shrink-0"
+                  >
+                    {sendingTestSignal ? "جاري البث..." : "📢 بث إشارة تجريبية"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

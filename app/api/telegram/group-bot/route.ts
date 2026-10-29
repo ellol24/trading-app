@@ -39,6 +39,7 @@ function isRateLimited(userId: number): boolean {
 
 // ─── Debug GET endpoint ───────────────────────────────────────────────────────
 export async function GET() {
+  await registerBotCommands().catch(() => {});
   return NextResponse.json({
     status: "ok",
     bot: "XSpyAIBot (Group Bot)",
@@ -49,11 +50,12 @@ export async function GET() {
       ? GEMINI_API_KEY.substring(0, 10) + "..."
       : "NOT SET",
     model: "gemini-flash-latest",
-    version: "v8",
+    version: "v9",
+    commandsRegistered: true,
   });
 }
 
-// ─── URL Detection ────────────────────────────────────────────────────────────
+// ─── URL Detection & Spam Guard ──────────────────────────────────────────────
 const ALLOWED_DOMAINS = [
   "xspy-trader.com",
   "xspy-trader.vercel.app",
@@ -78,6 +80,79 @@ function containsExternalLink(text: string): boolean {
   return false;
 }
 
+// ─── Advanced Anti-Fraud & Staff Impersonation Detection ─────────────────────
+function containsImpersonationAttempt(text: string): boolean {
+  const lower = text.toLowerCase();
+
+  const impersonationTriggers = [
+    // Arabic support impersonation / phishing
+    "انا الدعم",
+    "أنا الدعم",
+    "خدمة العملاء",
+    "فريق الدعم",
+    "ادارة المنصة",
+    "إدارة المنصة",
+    "ادمن المنصة",
+    "أدمن المنصة",
+    "أنا المدير",
+    "انا المدير",
+    "أنا المشرف",
+    "انا المشرف",
+    "مسؤول الدعم",
+    "موظف المنصة",
+    "كلمني خاص",
+    "تواصل معي خاص",
+    "راسلني خاص",
+    "تعال خاص",
+    "ابعتلي خاص",
+    "ارسل كود",
+    "أرسل الكود",
+    "رمز السحب",
+    "كود التحقق",
+    "رمز التحقق",
+    "كلمة المرور",
+    "كلمات المرور",
+    "هات الكود",
+    "ابعث الكود",
+    // English
+    "i am admin",
+    "i am support",
+    "official support",
+    "xspy support",
+    "xspy admin",
+    "support agent",
+    "head of support",
+    "i work at xspy",
+    "contact me in dm",
+    "dm me for help",
+    "send me your code",
+    "give me your otp",
+    "send me private message",
+    "text me privately",
+    "send your credentials",
+    "send me your seed",
+    // French
+    "je suis le support",
+    "admin officiel",
+    "support officiel",
+    "écrivez-moi en privé",
+    "envoyez votre code",
+    // German
+    "ich bin der support",
+    "offizieller support",
+    "schreib mir privat",
+    "sende deinen code",
+    // Russian
+    "я поддержка",
+    "я администратор",
+    "официальная поддержка",
+    "напиши мне в лс",
+    "отправь свой код",
+  ];
+
+  return impersonationTriggers.some((trigger) => lower.includes(trigger));
+}
+
 // ─── Telegram API Helper ──────────────────────────────────────────────────────
 async function callTelegram(method: string, body: object) {
   const res = await fetch(
@@ -89,6 +164,21 @@ async function callTelegram(method: string, body: object) {
     }
   );
   return res.json();
+}
+
+// ─── Register Telegram Bot Commands Menu ───────────────────────────────────────
+async function registerBotCommands() {
+  try {
+    const commands = [
+      { command: "start", description: "🚀 القائمة الرئيسية / Main Menu" },
+      { command: "deals", description: "📊 صفقات اليوم / Today's Trades" },
+      { command: "packages", description: "⛏️ باقات التعدين / Mining Packages" },
+      { command: "referral", description: "🤝 نظام الإحالة / Referral System" },
+      { command: "register", description: "📝 فتح حساب جديد / Register Account" },
+      { command: "help", description: "🆘 المساعدة والتعليمات / Help & FAQ" },
+    ];
+    await callTelegram("setMyCommands", { commands });
+  } catch {}
 }
 
 // ─── Send Message (with Markdown fallback) ────────────────────────────────────
@@ -378,6 +468,108 @@ function buildRegisterInlineKeyboard(lang: SupportedLang) {
       [{ text: labels[lang] || labels.en, url: OFFICIAL_REF_LINK }],
     ],
   };
+}
+
+// ─── Persistent Reply Keyboard ────────────────────────────────────────────────
+function buildPersistentReplyKeyboard(lang: SupportedLang) {
+  const keyboards: Record<
+    SupportedLang,
+    { deals: string; packages: string; referral: string; register: string }
+  > = {
+    ar: {
+      deals: "📊 صفقات اليوم",
+      packages: "⛏️ باقات التعدين",
+      referral: "🤝 نظام الإحالة",
+      register: "🚀 تسجيل حساب",
+    },
+    en: {
+      deals: "📊 Today's Trades",
+      packages: "⛏️ Mining Packages",
+      referral: "🤝 Referral System",
+      register: "🚀 Register Account",
+    },
+    fr: {
+      deals: "📊 Trades du jour",
+      packages: "⛏️ Packs Minage",
+      referral: "🤝 Parrainage",
+      register: "🚀 Inscription",
+    },
+    de: {
+      deals: "📊 Heutige Trades",
+      packages: "⛏️ Mining-Pakete",
+      referral: "🤝 Empfehlungssystem",
+      register: "🚀 Registrieren",
+    },
+    ru: {
+      deals: "📊 Сделки сегодня",
+      packages: "⛏️ Майнинг пакеты",
+      referral: "🤝 Реферальная система",
+      register: "🚀 Регистрация",
+    },
+  };
+
+  const k = keyboards[lang] || keyboards.en;
+  return {
+    keyboard: [
+      [{ text: k.deals }, { text: k.packages }],
+      [{ text: k.referral }, { text: k.register }],
+    ],
+    resize_keyboard: true,
+    is_persistent: true,
+  };
+}
+
+function isDealsButton(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t.includes("صفقات اليوم") ||
+    t.includes("today's trades") ||
+    t.includes("trades du jour") ||
+    t.includes("heutige trades") ||
+    t.includes("сделки сегодня") ||
+    t === "/deals" ||
+    t === "/trade" ||
+    t === "/trades"
+  );
+}
+
+function isPackagesButton(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t.includes("باقات التعدين") ||
+    t.includes("mining packages") ||
+    t.includes("packs minage") ||
+    t.includes("mining-pakete") ||
+    t.includes("майнинг пакеты") ||
+    t === "/packages" ||
+    t === "/mining"
+  );
+}
+
+function isReferralButton(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t.includes("نظام الإحالة") ||
+    t.includes("برنامج الإحالة") ||
+    t.includes("referral system") ||
+    t.includes("parrainage") ||
+    t.includes("empfehlungssystem") ||
+    t.includes("реферальная система") ||
+    t === "/referral" ||
+    t === "/referrals"
+  );
+}
+
+function isRegisterButton(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t.includes("تسجيل حساب") ||
+    t.includes("register account") ||
+    t.includes("inscription") ||
+    t.includes("registrieren") ||
+    t.includes("регистрация") ||
+    t === "/register"
+  );
 }
 
 function isWithdrawalQuery(text: string): boolean {
@@ -1473,7 +1665,57 @@ export async function POST(req: NextRequest) {
 
     const detectedLang = detectLanguage(text, userLang);
 
-    // ── 1. SPAM MODERATION: Detect external links in groups ───────────────────
+    // ── 0. GROUP PERSISTENCE: Auto-save Group Chat ID for broadcasts ──────────
+    if (chatType === "group" || chatType === "supergroup") {
+      try {
+        await adminClient
+          .from("system_settings")
+          .upsert(
+            { key: "telegram_group_chat_id", value: String(chatId) },
+            { onConflict: "key" }
+          );
+      } catch {}
+    }
+
+    // ── 1. ANTI-FRAUD & IMPERSONATION GUARD (Groups) ──────────────────────────
+    if (
+      (chatType === "group" || chatType === "supergroup") &&
+      containsImpersonationAttempt(text)
+    ) {
+      await deleteMessage(chatId, messageId);
+      await muteUser(chatId, userId);
+      const siteBanned = await banUserOnSite(userId);
+
+      const warningText =
+        detectedLang === "ar"
+          ? `🛡️ *تحذير أمني: محاولة انتحال صفة أو احتيال مالي*\n\n` +
+            `تم حذف الرسالة وكتم العضو @${message.from?.username || userName} لمدة *24 ساعة* لمحاولة انتحال صفة الدعم أو طلب التواصل الخاص.\n\n` +
+            `${siteBanned ? "🔒 تم أيضاً تعليق حسابه على المنصة مؤقتاً.\n\n" : ""}` +
+            `⚠️ *تنبيه حاسم لجميع أعضاء مجتمع XSPY Trader:*\n` +
+            `• إدارة وموظفو المنصة *لن يراسلوك في الخاص أولاً* بأي شكل.\n` +
+            `• لا تشارك أبداً رمز السحب (Gmail OTP) أو كلمات المرور مع أي شخص يدعي المساعدة.\n` +
+            `• الدعم الرسمي متاح فقط داخل الموقع وعبر البوت الموثق.`
+          : `🛡️ *Security Alert: Impersonation / Scam Attempt Blocked*\n\n` +
+            `Message deleted and @${message.from?.username || userName} has been muted for *24 hours* for impersonating platform staff or soliciting private contact.\n\n` +
+            `${siteBanned ? "🔒 Platform account temporarily suspended.\n\n" : ""}` +
+            `⚠️ *Critical Security Reminder:*\n` +
+            `• Official XSPY Trader staff will *NEVER direct message you first*.\n` +
+            `• NEVER share your Gmail OTP withdrawal code, passwords, or seed phrase with anyone.\n` +
+            `• Official support is provided strictly through verified platform channels.`;
+
+      await sendMessage(chatId, warningText);
+
+      await logAdminNotification(
+        "fraud_detected",
+        "🛡️ Staff Impersonation / Phishing Blocked in Telegram Group",
+        `User @${message.from?.username || userName} (ID: ${userId}) triggered anti-fraud guard and was muted for 24h. Text: "${text.substring(0, 100)}"`,
+        { telegramUserId: userId, username: message.from?.username, chatId, textSample: text }
+      );
+
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── 2. SPAM MODERATION: Detect external links in groups ───────────────────
     if (
       (chatType === "group" || chatType === "supergroup") &&
       containsExternalLink(text)
@@ -1505,7 +1747,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── 2. PRIVATE MESSAGES: Always respond ───────────────────────────────────
+    // ── 3. QUICK-ACTION SHORTCUTS (Buttons & Commands) ────────────────────────
+    if (isDealsButton(text)) {
+      await sendMessage(chatId, FALLBACK_CONTENT[detectedLang].trade, {
+        replyMarkup: buildTradingInlineKeyboard(detectedLang),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (isPackagesButton(text)) {
+      await sendMessage(chatId, FALLBACK_CONTENT[detectedLang].package, {
+        replyMarkup: buildPackagesInlineKeyboard(detectedLang),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (isReferralButton(text)) {
+      await sendMessage(chatId, FALLBACK_CONTENT[detectedLang].referral, {
+        replyMarkup: buildReferralsInlineKeyboard(detectedLang),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (isRegisterButton(text)) {
+      await sendMessage(chatId, FALLBACK_CONTENT[detectedLang].register, {
+        replyMarkup: buildRegisterInlineKeyboard(detectedLang),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── 4. PRIVATE MESSAGES: Always respond ───────────────────────────────────
     if (chatType === "private") {
       if (text.trim() === "/start") {
         const welcomeTexts: Record<SupportedLang, string> = {
@@ -1576,6 +1847,18 @@ export async function POST(req: NextRequest) {
         };
 
         await sendMessage(chatId, welcomeTexts[detectedLang] || welcomeTexts.en, {
+          replyMarkup: buildPersistentReplyKeyboard(detectedLang),
+        });
+
+        const quickNavText: Record<SupportedLang, string> = {
+          ar: "👇 *روابط الوصول السريع للمنصة (أو اختر من الأزرار بالأسفل):*",
+          en: "👇 *Quick Navigation Links (or select an option below):*",
+          fr: "👇 *Liens d'accès rapide (ou choisissez ci-dessous) :*",
+          de: "👇 *Schnellzugriff-Links (oder wählen Sie unten) :*",
+          ru: "👇 *Быстрые ссылки на платформу (или выберите внизу):*",
+        };
+
+        await sendMessage(chatId, quickNavText[detectedLang] || quickNavText.en, {
           replyMarkup: buildWelcomeInlineKeyboard(detectedLang),
         });
         return NextResponse.json({ ok: true });

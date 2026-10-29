@@ -31,6 +31,7 @@ import {
   Timer,
   Hourglass,
   Flame,
+  Radio,
 } from "lucide-react";
 
 type TradeRound = {
@@ -81,6 +82,8 @@ export default function AdminTradingControlsPage() {
   const [entryWindow, setEntryWindow] = useState(30);
   const [direction, setDirection] = useState<"buy" | "sell">("buy");
   const [loading, setLoading] = useState(false);
+  const [signaling, setSignaling] = useState(false);
+  const [autoBroadcastOnCreate, setAutoBroadcastOnCreate] = useState(true);
   const [now, setNow] = useState<number>(Date.now());
 
   // Expandable trades state
@@ -228,6 +231,52 @@ export default function AdminTradingControlsPage() {
     }
   };
 
+  // 📢 بث إشعار صفقة تداول عبر تيليجرام
+  const broadcastTradeSignal = async (roundData?: {
+    symbol: string;
+    duration_sec: number;
+    payout_percent: number;
+    direction: "buy" | "sell";
+  }) => {
+    setSignaling(true);
+    try {
+      const payload = roundData || {
+        symbol,
+        duration_sec: duration,
+        payout_percent: payout,
+        direction,
+      };
+
+      const res = await fetch("/api/admin/bots/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast({
+          title: "📢 إشعار التيليجرام مرسل",
+          description: `تم بث إشارة التداول بنجاح إلى ${data.successCount} متداول ${data.groupBroadcast ? "والمجموعة الرسمية ✅" : ""}`,
+        });
+      } else {
+        toast({
+          title: "فشل الإرسال",
+          description: data.error || "تعذر إرسال الإشعار",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Network Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSignaling(false);
+    }
+  };
+
   // ✅ إنشاء جولة جديدة مع بدء عداد نافذة الدخول فوراً
   const createRound = async () => {
     setLoading(true);
@@ -264,6 +313,16 @@ export default function AdminTradingControlsPage() {
         description: `Entry window started (${entrySec}s). Trade will commence automatically upon conclusion!`,
       });
       fetchRounds();
+
+      // Auto-broadcast if enabled
+      if (autoBroadcastOnCreate) {
+        broadcastTradeSignal({
+          symbol,
+          duration_sec: durSec,
+          payout_percent: Number(payout) || 2,
+          direction,
+        });
+      }
     }
   };
 
@@ -568,16 +627,39 @@ export default function AdminTradingControlsPage() {
               </Select>
             </div>
 
-            <div className="flex items-end">
-              <Button
-                onClick={createRound}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 shadow-lg shadow-blue-600/20"
-              >
-                {loading
-                  ? t("admin.creating") || "Creating..."
-                  : `🚀 ${t("admin.createRoundBtn") || "Create Round"}`}
-              </Button>
+            <div className="md:col-span-2 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-700/60 mt-2">
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoBroadcastOnCreate}
+                  onChange={(e) => setAutoBroadcastOnCreate(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                />
+                <span>📢 إرسال إشعار فوري لجميع المشتركين والمجموعة عبر تيليجرام عند الإنشاء</span>
+              </label>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => broadcastTradeSignal()}
+                  disabled={signaling}
+                  className="border-blue-500/50 text-blue-300 hover:bg-blue-600/20 text-xs h-10 px-4"
+                >
+                  <Radio className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+                  {signaling ? "جاري البث..." : "📢 بث إشارة فورية"}
+                </Button>
+
+                <Button
+                  onClick={createRound}
+                  disabled={loading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-6 shadow-lg shadow-blue-600/20"
+                >
+                  {loading
+                    ? t("admin.creating") || "Creating..."
+                    : `🚀 ${t("admin.createRoundBtn") || "Create Round"}`}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -691,6 +773,27 @@ export default function AdminTradingControlsPage() {
                           >
                             <Play className="w-3.5 h-3.5 mr-1" />
                             Start Now
+                          </Button>
+                        )}
+
+                        {/* Broadcast Signal button */}
+                        {!isCompleted && !isCanceled && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 text-xs border-blue-500/40 text-blue-300 hover:bg-blue-600/20"
+                            onClick={() =>
+                              broadcastTradeSignal({
+                                symbol: r.symbol,
+                                duration_sec: r.duration_sec,
+                                payout_percent: r.payout_percent,
+                                direction: (r.admin_direction as "buy" | "sell") || "buy",
+                              })
+                            }
+                            disabled={signaling}
+                          >
+                            <Radio className="w-3.5 h-3.5 mr-1 text-blue-400" />
+                            بث إشارة
                           </Button>
                         )}
 
