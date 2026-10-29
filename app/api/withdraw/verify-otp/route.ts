@@ -18,10 +18,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { sessionId, emailCode, telegramCode } = body;
+    const { sessionId, emailCode } = body;
 
-    if (!sessionId || !emailCode || !telegramCode) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!sessionId || !emailCode) {
+      return NextResponse.json({ error: "Missing required verification code." }, { status: 400 });
     }
 
     // 2. Fetch the OTP session
@@ -42,12 +42,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "OTP has expired. Please request a new one." }, { status: 410 });
     }
 
-    // 4. Verify both codes (constant-time comparison to prevent timing attacks)
+    // 4. Verify email code
     const emailMatch = otpRow.email_otp === emailCode.trim();
-    const telegramMatch = otpRow.telegram_otp === telegramCode.trim();
 
-    if (!emailMatch || !telegramMatch) {
-      return NextResponse.json({ error: "Invalid verification code(s). Please check and try again." }, { status: 422 });
+    if (!emailMatch) {
+      return NextResponse.json({ error: "Invalid verification code. Please check your email and try again." }, { status: 422 });
     }
 
     // 5. Mark OTP as used FIRST (prevent replay attacks)

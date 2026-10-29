@@ -72,7 +72,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language
-    if (savedLanguage && localeData[savedLanguage]) {
+    if (savedLanguage === 'ar') {
+      setLanguage('en')
+      localStorage.setItem('language', 'en')
+    } else if (savedLanguage && localeData[savedLanguage]) {
       setLanguage(savedLanguage)
     }
     setMounted(true)

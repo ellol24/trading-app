@@ -18,7 +18,7 @@ export function LanguageSwitcher() {
 
     const languages: { code: Language; label: string }[] = [
         { code: "en", label: "English" },
-        { code: "ar", label: "العربية" },
+        // { code: "ar", label: "العربية" }, // Temporarily disabled per user request
         { code: "fr", label: "Français" },
         { code: "de", label: "Deutsch" },
     ]

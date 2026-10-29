@@ -78,10 +78,9 @@ interface OtpModalProps {
   netAmount: number;
 }
 
-function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram, expiresAt, amount, netAmount }: OtpModalProps) {
+function OtpVerificationModal({ open, onClose, onSuccess, sessionId, expiresAt, amount, netAmount }: Omit<OtpModalProps, "hasTelegram">) {
   const { t } = useLanguage();
   const [emailCode, setEmailCode] = useState("");
-  const [telegramCode, setTelegramCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(300);
 
@@ -101,7 +100,6 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
   useEffect(() => {
     if (open) {
       setEmailCode("");
-      setTelegramCode("");
       setSecondsLeft(Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)));
     }
   }, [open, expiresAt]);
@@ -109,7 +107,7 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
   const mins = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const secs = String(secondsLeft % 60).padStart(2, "0");
   const expired = secondsLeft === 0;
-  const canVerify = emailCode.length === 6 && (!hasTelegram || telegramCode.length === 6) && !expired && !isVerifying;
+  const canVerify = emailCode.length === 6 && !expired && !isVerifying;
 
   const handleVerify = async () => {
     setIsVerifying(true);
@@ -117,7 +115,7 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
       const res = await fetch("/api/withdraw/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, emailCode, telegramCode: hasTelegram ? telegramCode : emailCode }),
+        body: JSON.stringify({ sessionId, emailCode }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -140,10 +138,10 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white text-xl">
             <ShieldCheck className="w-6 h-6 text-blue-400" />
-            {t("wallet.securityVerification")}
+            Email Security Verification
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            {t("wallet.twoCodesSent")}{" "}
+            A 6-digit code was sent to your Gmail to confirm withdrawal of{" "}
             <strong className="text-white">${amount.toFixed(2)}</strong>.
           </DialogDescription>
         </DialogHeader>
@@ -194,45 +192,6 @@ function OtpVerificationModal({ open, onClose, onSuccess, sessionId, hasTelegram
               </InputOTP>
             </div>
           </div>
-
-          {/* Telegram OTP */}
-          {hasTelegram ? (
-            <div className="space-y-3">
-              <Label className="text-slate-200 flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-sky-400" />
-                {t("wallet.telegramVerificationCode")}
-              </Label>
-              <p className="text-xs text-slate-500">{t("wallet.telegramCodeDesc")}</p>
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={telegramCode}
-                  onChange={setTelegramCode}
-                  disabled={expired}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                    <InputOTPSlot index={1} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                    <InputOTPSlot index={2} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                    <InputOTPSlot index={3} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                    <InputOTPSlot index={4} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                    <InputOTPSlot index={5} className="border-slate-600 bg-slate-800 text-white text-lg" />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <MessageCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-300">
-                {t("wallet.noTelegramLinked")}{" "}
-                <Link href="/dashboard/profile" className="underline text-amber-400 hover:text-amber-200">
-                  {t("wallet.linkTelegram")}
-                </Link>{" "}
-                {t("wallet.forEnhancedSecurity")}
-              </p>
-            </div>
-          )}
         </div>
 
         <DialogFooter className="gap-2 flex-col sm:flex-row">
@@ -281,7 +240,7 @@ export default function WithdrawClient({ user, profile }: Props) {
   // OTP Modal state
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [otpSession, setOtpSession] = useState<{
-    sessionId: string; hasTelegram: boolean; expiresAt: string;
+    sessionId: string; hasTelegram?: boolean; expiresAt: string;
   } | null>(null);
 
   const [newWallet, setNewWallet] = useState<{
@@ -410,14 +369,13 @@ export default function WithdrawClient({ user, profile }: Props) {
         return;
       }
 
-      // Codes sent — open the verification modal
+      // Code sent — open the verification modal
       setOtpSession({
         sessionId: data.sessionId,
-        hasTelegram: data.hasTelegram,
         expiresAt: data.expiresAt,
       });
       setOtpModalOpen(true);
-      toast.success(t("wallet.codesSentSuccess") + (data.hasTelegram ? t("wallet.andTelegram") : "."));
+      toast.success(t("wallet.emailCodeSentSuccess") || "Security verification code sent to your Gmail.");
 
     } catch (err: any) {
       toast.dismiss(loadingToast);
@@ -570,18 +528,13 @@ export default function WithdrawClient({ user, profile }: Props) {
                       <span className="text-white font-bold text-xl">${liveBalance.toFixed(2)}</span>
                     </div>
 
-                    {/* 2FA security notice */}
+                    {/* Security verification notice */}
                     <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-blue-500/30">
                       <ShieldCheck className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-blue-300 font-semibold text-sm">{t("wallet.dual2faActive")}</p>
+                        <p className="text-blue-300 font-semibold text-sm">{t("wallet.emailSecurityActive") || "Email Security Verification Active"}</p>
                         <p className="text-slate-400 text-xs mt-0.5">
-                          {t("wallet.dual2faDesc")}{" "}
-                          <span className="text-blue-300">Email</span>
-                          {profile?.telegram_chat_id && <> {t("wallet.and")} <span className="text-sky-300">Telegram</span></>}.
-                          {!profile?.telegram_chat_id && (
-                            <> <Link href="/dashboard/profile" className="text-amber-400 underline hover:text-amber-300">{t("wallet.linkTelegram")}</Link> {t("wallet.forMaximumSecurity")}</>
-                          )}
+                          {t("wallet.emailSecurityDesc") || "Every withdrawal requires a 6-digit verification code sent directly to your registered Gmail address."}
                         </p>
                       </div>
                     </div>
@@ -808,7 +761,6 @@ export default function WithdrawClient({ user, profile }: Props) {
           onClose={() => { setOtpModalOpen(false); setOtpSession(null); }}
           onSuccess={handleOtpSuccess}
           sessionId={otpSession.sessionId}
-          hasTelegram={otpSession.hasTelegram}
           expiresAt={otpSession.expiresAt}
           amount={Number(amount)}
           netAmount={net}

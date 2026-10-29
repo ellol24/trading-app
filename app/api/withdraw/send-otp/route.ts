@@ -109,9 +109,9 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .eq("used", false);
 
-    // 6. Generate two independent OTPs
+    // 6. Generate OTP (Email verification solely)
     const emailOtp = generateOtp();
-    const telegramOtp = generateOtp();
+    const telegramOtp = emailOtp; // Keep populated for DB backward-compatibility
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // +5 minutes
 
@@ -136,10 +136,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create OTP session" }, { status: 500 });
     }
 
-    // 8. Fire dual dispatch in parallel (Resend SDK + Telegram Bot)
-    const hasTelegram = !!profile.telegram_chat_id;
-
-    const emailPromise = sendEmail({
+    // 8. Send Verification Code via Email (Gmail)
+    const emailResult = await sendEmail({
       to: user.email!,
       subject: "🔐 Your Withdrawal Verification Code – Xspy Trader",
       html: `
@@ -194,21 +192,11 @@ export async function POST(req: NextRequest) {
       `,
     });
 
-    const telegramPromise = hasTelegram
-      ? sendTelegramOtp(profile.telegram_chat_id!, telegramOtp)
-      : Promise.resolve({ ok: true, skipped: true });
-
-    const [emailResult, telegramResult] = await Promise.all([
-      emailPromise,
-      telegramPromise,
-    ]);
-
-    console.log("[send-otp] Email result:", emailResult);
-    console.log("[send-otp] Telegram result:", telegramResult);
+    console.log("[send-otp] Verification email result:", emailResult);
 
     return NextResponse.json({
       sessionId: otpRow.id,
-      hasTelegram,
+      hasTelegram: false,
       expiresAt: expiresAt.toISOString(),
     });
 
