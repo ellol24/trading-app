@@ -4,7 +4,7 @@ import { getOtpBotToken } from "@/lib/telegram-tokens";
 const SITE_URL = "https://www.xspy-trader.com";
 
 // ─── Supported Languages ──────────────────────────────────────────────────────
-type SupportedLang = "ar" | "en" | "fr" | "de" | "ru";
+type SupportedLang = "en" | "fr" | "de" | "ru";
 
 // ─── Translation Dictionary ───────────────────────────────────────────────────
 const MESSAGES: Record<
@@ -26,25 +26,6 @@ const MESSAGES: Record<
     alreadyAnswered: string;
   }
 > = {
-  ar: {
-    title: "🛡️ *بوت التنبيهات والإشعارات — XSPY Trader*",
-    hello: (name) =>
-      `مرحباً *${name}*! لقد تم اكتشاف رقم التعريف الخاص بحسابك على تيليجرام بنجاح.\nستستخدم هذا الرقم لربط حسابك بمنصة XSPY Trader واستلام إشعارات الصفقات اليومية والتنبيهات الأمنية.`,
-    chatIdLabel: "🔑 *رقم التعريف الخاص بك (Chat ID):*",
-    chatIdNote: "اضغط على الرقم أعلاه لنسخه تلقائياً",
-    stepsTitle: "📋 *كيفية ربط حسابك بالمنصة:*",
-    step1: "١. اضغط على رقم الـ Chat ID أعلاه لنسخه.",
-    step2: "٢. توجه إلى *الملف الشخصي* في منصة XSPY Trader.",
-    step3: "٣. الصق الرقم في خانة *Telegram Chat ID* ثم اضغط *حفظ*.",
-    securityNote:
-      "🔒 *ملاحظة أمنية:* لا تشارك هذا الرقم أو أي بيانات خاصة بحسابك مع أي شخص.",
-    footer:
-      "✅ بعد ربط المعرف، ستتلقى تنبيهات الصفقات اليومية وإعلانات المنصة الهامة مباشرةً هنا.\n💡 *ملاحظة:* تأكيد عمليات السحب يتم حصرياً وبأعلى معايير الأمان عبر كود تأكيد يُرسل لبريدك الإلكتروني (Gmail).",
-    openProfile: "👤 فتح الملف الشخصي",
-    visitSite: "🌐 زيارة المنصة",
-    joinGroup: "💬 انضم للمجموعة الرسمية",
-    alreadyAnswered: "لقد أرسلنا إليك رقم Chat ID الخاص بك. يمكنك نسخه من الرسالة السابقة.",
-  },
   en: {
     title: "🛡️ *XSPY Trader — Notifications & Alerts Bot*",
     hello: (name) =>
@@ -132,13 +113,15 @@ function detectLanguage(
   userLang?: string,
   messageText?: string
 ): SupportedLang {
-  // Script-based detection first
-  if (messageText && /[\u0600-\u06FF]/.test(messageText)) return "ar";
+  // Arabic is excluded from the bot: route any Arabic input to English
+  if (messageText && /[\u0600-\u06FF]/.test(messageText)) return "en";
+  if ((userLang || "").toLowerCase().startsWith("ar")) return "en";
+
+  // Script-based detection
   if (messageText && /[\u0400-\u04FF]/.test(messageText)) return "ru";
 
   // Telegram interface language
   const code = (userLang || "").toLowerCase();
-  if (code.startsWith("ar")) return "ar";
   if (code.startsWith("fr")) return "fr";
   if (code.startsWith("de")) return "de";
   if (code.startsWith("ru")) return "ru";
@@ -182,7 +165,6 @@ function buildReplyMarkup(lang: SupportedLang, chatId: number | string) {
       ],
       [{ text: t.joinGroup, url: "https://t.me/XSpyAIBot" }],
       [
-        { text: "🇸🇦 العربية", callback_data: `lang_ar_${chatId}` },
         { text: "🇬🇧 English", callback_data: `lang_en_${chatId}` },
         { text: "🇫🇷 Français", callback_data: `lang_fr_${chatId}` },
       ],
@@ -300,7 +282,8 @@ export async function POST(req: NextRequest) {
       if (data.startsWith("lang_")) {
         const parts = data.split("_");
         // Format: lang_<code>_<chatId>
-        const selectedLang = (parts[1] || "en") as SupportedLang;
+        const rawLang = parts[1] || "en";
+        const selectedLang: SupportedLang = (rawLang === "ar" ? "en" : rawLang) as SupportedLang;
         const targetChatId =
           parts.slice(2).join("_") || String(cb.message?.chat?.id);
         const firstName = cb.from?.first_name || "Trader";

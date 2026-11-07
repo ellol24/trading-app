@@ -176,12 +176,12 @@ async function callTelegram(method: string, body: object) {
 async function registerBotCommands() {
   try {
     const commands = [
-      { command: "start", description: "🚀 القائمة الرئيسية / Main Menu" },
-      { command: "deals", description: "📊 صفقات اليوم / Today's Trades" },
-      { command: "packages", description: "⛏️ باقات التعدين / Mining Packages" },
-      { command: "referral", description: "🤝 نظام الإحالة / Referral System" },
-      { command: "register", description: "📝 فتح حساب جديد / Register Account" },
-      { command: "help", description: "🆘 المساعدة والتعليمات / Help & FAQ" },
+      { command: "start", description: "🚀 Main Menu & Welcome" },
+      { command: "deals", description: "📊 Today's Trades & Signals" },
+      { command: "packages", description: "⛏️ Cloud Mining Packages" },
+      { command: "referral", description: "🤝 Referral Program" },
+      { command: "register", description: "📝 Create New Account" },
+      { command: "help", description: "🆘 Help & FAQ Guide" },
     ];
     await callTelegram("setMyCommands", { commands });
   } catch {}
@@ -300,7 +300,7 @@ async function logAdminNotification(
 }
 
 // ─── Supported Languages ──────────────────────────────────────────────────────
-export type SupportedLang = "ar" | "en" | "fr" | "de" | "ru";
+export type SupportedLang = "en" | "fr" | "de" | "ru";
 
 interface BotResponse {
   text: string;
@@ -309,8 +309,11 @@ interface BotResponse {
 
 // ─── Language Detection ───────────────────────────────────────────────────────
 function detectLanguage(text: string, userLang?: string): SupportedLang {
-  // 1. Script checks take highest priority
-  if (/[\u0600-\u06FF]/.test(text)) return "ar";
+  // Arabic is strictly excluded from the bot: route any Arabic input or user to English
+  if (/[\u0600-\u06FF]/.test(text)) return "en";
+  if ((userLang || "").toLowerCase().startsWith("ar")) return "en";
+
+  // 1. Script checks
   if (/[\u0400-\u04FF]/.test(text)) return "ru";
 
   const lower = (text || "").toLowerCase();
@@ -334,7 +337,6 @@ function detectLanguage(text: string, userLang?: string): SupportedLang {
 
   // 3. User's Telegram interface language code
   const code = (userLang || "").toLowerCase();
-  if (code.startsWith("ar")) return "ar";
   if (code.startsWith("fr")) return "fr";
   if (code.startsWith("de")) return "de";
   if (code.startsWith("ru")) return "ru";
@@ -348,10 +350,6 @@ function buildWithdrawalInlineKeyboard(lang: SupportedLang) {
     SupportedLang,
     { withdraw: string; profile: string }
   > = {
-    ar: {
-      withdraw: "💸 التوجه لصفحة السحب",
-      profile: "👤 تأكيد بيانات الملف الشخصي",
-    },
     en: {
       withdraw: "💸 Go to Withdraw Page",
       profile: "👤 Verify Profile Details",
@@ -380,7 +378,6 @@ function buildWithdrawalInlineKeyboard(lang: SupportedLang) {
 
 function buildVerificationInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, { bot: string; profile: string }> = {
-    ar: { bot: "💬 تفعيل إشعارات تيليجرام", profile: "👤 فتح الملف الشخصي" },
     en: { bot: "💬 Enable Telegram Alerts", profile: "👤 Open Profile" },
     fr: {
       bot: "💬 Alertes Telegram",
@@ -403,7 +400,6 @@ function buildVerificationInlineKeyboard(lang: SupportedLang) {
 
 function buildDepositInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, string> = {
-    ar: "💰 التوجه لصفحة الإيداع",
     en: "💰 Go to Deposit Page",
     fr: "💰 Aller sur la page de dépôt",
     de: "💰 Zur Einzahlungsseite",
@@ -418,7 +414,6 @@ function buildDepositInlineKeyboard(lang: SupportedLang) {
 
 function buildTradingInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, string> = {
-    ar: "📊 التوجه لصفحة التداول",
     en: "📊 Go to Trading Page",
     fr: "📊 Aller sur la page de trading",
     de: "📊 Zur Trading-Seite",
@@ -433,7 +428,6 @@ function buildTradingInlineKeyboard(lang: SupportedLang) {
 
 function buildPackagesInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, string> = {
-    ar: "⛏️ تصفح باقات الاستثمار",
     en: "⛏️ View Investment Packages",
     fr: "⛏️ Voir les packs d'investissement",
     de: "⛏️ Pakete ansehen",
@@ -448,7 +442,6 @@ function buildPackagesInlineKeyboard(lang: SupportedLang) {
 
 function buildReferralsInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, string> = {
-    ar: "🤝 صفحة الإحالات وفريقي",
     en: "🤝 My Referrals & Team",
     fr: "🤝 Mes parrainages et équipe",
     de: "🤝 Meine Partner & Team",
@@ -463,7 +456,6 @@ function buildReferralsInlineKeyboard(lang: SupportedLang) {
 
 function buildRegisterInlineKeyboard(lang: SupportedLang) {
   const labels: Record<SupportedLang, string> = {
-    ar: "📝 فتح حساب جديد الآن",
     en: "📝 Create Account Now",
     fr: "📝 Créer un compte maintenant",
     de: "📝 Jetzt Konto eröffnen",
@@ -482,12 +474,6 @@ function buildPersistentReplyKeyboard(lang: SupportedLang) {
     SupportedLang,
     { deals: string; packages: string; referral: string; register: string }
   > = {
-    ar: {
-      deals: "📊 صفقات اليوم",
-      packages: "⛏️ باقات التعدين",
-      referral: "🤝 نظام الإحالة",
-      register: "🚀 تسجيل حساب",
-    },
     en: {
       deals: "📊 Today's Trades",
       packages: "⛏️ Mining Packages",
@@ -609,103 +595,6 @@ const FALLBACK_CONTENT: Record<
     defaultSupport: string;
   }
 > = {
-  ar: {
-    withdraw:
-      `💸 *طريقة وشروط السحب من منصة XSPY Trader*\n\n` +
-      `*الحد الأدنى للسحب:* $21 | *الرسوم:* 8% فقط | *وقت المعالجة:* من 1 إلى 24 ساعة كحد أقصى\n` +
-      `⚠️ *الحد الأقصى للتكرار:* يُسمح بطلب سحب واحد فقط كل 24 ساعة.\n\n` +
-      `📋 *خطوات السحب والأمان:*\n` +
-      `1️⃣ *تأكيد بيانات الملف الشخصي:* تأكد من ملء وتأكيد بيانات ملفك الشخصي بالكامل أولاً.\n` +
-      `2️⃣ *إضافة عنوان محفظة السحب:* من قسم *المحفظة › إدارة المحافظ* (المحافظ الجديدة تخضع لحماية 24 ساعة).\n` +
-      `3️⃣ *طلب السحب وتأكيد الأمان:* توجه إلى *المحفظة › سحب*، اختر محفظتك وأدخل المبلغ ($21 فأكثر).\n` +
-      `4️⃣ *رمز التحقق (Gmail OTP):* ستتلقى رمز أمان سري مكون من 6 أرقام مباشرة على بريدك الإلكتروني المسجل (Gmail). أدخل الرمز لتأكيد السحب فوراً.\n\n` +
-      `🔒 *ملاحظة هامة:* السحب مؤمن حصرياً عبر رمز التحقق المرسل لبريدك الإلكتروني (Gmail). لا تشارك رمزك مع أحد!\n\n` +
-      `🌐 *صفحة السحب:* ${SITE_URL}/dashboard/withdraw`,
-
-    deposit:
-      `💰 *طريقة الإيداع في منصة XSPY Trader*\n\n` +
-      `*الحد الأدنى للإيداع:* $51 فقط للبدء.\n\n` +
-      `📋 *خطوات شحن الرصيد:*\n` +
-      `1️⃣ توجه إلى *لوحة التحكم › المحفظة › إيداع*\n` +
-      `2️⃣ اختر شبكة العملة الرقمية (USDT TRC20, BEP20, BTC وغيرها)\n` +
-      `3️⃣ انسخ عنوان المحفظة المعروض بدقة وقم بالتحويل من محفظتك الشخصية\n` +
-      `4️⃣ قم برفع لقطة شاشة للتحويل المكتمل مع رمز المعاملة (TXID)\n\n` +
-      `⏱ *وقت التأكيد:* يتم التأكيد خلال 5 إلى 15 دقيقة بعد المراجعة.\n\n` +
-      `🌐 *صفحة الإيداع:* ${SITE_URL}/dashboard/deposit`,
-
-    trade:
-      `📊 *نظام التداول اليومي في منصة XSPY Trader*\n\n` +
-      `صفقات تداول يومية مضمونة ومدروسة تفتحها الإدارة من الإثنين إلى الجمعة:\n\n` +
-      `📈 *نسب الأرباح حسب مدة الصفقة:*\n` +
-      `⏱ صفقة 30 ثانية: *ربح 2%*\n` +
-      `⏱ صفقة 45 ثانية: *ربح 2.5%*\n` +
-      `⏱ صفقة 60 ثانية: *ربح 3%*\n\n` +
-      `📋 *طريقة المشاركة:*\n` +
-      `1️⃣ تفتح الإدارة الصفقة اليومية وتعلن عنها للأعضاء.\n` +
-      `2️⃣ ادخل إلى *لوحة التحكم › التداول* وانضم للصفقة النشطة بالمبلغ الذي تريده.\n` +
-      `3️⃣ بعد انتهاء الثواني المحددة تُضاف الأرباح مباشرة إلى رصيدك.\n\n` +
-      `💡 *مثال:* دخول صفقة 60 ثانية بمبلغ $100 = ربح $3 صافي خلال دقيقة واحدة (الإجمالي $103)!\n\n` +
-      `🌐 *صفحة التداول:* ${SITE_URL}/dashboard/trading`,
-
-    package:
-      `⛏️ *باقات التعدين والاستثمار في XSPY Trader*\n\n` +
-      `اختر الباقة المناسبة لأهدافك واحصل على أرباح يومية مضافة كل 24 ساعة:\n\n` +
-      `1️⃣ *باقة المبتدئين (Beginner Package):*\n` +
-      `💵 الاستثمار: $51 إلى $100 | 🔹 العمولة اليومية: *1.5%* | ⏳ المدة: *7 أيام*\n\n` +
-      `2️⃣ *الباقة الاحترافية (Professional Plan):*\n` +
-      `💵 الاستثمار: $101 إلى $150 | 🔹 العمولة اليومية: *1.8%* | ⏳ المدة: *18 يوماً*\n\n` +
-      `3️⃣ *باقة كبار المستثمرين (VIP Plan):*\n` +
-      `💵 الاستثمار: $151 إلى $200 | 🔹 العمولة اليومية: *2.0%* | ⏳ المدة: *30 يوماً*\n\n` +
-      `🔹 *نظام توزيع الأرباح:* تُضاف الأرباح إلى رصيدك كل 24 ساعة من لحظة التفعيل، وعند نهاية مدة الباقة يعود رأس المال الأساسي بالكامل إلى رصيدك.\n\n` +
-      `🌐 *صفحة باقات التعدين:* ${SITE_URL}/dashboard/packages`,
-
-    referral:
-      `🤝 *نظام الإحالات وفريق العمل في XSPY Trader*\n\n` +
-      `نظام مكافآت متعدد المستويات يمنحك أرباحاً عبر 3 طرق مختلفة:\n\n` +
-      `🎁 *1. أرباح الإحالات الأساسية (من الإيداعات):*\n` +
-      `🥇 المستوى الأول: *7%*\n` +
-      `🥈 المستوى الثاني: *4%*\n` +
-      `🥉 المستوى الثالث: *2%*\n\n` +
-      `📈 *2. أرباح إحالات التداول (من أرباح صفقات فريقك):*\n` +
-      `🥇 المستوى الأول: *7%*\n` +
-      `🥈 المستوى الثاني: *4%*\n` +
-      `🥉 المستوى الثالث: *2%*\n\n` +
-      `📦 *3. أرباح إحالات باقات التعدين (من خطط تعدين فريقك):*\n` +
-      `🥇 المستوى الأول: *7%*\n` +
-      `🥈 المستوى الثاني: *4%*\n` +
-      `🥉 المستوى الثالث: *2%*\n\n` +
-      `🔗 *رابط إحالتك ومتابعة الفريق:* ${SITE_URL}/dashboard/referrals`,
-
-    register:
-      `🚀 *التسجيل وبدء الاستثمار في XSPY Trader*\n\n` +
-      `ابدأ رحلتك نحو الأرباح اليومية والحرية المالية مع منصة XSPY Trader!\n\n` +
-      `🌐 *رابط التسجيل الرسمي المباشر:* 👉 ${OFFICIAL_REF_LINK} 👈\n\n` +
-      `💵 *الحد الأدنى للإيداع:* $51 فقط\n` +
-      `💸 *الحد الأدنى للسحب:* $21 فقط (برسوم 8% فقط)\n` +
-      `📊 *صفقات تداول يومية:* أرباح 2% إلى 3% في ثوانٍ معدودة\n` +
-      `⛏️ *باقات تعدين:* عوائد يومية 1.5% حتى 2% مضافة كل 24 ساعة مع استرداد رأس المال بالكامل\n\n` +
-      `🔗 *سجل الآن:* ${OFFICIAL_REF_LINK}`,
-
-    verify:
-      `🔐 *الأمان والتحقق في منصة XSPY Trader*\n\n` +
-      `🛡️ *تأكيد السحب الأمني:* يتم تأكيد عمليات السحب حصرياً وبأعلى معايير الأمان عبر كود تأكيد سري (OTP) يُرسل مباشرةً إلى *بريدك الإلكتروني (Gmail)* المسجل.\n\n` +
-      `💬 *ربط تيليجرام (اختياري للإشعارات والتنبيهات):*\n` +
-      `يمكنك ربط حسابك ببوت الإشعارات [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot) لاستلام إشعارات الصفقات اليومية وتنبيهات الحساب الفورية.\n` +
-      `1️⃣ افتح البوت واضغط *START*\n` +
-      `2️⃣ انسخ رقم الـ *Chat ID*\n` +
-      `3️⃣ الصقه في ملفك الشخصي: ${SITE_URL}/dashboard/profile واضغط حفظ.\n\n` +
-      `⚠️ *تنبيه أمني:* لا تشارك أي رموز تحقق مع أي شخص إطلاقاً!`,
-
-    defaultSupport:
-      `🤖 *المساعد الذكي الرسمي لمنصة XSPY Trader*\n\n` +
-      `أهلاً بك! أنا في خدمتك على مدار الساعة للإجابة على استفساراتك حول:\n\n` +
-      `📊 *التداول اليومي (2% - 3%)*\n` +
-      `⛏️ *باقات التعدين اليومية (1.5% - 2%)*\n` +
-      `🤝 *نظام الإحالات (7% - 4% - 2%)*\n` +
-      `💰 *الإيداع ($51 كحد أدنى)* | 💸 *السحب ($21 برسم 8%)*\n\n` +
-      `🌐 *رابط التسجيل الرسمي:* ${OFFICIAL_REF_LINK}`,
-  },
-
   en: {
     withdraw:
       `💸 *Withdrawal Policy & Guide — XSPY Trader*\n\n` +
@@ -1268,20 +1157,18 @@ async function getAIAnswer(
     `You are talking to a user named "${userName}" in the official XSPY Trader Telegram community / support.\n` +
     `User Database Info:\n${userInfoStr}\n\n` +
     `User Message / Question:\n"${userMessage}"\n\n` +
-    `## CRITICAL LANGUAGE RULE (TOP PRIORITY — MUST FOLLOW STRICTLY)\n` +
-    `1. Automatically detect the language in which the user asked their question / wrote their message.\n` +
-    `2. You MUST formulate your entire response in that EXACT SAME LANGUAGE, whatever that language may be!\n` +
-    `   - If the user asks in Arabic (العربية), reply 100% in fluent, natural Arabic.\n` +
+    `## CRITICAL LANGUAGE RULES (MANDATORY — STRICT)\n` +
+    `1. EXCLUDE ARABIC COMPLETELY: You MUST NEVER respond in Arabic, provide Arabic translations, or output any Arabic characters under ANY circumstance. If a user writes or asks a question in Arabic, you MUST formulate your entire response in clear, professional English.\n` +
+    `2. FOR ALL OTHER LANGUAGES (English, French, Spanish, German, Russian, Turkish, Persian/Farsi, Urdu, Italian, Portuguese, Hindi, Indonesian, Chinese, Japanese, etc.):\n` +
+    `   - Automatically detect the user's language.\n` +
+    `   - Formulate your ENTIRE response in that exact same language.\n` +
+    `   - If the user asks in French, reply 100% in fluent French.\n` +
+    `   - If the user asks in German, reply 100% in fluent German.\n` +
+    `   - If the user asks in Spanish, reply 100% in fluent Spanish.\n` +
+    `   - If the user asks in Russian, reply 100% in fluent Russian.\n` +
+    `   - If the user asks in Turkish, reply 100% in fluent Turkish.\n` +
     `   - If the user asks in English, reply 100% in fluent English.\n` +
-    `   - If the user asks in French (Français), reply 100% in fluent French.\n` +
-    `   - If the user asks in German (Deutsch), reply 100% in fluent German.\n` +
-    `   - If the user asks in Spanish (Español), reply 100% in fluent Spanish.\n` +
-    `   - If the user asks in Russian (Русский), reply 100% in fluent Russian.\n` +
-    `   - If the user asks in Turkish (Türkçe), reply 100% in fluent Turkish.\n` +
-    `   - If the user asks in Persian / Farsi (فارسی), reply 100% in fluent Persian.\n` +
-    `   - If the user asks in Urdu (اردو), reply 100% in fluent Urdu.\n` +
-    `   - If the user asks in Italian, Portuguese, Hindi, Indonesian, Chinese, Japanese, or any other language, reply in that exact same language.\n` +
-    `3. NEVER reply in English if the question was asked in another language.\n\n` +
+    `   - For any other language (excluding Arabic), reply in that exact language.\n\n` +
     `## MANDATORY INSTRUCTIONS\n` +
     `- Reply as the XSPY Trader official support assistant\n` +
     `- WITHDRAWALS: Min $21, fee 8% only, processed within 1–24 hours (1 withdrawal per 24 hours). Explain clearly that withdrawals are verified EXCLUSIVELY via a 6-digit OTP code sent to their registered Gmail address. Linking Telegram bot is optional for trade notifications & announcements.\n` +
@@ -1529,24 +1416,6 @@ function isQuestionForBot(text: string): boolean {
 
 // ─── Build Welcome Message ────────────────────────────────────────────────────
 function buildWelcomeMessage(memberName: string, lang: SupportedLang = "en"): string {
-  if (lang === "ar") {
-    return (
-      `🎉 *مرحباً بك في المجموعة الرسمية لمنصة XSPY Trader، ${memberName}!* 🚀\n\n` +
-      `يسعدنا انضمامك إلى مجتمعنا الاستثماري الذكي. تقدم المنصة:\n\n` +
-      `📊 *تداول الخيارات الثنائية:* صفقات يومية مضمونة (الاثنين–الجمعة) بربح *2% إلى 3%* خلال ثوانٍ معدودة\n` +
-      `⛏️ *باقات التعدين اليومية:* عوائد يومية *1.5% حتى 2.0%* تُضاف كل 24 ساعة مع استرداد رأس المال بالكامل\n` +
-      `🤝 *برنامج الإحالات (3 مستويات):* عمولات *7%، 4%، و2%* عبر 3 مسارات (الإيداعات، التداول، والتعدين)\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `💵 *السياسة المالية والأمان:*\n` +
-      `- الحد الأدنى للإيداع: *$51* | الحد الأدنى للسحب: *$21* (برسوم 8% فقط)\n` +
-      `- جميع طلبات السحب مؤمنة ومعتمدة حصرياً عبر كود سري (OTP) يُرسل إلى بريدك الإلكتروني (Gmail).\n` +
-      `- لربط إشعارات التداول وتنبيهات الحساب على تيليجرام: [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌐 *رابط التسجيل الرسمي المباشر:* ${OFFICIAL_REF_LINK}\n` +
-      `💡 *اسألني أي شيء هنا في المجموعة — المساعد الذكي يعمل على مدار الساعة!*`
-    );
-  }
-
   if (lang === "fr") {
     return (
       `🎉 *Bienvenue dans le groupe officiel XSPY Trader, ${memberName} !* 🚀\n\n` +
@@ -1624,11 +1493,6 @@ function buildWelcomeInlineKeyboard(lang: SupportedLang = "en") {
     SupportedLang,
     { register: string; open: string; profile: string }
   > = {
-    ar: {
-      register: "🚀 التسجيل الرسمي المباشر",
-      open: "🌐 فتح المنصة",
-      profile: "👤 الملف الشخصي",
-    },
     en: {
       register: "🚀 Register Official Account",
       open: "🌐 Open Platform",
@@ -1857,19 +1721,6 @@ export async function POST(req: NextRequest) {
     if (chatType === "private") {
       if (text.trim() === "/start") {
         const welcomeTexts: Record<SupportedLang, string> = {
-          ar:
-            `👋 *مرحباً بك في المساعد الذكي الرسمي لمنصة XSPY Trader، ${userName}!* 🚀\n\n` +
-            `أنا المساعد الرسمي المتاح 24/7 لخدمتك والإجابة على كافة أسئلتك:\n\n` +
-            `📥 *الإيداع* — طريقة شحن حسابك بالعملات الرقمية\n` +
-            `📤 *السحب* — خطوات سحب الأرباح وربط بوت التحقق\n` +
-            `📈 *التداول* — كيفية الانضمام لصفقات الإدارة اليومية\n` +
-            `⛏️ *باقات التعدين* — تفاصيل الباقات الاستثمارية ذات العائد اليومي\n` +
-            `👥 *الإحالات* — نظام العمولات على 3 مستويات\n` +
-            `🔐 *الأمان والتحقق* — حماية حسابك عبر [@XSpyTraderOtp_bot](https://t.me/XSpyTraderOtp_bot)\n` +
-            `👤 *الملف الشخصي* — توثيق الحساب وإعدادات المحفظة\n\n` +
-            `💡 اطرح سؤالك مباشرةً وسأجيبك فوراً!\n\n` +
-            `🌐 *المنصة:* ${SITE_URL}`,
-
           fr:
             `👋 *Bienvenue sur l'assistance officielle XSPY Trader, ${userName} !* 🚀\n\n` +
             `Je suis votre assistant IA disponible 24h/24 et 7j/7. Voici comment je peux vous aider :\n\n` +
@@ -1928,7 +1779,6 @@ export async function POST(req: NextRequest) {
         });
 
         const quickNavText: Record<SupportedLang, string> = {
-          ar: "👇 *روابط الوصول السريع للمنصة (أو اختر من الأزرار بالأسفل):*",
           en: "👇 *Quick Navigation Links (or select an option below):*",
           fr: "👇 *Liens d'accès rapide (ou choisissez ci-dessous) :*",
           de: "👇 *Schnellzugriff-Links (oder wählen Sie unten) :*",
@@ -1943,17 +1793,6 @@ export async function POST(req: NextRequest) {
 
       if (text.trim() === "/help") {
         const helpTexts: Record<SupportedLang, string> = {
-          ar:
-            `🆘 *الأوامر المتاحة والمساعدة*\n\n` +
-            `/start — رسالة الترحيب ونظرة عامة\n` +
-            `/help — عرض قائمة المساعدة هذه\n\n` +
-            `أو ببساطة اطرح سؤالك بأي لغة!\n\n` +
-            `أمثلة:\n` +
-            `• "كيف يتم السحب؟"\n` +
-            `• "طريقة شحن الرصيد"\n` +
-            `• "ما هي أرباح التداول؟"\n` +
-            `• "كيف أفعل بوت التحقق؟"`,
-
           fr:
             `🆘 *Commandes disponibles et aide*\n\n` +
             `/start — Message de bienvenue et aperçu\n` +
@@ -2003,7 +1842,6 @@ export async function POST(req: NextRequest) {
       // Rate limit check
       if (isRateLimited(userId)) {
         const rateLimitTexts: Record<SupportedLang, string> = {
-          ar: `⏳ يرجى الانتظار لحظات قبل إرسال رسالة أخرى.`,
           en: `⏳ Please wait a moment before sending another message.`,
           fr: `⏳ Veuillez patienter un instant avant d'envoyer un autre message.`,
           de: `⏳ Bitte warten Sie einen Moment, bevor Sie eine weitere Nachricht senden.`,

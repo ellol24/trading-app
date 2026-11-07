@@ -114,17 +114,17 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({ short_description: texts.shortEn, language_code: "" }),
       });
 
-      // Set Arabic
+      // Ensure Arabic description is cleared
       await fetch(`https://api.telegram.org/bot${token}/setMyDescription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: texts.descAr, language_code: "ar" }),
-      });
+        body: JSON.stringify({ description: "", language_code: "ar" }),
+      }).catch(() => null);
       await fetch(`https://api.telegram.org/bot${token}/setMyShortDescription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ short_description: texts.shortAr, language_code: "ar" }),
-      });
+        body: JSON.stringify({ short_description: "", language_code: "ar" }),
+      }).catch(() => null);
 
       return NextResponse.json({
         ok: true,
