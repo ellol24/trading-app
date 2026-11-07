@@ -5,7 +5,7 @@
  */
 
 export const ACTIVE_OTP_BOT_TOKEN = "8975286636:AAERxgkIFALNBgZ4bhA8e5pwJLLuXU65REA";
-export const ACTIVE_GROUP_BOT_TOKEN = "8255653698:AAFCHHvC0elMQTgehiidoqqEQjucjB4xxPw";
+export const ACTIVE_GROUP_BOT_TOKEN = "8255653698:AAGjJRi6z0goptkdknG2dVkNdNiDA5przHA";
 
 export function getOtpBotToken(): string {
   const env = process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -25,6 +25,7 @@ export function getGroupBotToken(): string {
   if (
     !env ||
     env === "8255653698:AAGYOKx-s7rclcq4FbCx5edlM0WQxg0Guu8" ||
+    env === "8255653698:AAFCHHvC0elMQTgehiidoqqEQjucjB4xxPw" ||
     env.startsWith("8935322771")
   ) {
     return ACTIVE_GROUP_BOT_TOKEN;
